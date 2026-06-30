@@ -224,6 +224,29 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     setIsParticipantModalOpen(true);
   };
 
+  const handleUpdateParticipantState = async (participantId: number, newState: string) => {
+    try {
+      const token = getCookie("auth_token");
+      const res = await fetch(`${apiUrl}/events/${eventId}/participants/${participantId}/state`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ state: newState }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Failed to update participant state");
+      }
+      // Refresh participant list
+      await fetchEventData();
+      // Update selected participant if modal is open
+      if (selectedParticipant && selectedParticipant.id === participantId) {
+        setSelectedParticipant({ ...selectedParticipant, participantState: newState });
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   // Helper to format monitoring window times
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return "Not Set";
@@ -577,6 +600,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         <tr>
                           <th className="px-4 py-3 rounded-tl-xl">Participant</th>
                           <th className="px-4 py-3">Email</th>
+                          <th className="px-4 py-3">State</th>
                           <th className="px-4 py-3">Joined Date</th>
                           <th className="px-4 py-3 rounded-tr-xl text-right">Actions</th>
                         </tr>
@@ -584,31 +608,52 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                         {participants.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="py-12 text-center text-slate-400">
+                            <td colSpan={5} className="py-12 text-center text-slate-400">
                               <UserCircle size={40} className="opacity-10 mb-2 mx-auto" />
                               <p className="text-sm font-medium">No participants have joined yet.</p>
                             </td>
                           </tr>
                         ) : (
                           participants.map((p) => (
-                            <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                            <tr key={p.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${p.participantState === 'FROZEN' ? 'bg-rose-50/50 dark:bg-rose-500/5' : ''}`}>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-slate-800 flex items-center justify-center text-indigo-600 dark:text-cyan-400">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${p.participantState === 'FROZEN' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400' : 'bg-indigo-100 dark:bg-slate-800 text-indigo-600 dark:text-cyan-400'}`}>
                                     <UserCircle size={16} />
                                   </div>
                                   <span className="font-bold text-slate-800 dark:text-slate-100">{p.name || p.user?.name || "Unknown"}</span>
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{p.email || p.user?.email || "Unknown"}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                  p.participantState === 'FROZEN' ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30' :
+                                  p.participantState === 'TRACKING' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30' :
+                                  p.participantState === 'CONFIRMED' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30' :
+                                  p.participantState === 'FINISHED' ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400 border border-slate-200 dark:border-slate-500/30' :
+                                  'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30'
+                                }`}>
+                                  {p.participantState === 'FROZEN' && '❄️ '}{p.participantState || 'REGISTERED'}
+                                </span>
+                              </td>
                               <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-[11px]">{new Date(p.joinedAt).toLocaleDateString()}</td>
                               <td className="px-4 py-3 text-right">
-                                <button 
-                                  onClick={() => handleOpenParticipant(p)}
-                                  className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-md text-xs font-bold transition-all"
-                                >
-                                  View / QR
-                                </button>
+                                <div className="flex items-center gap-2 justify-end">
+                                  {p.participantState === 'FROZEN' && (
+                                    <button 
+                                      onClick={() => handleUpdateParticipantState(p.id, 'CONFIRMED')}
+                                      className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md text-xs font-bold transition-all"
+                                    >
+                                      🔓 Unfreeze
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={() => handleOpenParticipant(p)}
+                                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-md text-xs font-bold transition-all"
+                                  >
+                                    View / QR
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
