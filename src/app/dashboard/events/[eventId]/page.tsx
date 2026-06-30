@@ -13,7 +13,7 @@ import LocationPickerMapWrapper from "@/components/map/index-picker";
 export default function EventDetailPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = use(params);
   const router = useRouter();
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
   const [event, setEvent] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,10 +49,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     try {
       const token = getCookie("auth_token");
       const [eventRes, participantsRes] = await Promise.all([
-        fetch(`http://localhost:3001/events/${eventId}`, {
+        fetch(`${apiUrl}/events/${eventId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`http://localhost:3001/events/${eventId}/participants`, {
+        fetch(`${apiUrl}/events/${eventId}/participants`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -138,7 +138,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
         longitude: editForm.longitude === "" ? undefined : Number(editForm.longitude),
       };
 
-      const res = await fetch(`http://localhost:3001/events/${eventId}`, {
+      const res = await fetch(`${apiUrl}/events/${eventId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payloadToSave),
@@ -160,7 +160,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     setIsDeleting(true);
     try {
       const token = getCookie("auth_token");
-      const res = await fetch(`http://localhost:3001/events/${eventId}`, {
+      const res = await fetch(`${apiUrl}/events/${eventId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -200,7 +200,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     setError("");
     try {
       const token = getCookie("auth_token");
-      const res = await fetch(`http://localhost:3001/events/${eventId}/status`, {
+      const res = await fetch(`${apiUrl}/events/${eventId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus }),
