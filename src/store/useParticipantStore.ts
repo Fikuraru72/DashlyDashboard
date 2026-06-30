@@ -43,6 +43,7 @@ interface ParticipantStore {
   setEventMetadata: (metadata: EventMetadata) => void;
   setParticipants: (participants: Record<string, ParticipantData>) => void; // helper for mock data
   setSelectedParticipantId: (id: string | null) => void;
+  removeAnomaly: (id: string) => void;
 }
 
 export const useParticipantStore = create<ParticipantStore>((set) => ({
@@ -161,6 +162,11 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
         participants
       };
     }),
+
+  removeAnomaly: (id) =>
+    set((state) => ({
+      anomalies: state.anomalies.filter((a) => a.id !== id)
+    })),
 
   setEventMetadata: (metadata) =>
     set(() => ({

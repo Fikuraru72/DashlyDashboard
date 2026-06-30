@@ -136,6 +136,7 @@ export default function EventMonitoringPage() {
   const [event, setEvent] = useState<any>(null);
   const [participants, setParticipants] = useState<Map<string, any>>(new Map());
   const anomalies = useParticipantStore((state) => state.anomalies);
+  const removeAnomaly = useParticipantStore((state) => state.removeAnomaly);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isFlashing, setIsFlashing] = useState(false);
@@ -283,6 +284,47 @@ export default function EventMonitoringPage() {
       setIsStatusUpdating(false);
     }
   }, [eventId, isStatusUpdating]);
+
+  const handleUpdateParticipantState = async (userIdStr: string, newState: string, alertId?: string) => {
+    try {
+      const token = getCookie("auth_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const res = await fetch(`${apiUrl}/events/${eventId}/participants/${userIdStr}/state`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ state: newState }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Failed to update participant state");
+      }
+      
+      // Local state update
+      setParticipants((prev) => {
+        const next = new Map(prev);
+        const current = next.get(userIdStr);
+        if (current) {
+          next.set(userIdStr, { ...current, status: "active", isAnomaly: false, hasAlert: false });
+        }
+        return next;
+      });
+
+      // Reset marker appearance
+      let marker = markers.current.get(userIdStr);
+      if (marker) {
+        const pInfo = participantsInfo.current.get(userIdStr);
+        updateMarkerElement(marker.getElement(), pInfo?.formattedName || `User ${userIdStr.substring(0, 4)}`, "active", false, false);
+      }
+      
+      if (alertId) {
+        removeAnomaly(alertId);
+      }
+
+      alert(`User has been unfrozen.`);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   // ── 1. Initial Data Fetch ───────────────────────────────────
   useEffect(() => {
@@ -1231,7 +1273,22 @@ export default function EventMonitoringPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-[12px] font-black text-white uppercase tracking-tight">{pName}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-2">
+                  {(alert.type === "SOS_EMERGENCY" || participantData?.participantState === 'FROZEN') ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleUpdateParticipantState(userIdStr, 'CONFIRMED', alert.id); }}
+                      className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded text-[9px] font-black uppercase transition-all"
+                    >
+                      🔓 Unfreeze
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeAnomaly(alert.id); }}
+                      className="px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-400 border border-white/10 rounded text-[9px] font-black uppercase transition-all"
+                    >
+                      Dismiss ✕
+                    </button>
+                  )}
                   <button
                     onClick={(e) => { e.stopPropagation(); goToParticipant(userIdStr); }}
                     className="ml-auto text-[10px] font-black text-indigo-400 uppercase hover:text-indigo-300 transition-colors"

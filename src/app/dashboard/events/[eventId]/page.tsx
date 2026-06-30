@@ -639,14 +639,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                               <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-[11px]">{new Date(p.joinedAt).toLocaleDateString()}</td>
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center gap-2 justify-end">
-                                  {p.participantState === 'FROZEN' && (
-                                    <button 
-                                      onClick={() => handleUpdateParticipantState(p.id, 'CONFIRMED')}
-                                      className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md text-xs font-bold transition-all"
-                                    >
-                                      🔓 Unfreeze
-                                    </button>
-                                  )}
                                   <button 
                                     onClick={() => handleOpenParticipant(p)}
                                     className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-md text-xs font-bold transition-all"
