@@ -1092,8 +1092,7 @@ export default function EventMonitoringPage() {
               {isStatusUpdating ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
               Stop Race
             </button>
-          </div>
-        </div>
+          </div>        </div>
 
         {/* HUD Controls (Toggle Sidebars) */}
         <div className="flex items-center gap-2 pointer-events-auto">
