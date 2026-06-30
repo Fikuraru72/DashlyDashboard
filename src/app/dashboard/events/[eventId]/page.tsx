@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Activity, ArrowLeft, Edit3, Settings, ShieldAlert, Calendar, MapPin, Users, Key, Save, X, Play, Square, PauseCircle, Trash2, UserCircle, Download, Copy, Check, QrCode, Phone, Mail, HeartPulse, Info as InfoIcon, Clock, Timer, Bike, Footprints, Image as ImageIcon } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import StaticMapWrapper from "@/components/map/index-static";
+import MapWrapper from "@/components/map/DynamicLiveMap";
 import RouteEditorMapWrapper from "@/components/map/index-editor";
 import LocationPickerMapWrapper from "@/components/map/index-picker";
 

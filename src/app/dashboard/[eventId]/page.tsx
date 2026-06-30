@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useParticipantStore } from "@/store/useParticipantStore";
 import { Activity, AlertTriangle, MapPin, Navigation, Zap, Plus } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
-import MapWrapper from "@/components/map";
+import MapWrapper from "@/components/map/DynamicLiveMap";
 
 export default function DashboardPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = use(params);

@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { Activity, MapPin, Calendar, Users, ArrowLeft, Download, ShieldCheck } from "lucide-react";
 import PublicRegistrationForm from "@/components/events/PublicRegistrationForm";
-import StaticMapWrapper from "@/components/map/index-static";
+import MapWrapper from "@/components/map/DynamicLiveMap";
 import type { Metadata } from 'next';
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
