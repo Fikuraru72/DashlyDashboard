@@ -543,61 +543,77 @@ export default function EventMonitoringPage() {
       console.log('📡 RAW WS EVENT:', eventName, args);
     });
 
-    socket.on("position_update", (data: any) => {
+    socket.on("position_batch", (batchData: any) => {
       try {
-        const userId = String(data.userId);
-        const lat = parseFloat(data.lat);
-        const lng = parseFloat(data.lng);
+        if (!batchData || !batchData.positions || !Array.isArray(batchData.positions)) return;
+        
+        let hasFlown = hasFlownToFirst.current;
+        const newParticipants = new Map();
 
-        if (isNaN(lat) || isNaN(lng)) return;
+        batchData.positions.forEach((data: any) => {
+          const userId = String(data.userId || data.participantId || data.id);
+          const lat = parseFloat(data.lat);
+          const lng = parseFloat(data.lng);
 
-        const pInfo = participantsInfo.current.get(userId);
-        if (pInfo) {
-          data.name = pInfo.formattedName || pInfo.name || data.name;
-          data.bibNumber = pInfo.bibNumber || data.bibNumber;
-        }
+          if (isNaN(lat) || isNaN(lng)) return;
 
-        if (!mapIsReadyRef.current || !mapInstance.current) {
-          pendingUpdates.current.push({ userId, data, lat, lng });
-          return;
-        }
+          const pInfo = participantsInfo.current.get(userId);
+          if (pInfo) {
+            data.name = pInfo.formattedName || pInfo.name || data.name;
+            data.bibNumber = pInfo.bibNumber || data.bibNumber;
+          }
 
-        // Only fly to the participant on the very first update
-        if (!hasFlownToFirst.current && mapInstance.current) {
-          hasFlownToFirst.current = true;
-          mapInstance.current.flyTo({ center: [lng, lat], zoom: 16 });
-          console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
-        }
+          if (!mapIsReadyRef.current || !mapInstance.current) {
+            pendingUpdates.current.push({ userId, data, lat, lng });
+            return;
+          }
 
-        // --- DIRECT MARKER MANIPULATION (Zero Latency) ---
-        let marker = markers.current.get(userId);
-        if (marker) {
-          // Exists: Just slide it smoothly
-          marker.setLngLat([lng, lat]);
-          // Re-render HTML so color updates if status changes (e.g. inactive)
-          updateMarkerElement(marker.getElement(), data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly);
-        } else {
-          // Doesn't exist: Create instantly bypassing React
-          console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
-          const el = createPulseMarker(data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly);
-          marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .addTo(mapInstance.current!);
-          markers.current.set(userId, marker);
-        }
+          // Only fly to the participant on the very first update
+          if (!hasFlown && mapInstance.current) {
+            hasFlown = true;
+            mapInstance.current.flyTo({ center: [lng, lat], zoom: 16 });
+            console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
+          }
 
-        // Keep React state updated for the sidebar leaderboard list, but it no longer controls the map markers
-        setParticipants((prev) => {
-          const next = new Map(prev);
-          const current = next.get(userId) || { id: userId, pathHistory: [] };
-          const newHistory = [...(current.pathHistory || []), [lng, lat]];
-          const isOfflineNormalized = isParticipantOffline(data.isOffline);
-          next.set(userId, { ...current, ...data, isOffline: isOfflineNormalized, status: isOfflineNormalized ? 'inactive' : data.status, lat, lng, lastUpdate: Date.now(), pathHistory: newHistory });
-          return next;
+          // --- DIRECT MARKER MANIPULATION (Zero Latency) ---
+          let marker = markers.current.get(userId);
+          if (marker) {
+            // Exists: Just slide it smoothly
+            marker.setLngLat([lng, lat]);
+            // Re-render HTML so color updates if status changes (e.g. inactive)
+            updateMarkerElement(marker.getElement(), data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly);
+          } else {
+            // Doesn't exist: Create instantly bypassing React
+            console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
+            const el = createPulseMarker(data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly);
+            marker = new maplibregl.Marker({ element: el })
+              .setLngLat([lng, lat])
+              .addTo(mapInstance.current!);
+            markers.current.set(userId, marker);
+          }
+          
+          newParticipants.set(userId, { data, lat, lng });
         });
 
+        if (hasFlown !== hasFlownToFirst.current) {
+            hasFlownToFirst.current = hasFlown;
+        }
+
+        if (newParticipants.size > 0) {
+          // Keep React state updated for the sidebar leaderboard list, but it no longer controls the map markers
+          setParticipants((prev) => {
+            const next = new Map(prev);
+            newParticipants.forEach(({ data, lat, lng }, userId) => {
+              const current = next.get(userId) || { id: userId, pathHistory: [] };
+              const newHistory = [...(current.pathHistory || []), [lng, lat]];
+              const isOfflineNormalized = isParticipantOffline(data.isOffline);
+              next.set(userId, { ...current, ...data, isOffline: isOfflineNormalized, status: isOfflineNormalized ? 'inactive' : data.status, lat, lng, lastUpdate: Date.now(), pathHistory: newHistory });
+            });
+            return next;
+          });
+        }
       } catch (e) {
-        console.error("Socket error mapping position:", e);
+        console.error("Socket error mapping position_batch:", e);
       }
     });
 
