@@ -133,9 +133,46 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     // Handle Off Route
     socket.on('off_route_alert', (data: any) => {
+      set((state) => {
+        const uid = data.userId || data.participantId;
+        const distance = data.distance ?? data.offRouteDistance ?? 0;
+        const newPositions = { ...state.livePositions };
+        if (uid && newPositions[uid]) {
+          newPositions[uid] = { ...newPositions[uid], state: 'OFF_ROUTE' };
+        }
+        return {
+          livePositions: newPositions,
+          offRouteAlerts: [{ ...data, distance, id: Date.now(), read: false }, ...state.offRouteAlerts].slice(0, 50)
+        };
+      });
+    });
+
+    socket.on('sos_recovered', (data: any) => {
+      set((state) => {
+        const uid = data.userId || data.participantId || data.id;
+        const newPositions = { ...state.livePositions };
+        if (uid && newPositions[uid]) {
+          newPositions[uid] = { ...newPositions[uid], state: 'TRACKING' };
+        }
+        return { livePositions: newPositions };
+      });
+    });
+
+    socket.on('user_stopped', (data: any) => {
       set((state) => ({
-        offRouteAlerts: [{ ...data, id: Date.now(), read: false }, ...state.offRouteAlerts].slice(0, 50)
+        offRouteAlerts: [{ ...data, type: 'STOP', id: Date.now(), read: false }, ...state.offRouteAlerts].slice(0, 50)
       }));
+    });
+
+    socket.on('participant_finished', (data: any) => {
+      set((state) => {
+        const uid = data.userId || data.participantId || data.id;
+        const newPositions = { ...state.livePositions };
+        if (uid && newPositions[uid]) {
+          newPositions[uid] = { ...newPositions[uid], state: 'FINISHED' };
+        }
+        return { livePositions: newPositions };
+      });
     });
 
     set({ socket });

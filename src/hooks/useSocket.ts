@@ -100,15 +100,17 @@ export function useSocket(eventId: string) {
     socketInstance.on("off_route_alert", (data) => {
       const pId = data.userId || data.participantId;
       if (data && pId) {
-        const { addAnomaly } = useParticipantStore.getState();
+        const { addAnomaly, updateParticipant } = useParticipantStore.getState();
+        const distance = data.distance ?? data.offRouteDistance ?? 0;
         addAnomaly({
           id: `off-route-${Date.now()}`,
           userId: String(pId),
           type: "OFF_ROUTE",
-          message: `Participant went off route by ${Math.round(data.distance || 0)} meters.`,
+          message: `Participant went off route by ${Math.round(distance)} meters.`,
           timestamp: data.timestamp || new Date().toISOString(),
           severity: "MEDIUM"
         });
+        updateParticipant(String(pId), { status: "off-route" });
       }
     });
 
@@ -132,6 +134,38 @@ export function useSocket(eventId: string) {
           lat: parseFloat(data.lat),
           lng: parseFloat(data.lng),
         });
+      }
+    });
+
+    socketInstance.on("sos_recovered", (data) => {
+      const pId = data.userId || data.participantId || data.id;
+      if (pId) {
+        const { updateParticipant } = useParticipantStore.getState();
+        updateParticipant(String(pId), { status: "active", isAnomaly: false });
+      }
+    });
+
+    socketInstance.on("user_stopped", (data) => {
+      const pId = data.userId || data.participantId || data.id;
+      if (pId) {
+        const { addAnomaly, updateParticipant } = useParticipantStore.getState();
+        addAnomaly({
+          id: `stopped-${Date.now()}`,
+          userId: String(pId),
+          type: "STOP",
+          message: data.message || `Participant stopped for ${data.durationSec || 0} seconds.`,
+          timestamp: data.timestamp || new Date().toISOString(),
+          severity: "MEDIUM"
+        });
+        updateParticipant(String(pId), { status: "stuck" });
+      }
+    });
+
+    socketInstance.on("participant_finished", (data) => {
+      const pId = data.userId || data.participantId || data.id;
+      if (pId) {
+        const { updateParticipant } = useParticipantStore.getState();
+        updateParticipant(String(pId), { status: "inactive" });
       }
     });
 

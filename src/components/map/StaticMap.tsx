@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "next-themes";
 import L from "leaflet";
+import { toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 
 interface StaticMapProps {
   geoJson: any;
@@ -17,13 +18,15 @@ export default function StaticMap({ geoJson }: StaticMapProps) {
 
   const mapRef = useRef<L.Map>(null);
 
+  const normalizedGeoJson = toRouteFeatureCollection(geoJson);
+
   useEffect(() => {
-    if (mapRef.current && geoJson && geoJson.features && geoJson.features.length > 0) {
+    if (mapRef.current && normalizedGeoJson.features.length > 0) {
       const map = mapRef.current;
-      const layer = L.geoJSON(geoJson);
+      const layer = L.geoJSON(normalizedGeoJson);
       map.fitBounds(layer.getBounds(), { padding: [20, 20], maxZoom: 15 });
     }
-  }, [geoJson]);
+  }, [normalizedGeoJson]);
 
   const tileUrl = isDark
     ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -56,7 +59,7 @@ export default function StaticMap({ geoJson }: StaticMapProps) {
         ref={mapRef}
       >
         <TileLayer url={tileUrl} attribution={attribution} />
-        <GeoJSON data={geoJson} style={geoJsonStyle} />
+        <GeoJSON data={normalizedGeoJson} style={geoJsonStyle} />
       </MapContainer>
     </div>
   );

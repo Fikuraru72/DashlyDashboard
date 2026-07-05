@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
+import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to inject HTML into an existing DOM element so we can update colors dynamically
@@ -347,12 +348,9 @@ export default function EventMonitoringPage() {
         const response = JSON.parse(textResponse);
         const eventData = response.success ? response.data : response;
 
-        if (!eventData.routeGeojson) {
+        eventData.routeGeojson = toRouteFeatureCollection(eventData.routeGeojson);
+        if (eventData.routeGeojson.features.length === 0) {
           console.warn("[INIT] ⚠️ No route geometry detected for this event. Using empty fallback.");
-          eventData.routeGeojson = {
-            type: "FeatureCollection",
-            features: []
-          };
         }
 
         // Fetch participants for mapping
@@ -445,9 +443,8 @@ export default function EventMonitoringPage() {
     // Reset ready state when map reinitialized
     setMapIsReady(false);
 
-    const startCoord = event.routeGeojson.type === 'FeatureCollection'
-      ? event.routeGeojson.features[0]?.geometry?.coordinates[0]
-      : event.routeGeojson.coordinates[0];
+    const firstCoord = getRouteCoordinates(event.routeGeojson)[0];
+    const startCoord: [number, number] = firstCoord ? [firstCoord[0], firstCoord[1]] : [106.8272, -6.1754];
 
     const isDark = currentTheme === "dark";
     const styleUrl = isDark
@@ -749,7 +746,8 @@ export default function EventMonitoringPage() {
       try {
         const userId = String(data.userId);
         if (!userId || userId === 'undefined') return;
-        console.log(`[Map] ⚠️ Off-route alert for user ${userId}:`, data.distance, 'm');
+        const distance = data.distance ?? data.offRouteDistance ?? 0;
+        console.log(`[Map] ⚠️ Off-route alert for user ${userId}:`, distance, 'm');
 
         const pInfo = participantsInfo.current.get(userId);
         const name = pInfo?.formattedName || pInfo?.name || `User ${userId.substring(0, 4)}`;
@@ -760,7 +758,7 @@ export default function EventMonitoringPage() {
           name,
           bibNumber: pInfo?.bibNumber,
           type: data.type || 'OFF_ROUTE',
-          message: data.message || `Participant deviated ${Math.round(data.distance || 0)} meters from the route.`,
+          message: data.message || `Participant deviated ${Math.round(distance)} meters from the route.`,
           timestamp: data.timestamp || new Date().toISOString(),
         });
 
@@ -769,7 +767,7 @@ export default function EventMonitoringPage() {
           const next = new Map(prev);
           const current = next.get(userId);
           if (current) {
-            next.set(userId, { ...current, hasAlert: true, lastUpdate: Date.now() });
+            next.set(userId, { ...current, hasAlert: true, status: 'off-route', lastUpdate: Date.now() });
           }
           return next;
         });
@@ -803,7 +801,7 @@ export default function EventMonitoringPage() {
           const next = new Map(prev);
           const current = next.get(userId);
           if (current) {
-            next.set(userId, { ...current, hasAlert: true, lastUpdate: Date.now() });
+            next.set(userId, { ...current, hasAlert: true, status: 'stuck', lastUpdate: Date.now() });
           }
           return next;
         });
@@ -823,7 +821,7 @@ export default function EventMonitoringPage() {
           const next = new Map(prev);
           const current = next.get(userId) || { id: userId, pathHistory: [] };
           
-          const newCoords = data.points.map((p: any) => [parseFloat(p.lng), parseFloat(p.lat)]);
+          const newCoords = data.points.map((p: any) => [parseFloat(p.lng ?? p.longitude), parseFloat(p.lat ?? p.latitude)]);
           const combinedHistory = [...(current.pathHistory || []), ...newCoords];
           
           next.set(userId, { ...current, pathHistory: combinedHistory });
@@ -832,6 +830,32 @@ export default function EventMonitoringPage() {
       } catch (e) {
         console.error("Socket error mapping sync batch:", e);
       }
+    });
+
+    socket.on("sos_recovered", (data: any) => {
+      const userId = String(data.userId || data.participantId || data.id);
+      if (!userId || userId === 'undefined') return;
+      const marker = markers.current.get(userId);
+      if (marker) updateMarkerElement(marker.getElement(), data.name || `User ${userId.substring(0, 4)}`, "active", false, false);
+      setParticipants((prev) => {
+        const next = new Map(prev);
+        const current = next.get(userId);
+        if (current) next.set(userId, { ...current, isAnomaly: false, hasAlert: false, status: "active", lastUpdate: Date.now() });
+        return next;
+      });
+    });
+
+    socket.on("participant_finished", (data: any) => {
+      const userId = String(data.userId || data.participantId || data.id);
+      if (!userId || userId === 'undefined') return;
+      const marker = markers.current.get(userId);
+      if (marker) updateMarkerElement(marker.getElement(), data.name || `User ${userId.substring(0, 4)}`, "FINISHED", false, false);
+      setParticipants((prev) => {
+        const next = new Map(prev);
+        const current = next.get(userId);
+        if (current) next.set(userId, { ...current, status: "finished", lastUpdate: Date.now() });
+        return next;
+      });
     });
 
     socket.on("EVENT_STATUS_CHANGED", (data: any) => {

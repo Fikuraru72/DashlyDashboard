@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { getRouteLatLngs } from "@/lib/utils/route-normalizer";
 
 // Fix default icon issue with Webpack
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -14,25 +15,27 @@ L.Icon.Default.mergeOptions({
 });
 
 interface Position {
-  userId: number;
+  id?: string;
+  userId?: number | string;
   lat: number;
   lng: number;
   speed: number;
-  state: string;
+  state?: string;
+  status?: string;
   name?: string;
   isOffline?: boolean;
 }
 
 interface LiveMapProps {
   routeGeojson?: any;
-  livePositions?: Record<number, Position>;
+  livePositions?: Record<string, Position>;
 }
 
-const customIcon = (state: string) => {
+const customIcon = (state?: string) => {
   let color = "#3b82f6"; // blue
   if (state === "FINISHED") color = "#10b981"; // green
-  if (state === "FROZEN") color = "#f43f5e"; // red
-  if (state === "OFF_ROUTE") color = "#f59e0b"; // yellow
+  if (state === "FROZEN" || state === "inactive") color = "#f43f5e"; // red
+  if (state === "OFF_ROUTE" || state === "off-route") color = "#f59e0b"; // yellow
 
   return L.divIcon({
     className: "custom-div-icon",
@@ -46,22 +49,9 @@ function MapBoundsUpdater({ routeGeojson }: { routeGeojson: any }) {
   const map = useMap();
 
   useEffect(() => {
-    if (routeGeojson && routeGeojson.geometry && routeGeojson.geometry.coordinates) {
-      const coords = routeGeojson.geometry.coordinates;
-      if (coords.length > 0) {
-        // Find bounds
-        const lats = coords.map((c: any[]) => c[1]);
-        const lngs = coords.map((c: any[]) => c[0]);
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLng = Math.min(...lngs);
-        const maxLng = Math.max(...lngs);
-        
-        map.fitBounds([
-          [minLat, minLng],
-          [maxLat, maxLng],
-        ], { padding: [50, 50] });
-      }
+    const coords = getRouteLatLngs(routeGeojson);
+    if (coords.length > 0) {
+      map.fitBounds(coords, { padding: [50, 50] });
     }
   }, [map, routeGeojson]);
 
@@ -69,12 +59,7 @@ function MapBoundsUpdater({ routeGeojson }: { routeGeojson: any }) {
 }
 
 export default function LiveMap({ routeGeojson, livePositions = {} }: LiveMapProps) {
-  let routeCoordinates: [number, number][] = [];
-  
-  if (routeGeojson?.geometry?.coordinates) {
-    routeCoordinates = routeGeojson.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
-  }
-
+  const routeCoordinates = getRouteLatLngs(routeGeojson);
   const defaultCenter: [number, number] = routeCoordinates.length > 0 ? routeCoordinates[0] : [-6.200000, 106.816666];
 
   return (
@@ -97,22 +82,26 @@ export default function LiveMap({ routeGeojson, livePositions = {} }: LiveMapPro
         <MapBoundsUpdater routeGeojson={routeGeojson} />
 
         {Object.values(livePositions)
-          .filter((pos) => !pos.isOffline && (pos.state === 'TRACKING' || pos.state === 'FROZEN'))
-          .map((pos) => (
-          <Marker 
-            key={pos.userId}
-            position={[pos.lat, pos.lng]}
-            icon={customIcon(pos.state)}
-          >
-            <Popup>
-              <div className="text-sm">
-                <p className="font-bold">{pos.name || `Runner ${pos.userId}`}</p>
-                <p>Speed: {(pos.speed * 3.6).toFixed(1)} km/h</p>
-                <p>Status: {pos.state}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+          .filter((pos) => !pos.isOffline && Number.isFinite(pos.lat) && Number.isFinite(pos.lng))
+          .map((pos) => {
+            const markerState = pos.state ?? pos.status;
+            const markerId = pos.userId ?? pos.id;
+            return (
+              <Marker
+                key={markerId}
+                position={[pos.lat, pos.lng]}
+                icon={customIcon(markerState)}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <p className="font-bold">{pos.name || `Runner ${markerId}`}</p>
+                    <p>Speed: {(pos.speed * 3.6).toFixed(1)} km/h</p>
+                    <p>Status: {markerState}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
       </MapContainer>
     </div>
   );

@@ -107,7 +107,7 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
 
       // Extract coords WITH timestamp for proper chronological ordering
       const newHistory: { coord: [number, number]; ts: number }[] = points.map((p: any) => ({
-        coord: [parseFloat(p.lat), parseFloat(p.lng)] as [number, number],
+        coord: [parseFloat(p.lat ?? p.latitude), parseFloat(p.lng ?? p.longitude)] as [number, number],
         ts: p.captured_at ? new Date(p.captured_at).getTime() : 0,
       }));
 

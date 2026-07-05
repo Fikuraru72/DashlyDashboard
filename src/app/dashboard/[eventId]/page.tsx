@@ -147,7 +147,7 @@ export default function DashboardPage({ params }: { params: Promise<{ eventId: s
 
         {/* Center Area: Live Map */}
         <main className={`flex-1 relative flex items-center justify-center overflow-hidden shadow-inner transition-colors duration-300 ${isFlashing ? 'bg-rose-500/20' : 'bg-slate-200/50 dark:bg-[#0f172a]'}`}>
-          <MapWrapper />
+          <MapWrapper routeGeojson={eventMetadata?.routeGeoJSON} livePositions={participants} />
           {/* Subtle Vignette Overlay for Depth */}
           <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_120px_rgba(0,0,0,0.15)] dark:shadow-[inset_0_0_120px_rgba(0,0,0,0.7)] z-20"></div>
           {/* Red Flash Overlay */}
