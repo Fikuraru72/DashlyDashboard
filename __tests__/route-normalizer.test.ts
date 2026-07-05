@@ -16,10 +16,10 @@ describe("route normalizer", () => {
     ]);
   });
 
-  it("reads OSRM Feature", () => {
+  it("reads GeoJSON Feature", () => {
     const route = {
       type: "Feature",
-      properties: { source: "osrm" },
+      properties: {},
       geometry: { type: "LineString", coordinates: coords },
     };
 
