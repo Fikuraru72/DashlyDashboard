@@ -173,7 +173,7 @@ export default function EventMonitoringPage() {
   // FORCE RENDER: Ensure flyTo only fires once
   const hasFlownToFirst = useRef(false);
   // STORE STATIC USER INFO (bibNumber, name, etc.)
-  const participantsInfo = useRef<Map<string, {name: string, firstName: string, bibNumber: string, formattedName: string, healthInfo?: any, email?: string, phone?: string}>>(new Map());
+  const participantsInfo = useRef<Map<string, {name: string, firstName: string, bibNumber: string, formattedName: string, healthInfo?: any, email?: string, phone?: string, color?: string}>>(new Map());
 
   const { theme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
