@@ -1321,15 +1321,30 @@ export default function EventMonitoringPage() {
             const participantData = participants.get(userIdStr);
             const pName = pInfo?.formattedName || alertAny.name || participantData?.name || `User ${userIdStr.substring(0, 4)}`;
 
+            // Determine color based on alert type
+            let colorAccent = "bg-rose-500";
+            let textColorAccent = "text-rose-400";
+            
+            if (alert.type === "STOP") {
+              colorAccent = "bg-amber-500";
+              textColorAccent = "text-amber-400";
+            } else if (alert.type === "OFF_ROUTE") {
+              colorAccent = "bg-orange-500";
+              textColorAccent = "text-orange-400";
+            } else if (alert.type === "SOS_EMERGENCY") {
+              colorAccent = "bg-rose-600";
+              textColorAccent = "text-rose-500";
+            }
+
             return (
             <div
               key={alert.id}
               onClick={() => goToParticipant(userIdStr)}
               className="relative overflow-hidden p-4 rounded-2xl bg-white/5 border border-white/5 shadow-sm hover:bg-white/10 transition-all cursor-pointer group animate-in slide-in-from-right-10 duration-300"
             >
-              <div className="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+              <div className={`absolute top-0 left-0 w-1 h-full ${colorAccent}`}></div>
               <div className="flex justify-between items-start mb-2">
-                <span className="text-[10px] font-black uppercase text-rose-400 tracking-widest">{alert.type?.replace("_", " ") || "WARN"}</span>
+                <span className={`text-[10px] font-black uppercase tracking-widest ${textColorAccent}`}>{alert.type?.replace("_", " ") || "WARN"}</span>
                 <span className="text-[9px] font-mono text-slate-500 bg-black/40 px-1.5 py-0.5 rounded">{new Date(alert.timestamp || Date.now()).toLocaleTimeString()}</span>
               </div>
               <p className="text-[13px] font-bold text-slate-200 leading-snug mb-3">
