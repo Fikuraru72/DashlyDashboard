@@ -68,7 +68,7 @@ export default function CreateEventPage() {
 
     try {
       const token = getCookie("auth_token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
       const formData = new FormData();
       formData.append("file", file);
 
@@ -134,7 +134,7 @@ export default function CreateEventPage() {
 
     try {
       const token = getCookie("auth_token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
       const payload = {
         name,

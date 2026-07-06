@@ -12,7 +12,7 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
         const value = `; ${document.cookie}`;
         const parts = value.split(`; auth_token=`);
         const token = parts.length === 2 ? parts.pop()?.split(';').shift() : null;

@@ -55,7 +55,7 @@ export default function UsersPage() {
                 const tokenMatch = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
                 const token = tokenMatch ? tokenMatch[2] : null;
 
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
                 
                 // Fetch Users
                 const usersRes = await fetch(`${apiUrl}/users`, {
@@ -102,7 +102,7 @@ export default function UsersPage() {
         try {
             const tokenMatch = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
             const token = tokenMatch ? tokenMatch[2] : null;
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
             
             const response = await fetch(`${apiUrl}/users/${id}`, {
                 method: 'DELETE',
@@ -127,7 +127,7 @@ export default function UsersPage() {
     const handleUpdateRole = async (roleId: number, newPermissions: string[]) => {
         const tokenMatch = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
         const token = tokenMatch ? tokenMatch[2] : null;
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
         const response = await fetch(`${apiUrl}/roles/${roleId}`, {
             method: 'PATCH',
@@ -151,7 +151,7 @@ export default function UsersPage() {
     const handleCreateUser = async (userData: any) => {
         const tokenMatch = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
         const token = tokenMatch ? tokenMatch[2] : null;
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
         const response = await fetch(`${apiUrl}/users`, {
             method: 'POST',

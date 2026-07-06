@@ -43,7 +43,7 @@ export default function SettingsPage() {
         try {
             const tokenMatch = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
             const token = tokenMatch ? tokenMatch[2] : null;
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
             const payload: any = {
                 name: formData.name,

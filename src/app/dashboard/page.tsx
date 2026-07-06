@@ -9,7 +9,7 @@ async function getDashboardStats() {
   if (!token) return null;
 
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/admin/stats`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/admin/stats`, {
       headers: {
         Authorization: `Bearer ${token}`
       },

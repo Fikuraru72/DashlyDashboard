@@ -23,8 +23,8 @@ export function useSocket(eventId: string) {
     }
 
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined'
-      ? `http://${window.location.hostname}:3001`
-      : "http://localhost:3001");
+      ? `http://${window.location.hostname}:3000`
+      : "http://localhost:3000");
 
     const socketInstance = io(backendUrl, {
       auth: {

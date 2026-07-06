@@ -33,8 +33,8 @@ export default function DashboardPage({ params }: { params: Promise<{ eventId: s
         const token = parts.length === 2 ? parts.pop()?.split(';').shift() : null;
 
         const defaultBackendUrl = typeof window !== 'undefined' 
-          ? `http://${window.location.hostname}:3001` 
-          : 'http://localhost:3001';
+          ? `http://${window.location.hostname}:3000` 
+          : 'http://localhost:3000';
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || defaultBackendUrl;
         const res = await fetch(`${backendUrl}/events/${eventId}`, {
           headers: {

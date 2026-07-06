@@ -51,7 +51,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     const currentSocket = get().socket;
     if (currentSocket) return;
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     
     // Attempt to extract token from cookies if not provided
     if (!token && typeof document !== 'undefined') {

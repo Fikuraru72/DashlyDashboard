@@ -16,7 +16,7 @@ export default function HistoryPage() {
         const parts = value.split(`; auth_token=`);
         const token = parts.length === 2 ? parts.pop()?.split(';').shift() : null;
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
         const res = await fetch(`${apiUrl}/events`, {
           headers: {
             "Authorization": `Bearer ${token}`

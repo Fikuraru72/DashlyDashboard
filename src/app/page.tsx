@@ -12,7 +12,7 @@ export default function LandingPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
         const res = await fetch(`${apiUrl}/public-events`);
         const data = await res.json();
         const eventList = data.success ? data.data : (Array.isArray(data) ? data : []);

@@ -9,7 +9,7 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
   const params = await props.params;
   // We can fetch data here for SEO, but to avoid double fetching for now, we'll set it in a client component or just set static here. 
   // Actually, Server Components in Next.js App Router allow us to fetch data here easily.
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
   try {
     const res = await fetch(`${apiUrl}/public-events/${params.id}`);
     const data = await res.json();
@@ -30,7 +30,7 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 
 export default async function EventDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
   let event = null;
   try {

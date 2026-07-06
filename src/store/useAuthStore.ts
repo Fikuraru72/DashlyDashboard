@@ -39,7 +39,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 return;
             }
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
             const response = await fetch(`${apiUrl}/users/me`, {
                 headers: {
                     Authorization: `Bearer ${token}`,

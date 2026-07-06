@@ -266,7 +266,7 @@ export default function EventMonitoringPage() {
     setStatusError("");
     try {
       const token = getCookie("auth_token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/events/${eventId}/status`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/events/${eventId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus }),
@@ -289,7 +289,7 @@ export default function EventMonitoringPage() {
   const handleUpdateParticipantState = async (userIdStr: string, newState: string, alertId?: string) => {
     try {
       const token = getCookie("auth_token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
       const res = await fetch(`${apiUrl}/events/${eventId}/participants/${userIdStr}/state`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -332,7 +332,7 @@ export default function EventMonitoringPage() {
     const fetchInitialData = async () => {
       try {
         const token = getCookie("auth_token");
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
         const startTime = performance.now();
         const res = await fetch(`${apiUrl}/events/${eventId}`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -555,7 +555,7 @@ export default function EventMonitoringPage() {
   }, [event, currentTheme]);
 
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001", {
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", {
       transports: ["polling", "websocket"], // Standard order: poll first then upgrade
       reconnectionDelay: 2000,
       withCredentials: true,
