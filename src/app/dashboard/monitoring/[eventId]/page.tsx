@@ -1357,7 +1357,7 @@ export default function EventMonitoringPage() {
                 <div className="flex items-center gap-2 mt-2">
                   {(alert.type === "SOS_EMERGENCY" || participantData?.participantState === 'FROZEN') ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleUpdateParticipantState(userIdStr, 'CONFIRMED', alert.id); }}
+                      onClick={(e) => { e.stopPropagation(); handleUpdateParticipantState(userIdStr, 'TRACKING', alert.id); }}
                       className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded text-[9px] font-black uppercase transition-all"
                     >
                       🔓 Unfreeze
