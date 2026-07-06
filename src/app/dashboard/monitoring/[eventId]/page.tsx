@@ -26,8 +26,14 @@ import { useParticipantStore } from "@/store/useParticipantStore";
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
+// Helper to generate a random hex color from a predefined aesthetic palette
+const generateRandomColor = () => {
+  const colors = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#4ade80', '#34d399', '#2dd4bf', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#c084fc', '#e879f9', '#f472b6', '#fb7185'];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
+
 // Helper to inject HTML into an existing DOM element so we can update colors dynamically
-const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'moving', isStale: boolean = false, isAnomaly: boolean = false) => {
+const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'moving', isStale: boolean = false, isAnomaly: boolean = false, userColor?: string) => {
   let coreColor = isAnomaly
     ? '#e11d48'        // Bright RED — Stationary Incident
     : isStale || status === 'inactive'
@@ -38,7 +44,7 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
           ? '#f43f5e'        // Rose — Emergency
           : status === 'stopped'
             ? '#f59e0b'        // Amber — Stopped
-            : '#10b981';       // Emerald — Moving
+            : userColor || '#10b981';       // Custom User Color or Emerald — Moving
 
   el.innerHTML = `
     <div style="
@@ -74,7 +80,7 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
   `;
 };
 
-const createPulseMarker = (name: string, status: string = 'moving', isStale: boolean = false, isAnomaly: boolean = false) => {
+const createPulseMarker = (name: string, status: string = 'moving', isStale: boolean = false, isAnomaly: boolean = false, userColor?: string) => {
   const el = document.createElement("div");
   // PILLAR 3: Inline styles + z-index force
   el.style.cssText = `
@@ -88,7 +94,7 @@ const createPulseMarker = (name: string, status: string = 'moving', isStale: boo
     border-radius: 50%;
     cursor: pointer;
   `;
-  updateMarkerElement(el, name, status, isStale, isAnomaly);
+  updateMarkerElement(el, name, status, isStale, isAnomaly, userColor);
   return el;
 };
 
@@ -428,6 +434,34 @@ export default function EventMonitoringPage() {
         } catch (posErr) {
           console.warn("[INIT] ⚠️ Live positions fetch error (non-fatal):", posErr);
         }
+
+        // Fetch historical path data so polylines persist on refresh
+        try {
+          const pathRes = await fetch(`${apiUrl}/events/${eventId}/path-history`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (pathRes.ok) {
+            const historyMap = await pathRes.json();
+            console.log("[INIT] 🗺️ Loaded path history for", Object.keys(historyMap).length, "participants");
+            
+            setParticipants(prev => {
+              const next = new Map(prev);
+              for (const [uidStr, path] of Object.entries(historyMap)) {
+                 const current = next.get(uidStr) || { id: uidStr };
+                 // Assign a consistent color if not already assigned
+                 const color = current.color || generateRandomColor();
+                 next.set(uidStr, { ...current, pathHistory: path as number[][], color });
+                 
+                 // Update participantsInfo cache
+                 const pInfo = participantsInfo.current.get(uidStr);
+                 if (pInfo) pInfo.color = color;
+              }
+              return next;
+            });
+          }
+        } catch (pathErr) {
+           console.warn("[INIT] ⚠️ Path history fetch error (non-fatal):", pathErr);
+        }
       } catch (err: any) {
         setError(err.message);
         setLoading(false);
@@ -616,15 +650,24 @@ export default function EventMonitoringPage() {
 
           // --- DIRECT MARKER MANIPULATION (Zero Latency) ---
           let marker = markers.current.get(userId);
+          // If we don't have a color yet, generate one for the new participant
+          if (!data.color) {
+            const currentP = participantsInfo.current.get(userId) as any;
+            data.color = currentP?.color || generateRandomColor();
+            if (currentP) {
+               currentP.color = data.color; // Save it back so it's consistent
+            }
+          }
+
           if (marker) {
             // Exists: Just slide it smoothly
             marker.setLngLat([lng, lat]);
             // Re-render HTML so color updates if status changes (e.g. inactive)
-            updateMarkerElement(marker.getElement(), data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly);
+            updateMarkerElement(marker.getElement(), data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly, data.color);
           } else {
             // Doesn't exist: Create instantly bypassing React
             console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
-            const el = createPulseMarker(data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly);
+            const el = createPulseMarker(data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly, data.color);
             marker = new maplibregl.Marker({ element: el })
               .setLngLat([lng, lat])
               .addTo(mapInstance.current!);
@@ -801,7 +844,7 @@ export default function EventMonitoringPage() {
           const next = new Map(prev);
           const current = next.get(userId);
           if (current) {
-            next.set(userId, { ...current, hasAlert: true, status: 'stuck', lastUpdate: Date.now() });
+            next.set(userId, { ...current, hasAlert: true, status: 'stopped', lastUpdate: Date.now() });
           }
           return next;
         });
@@ -966,7 +1009,7 @@ export default function EventMonitoringPage() {
         if (data.pathHistory && data.pathHistory.length > 1) {
           features.push({
             type: "Feature",
-            properties: { userId },
+            properties: { userId, color: data.color || '#10b981' },
             geometry: {
               type: "LineString",
               coordinates: data.pathHistory
@@ -996,7 +1039,7 @@ export default function EventMonitoringPage() {
             "line-cap": "round"
           },
           paint: {
-            "line-color": "#10b981", // Emerald green for participant trails
+            "line-color": ["get", "color"], // Dynamic colored paths
             "line-width": 3,
             "line-opacity": 0.6,
             "line-dasharray": [2, 2] // Dashed line to differentiate from main route
