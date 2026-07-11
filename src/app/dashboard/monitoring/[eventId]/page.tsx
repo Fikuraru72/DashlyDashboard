@@ -463,6 +463,35 @@ export default function EventMonitoringPage() {
         } catch (pathErr) {
            console.warn("[INIT] ⚠️ Path history fetch error (non-fatal):", pathErr);
         }
+
+        // Fetch recent anomalies so the Incident Stream is populated on refresh
+        try {
+          const anomaliesRes = await fetch(`${apiUrl}/events/${eventId}/anomalies`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (anomaliesRes.ok) {
+            const anomaliesData = await anomaliesRes.json();
+            if (Array.isArray(anomaliesData)) {
+              console.log("[INIT] 🚨 Loaded", anomaliesData.length, "recent anomalies");
+              // Deduplicate and insert anomalies sequentially
+              anomaliesData.reverse().forEach((anomaly: any) => {
+                useParticipantStore.getState().addAnomaly({
+                  id: anomaly.id,
+                  eventId: anomaly.eventId,
+                  userId: String(anomaly.userId),
+                  type: anomaly.type,
+                  message: anomaly.message,
+                  timestamp: anomaly.timestamp,
+                  severity: anomaly.type === 'SOS_EMERGENCY' ? 'CRITICAL' : 'HIGH',
+                  name: anomaly.name,
+                });
+              });
+            }
+          }
+        } catch (anomalyErr) {
+          console.warn("[INIT] ⚠️ Anomalies fetch error:", anomalyErr);
+        }
+
       } catch (err: any) {
         setError(err.message);
         setLoading(false);
