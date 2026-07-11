@@ -115,7 +115,7 @@ const STATUS_CONFIG = {
     bgColor: "bg-amber-500/10 border-amber-500/20",
     dotColor: "bg-amber-400",
     icon: Timer,
-    description: "Window is open — click START to begin the race",
+    description: "Window is open — waiting for event to start",
   },
   LIVE: {
     label: "Live",
@@ -265,32 +265,7 @@ export default function EventMonitoringPage() {
     }
   }, [mapIsReady]);
 
-  // ── Status Change Handler ──────────────────────────────────
-  const handleStatusChange = useCallback(async (newStatus: string) => {
-    if (isStatusUpdating) return;
-    setIsStatusUpdating(true);
-    setStatusError("");
-    try {
-      const token = getCookie("auth_token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/events/${eventId}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Failed to change status");
-      }
-      const response = await res.json();
-      const updated = response.success ? response.data : response;
-      setEvent(updated);
-    } catch (err: any) {
-      setStatusError(err.message);
-      setTimeout(() => setStatusError(""), 5000);
-    } finally {
-      setIsStatusUpdating(false);
-    }
-  }, [eventId, isStatusUpdating]);
+
 
   const handleUpdateParticipantState = async (userIdStr: string, newState: string, alertId?: string) => {
     try {
@@ -1131,35 +1106,7 @@ export default function EventMonitoringPage() {
               )}
             </div>
           )}
-
-          {/* Race Control Buttons */}
-          <div className="flex items-center gap-2">
-            {/* START Button */}
-            <button
-              onClick={() => handleStatusChange("START")}
-              disabled={isStatusUpdating || monitoringStatus !== 'READY_TO_START'}
-              className={`px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all border shadow-lg ${monitoringStatus === 'READY_TO_START'
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/30 shadow-emerald-900/30 hover:-translate-y-0.5'
-                  : 'bg-slate-800/50 text-slate-600 border-slate-700/30 cursor-not-allowed'
-                }`}
-            >
-              {isStatusUpdating ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-              Start Race
-            </button>
-
-            {/* STOP Button */}
-            <button
-              onClick={() => handleStatusChange("FINISHED")}
-              disabled={isStatusUpdating || monitoringStatus !== 'LIVE'}
-              className={`px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all border shadow-lg ${monitoringStatus === 'LIVE'
-                  ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-400/30 shadow-rose-900/30 hover:-translate-y-0.5'
-                  : 'bg-slate-800/50 text-slate-600 border-slate-700/30 cursor-not-allowed'
-                }`}
-            >
-              {isStatusUpdating ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
-              Stop Race
-            </button>
-          </div>        </div>
+        </div>
 
         {/* HUD Controls (Toggle Sidebars) */}
         <div className="flex items-center gap-2 pointer-events-auto">
