@@ -197,6 +197,19 @@ export default async function EventDetailPage(props: { params: Promise<{ id: str
                 eventDate={event.dateEvent}
                 eventLocation={event.locationName}
               />
+
+              <div className="mt-6 pt-6 border-t border-white/10 flex flex-col gap-3">
+                <Link
+                  href={`/live/${event.id}`}
+                  className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)]"
+                >
+                  <Activity className="w-5 h-5" />
+                  Guest Live Tracking
+                </Link>
+                <p className="text-center text-xs text-slate-400 font-medium px-4 leading-relaxed">
+                  Track participants in real-time on the live interactive map. No login required.
+                </p>
+              </div>
             </div>
           </div>
         </div>
