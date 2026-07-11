@@ -195,6 +195,7 @@ export default function EventMonitoringPage() {
   // HUD Visibility
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showAlerts, setShowAlerts] = useState(true);
+  const [showPolylines, setShowPolylines] = useState(true);
 
   // Timer for monitoring window countdown
   const [now, setNow] = useState(new Date());
@@ -1034,7 +1035,8 @@ export default function EventMonitoringPage() {
           source: sourceId,
           layout: {
             "line-join": "round",
-            "line-cap": "round"
+            "line-cap": "round",
+            "visibility": showPolylines ? "visible" : "none"
           },
           paint: {
             "line-color": ["get", "color"], // Dynamic colored paths
@@ -1046,7 +1048,18 @@ export default function EventMonitoringPage() {
       }
     }
 
-  }, [participants, mapIsReady, now]);
+  }, [participants, mapIsReady, now, showPolylines]);
+
+  // Effect to toggle polyline visibility instantly
+  useEffect(() => {
+    if (mapInstance.current && mapInstance.current.getLayer("participants-paths-layer")) {
+      mapInstance.current.setLayoutProperty(
+        "participants-paths-layer",
+        "visibility",
+        showPolylines ? "visible" : "none"
+      );
+    }
+  }, [showPolylines]);
 
   // ── Interaction ─────────────────────────────────────────────
   const goToParticipant = (userId: string) => {
@@ -1139,6 +1152,14 @@ export default function EventMonitoringPage() {
             title="Toggle Leaderboard"
           >
             <PanelLeft size={20} />
+          </button>
+          
+          <button
+            onClick={() => setShowPolylines(!showPolylines)}
+            className={`p-3 rounded-2xl border transition-all ${showPolylines ? 'bg-emerald-600 text-white border-white/20' : 'bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md'}`}
+            title="Toggle Polylines"
+          >
+            <Navigation size={20} />
           </button>
 
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
