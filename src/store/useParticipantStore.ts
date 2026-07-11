@@ -14,8 +14,10 @@ export interface ParticipantData {
 
 export interface Anomaly {
   id: string;
+  eventId?: string;
   participantId?: string;
   userId?: string;
+  name?: string;
   type: string;
   message: string;
   timestamp: string;
