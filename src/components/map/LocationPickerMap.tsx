@@ -17,6 +17,16 @@ function ClickHandler({ setPos }: { setPos: (latlng: { lat: number, lng: number 
   return null;
 }
 
+function MapUpdater({ position }: { position: L.LatLng | null }) {
+  const map = useMapEvents({});
+  useEffect(() => {
+    if (position) {
+      map.flyTo(position, 15, { animate: true, duration: 1 });
+    }
+  }, [position, map]);
+  return null;
+}
+
 export interface LocationPickerMapProps {
   latitude?: number | "";
   longitude?: number | "";
@@ -64,6 +74,7 @@ export default function LocationPickerMap({ latitude, longitude, onChange }: Loc
       >
         <TileLayer url={tileUrl} attribution={attribution} />
         <ClickHandler setPos={handleSetPos} />
+        <MapUpdater position={position} />
         {position && <Marker position={position} />}
       </MapContainer>
     </div>

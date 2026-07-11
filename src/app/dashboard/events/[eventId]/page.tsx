@@ -8,7 +8,10 @@ import { QRCodeSVG } from "qrcode.react";
 import StaticMapWrapper from "@/components/map/index-static";
 import MapWrapper from "@/components/map/DynamicLiveMap";
 import RouteEditorMapWrapper from "@/components/map/index-editor";
+import MapBuilderWrapper from "@/components/map/index-builder";
 import LocationPickerMapWrapper from "@/components/map/index-picker";
+import LocationSearch from "@/components/map/LocationSearch";
+import { convertFileToGeoJSON, extractMainRoute } from "@/lib/utils/route-converter";
 
 export default function EventDetailPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = use(params);
@@ -413,6 +416,18 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       
                       {isEditing ? (
                         <div className="space-y-4">
+                          <LocationSearch 
+                            onLocationSelect={(result) => {
+                              setEditForm({
+                                ...editForm,
+                                locationName: result.name,
+                                city: result.city || editForm.city,
+                                province: result.province || editForm.province,
+                                latitude: result.latitude,
+                                longitude: result.longitude
+                              });
+                            }}
+                          />
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1 block">Registration Open</label>

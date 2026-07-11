@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import MapBuilderWrapper from "@/components/map/index-builder";
 import LocationPickerMapWrapper from "@/components/map/index-picker";
+import LocationSearch from "@/components/map/LocationSearch";
 import { convertFileToGeoJSON, extractMainRoute } from "@/lib/utils/route-converter";
 
 export default function CreateEventPage() {
@@ -410,6 +411,16 @@ export default function CreateEventPage() {
               {/* Location Section */}
               <div className="pt-6 space-y-4">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">Location</h3>
+                
+                <LocationSearch 
+                  onLocationSelect={(result) => {
+                    setLocationName(result.name);
+                    if (result.city) setCity(result.city);
+                    if (result.province) setProvince(result.province);
+                    setLatitude(result.latitude);
+                    setLongitude(result.longitude);
+                  }}
+                />
                 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
