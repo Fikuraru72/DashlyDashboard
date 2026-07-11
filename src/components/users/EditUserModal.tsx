@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Save, User, Mail, Lock, Shield, Phone, Activity } from 'lucide-react';
 
 interface Role {
@@ -8,14 +8,15 @@ interface Role {
     name: string;
 }
 
-interface AddUserModalProps {
+interface EditUserModalProps {
     isOpen: boolean;
+    user: any;
     roles: Role[];
     onClose: () => void;
-    onSave: (data: any) => Promise<void>;
+    onSave: (id: number, data: any) => Promise<void>;
 }
 
-export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalProps) {
+export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUserModalProps) {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -30,18 +31,47 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    useEffect(() => {
+        if (isOpen && user) {
+            setName(user.name || '');
+            setEmail(user.email || '');
+            setPassword(''); // Do not prefill password
+            setRoleId(user.role?.id || '');
+            setPhone(user.phone || '');
+            
+            let hInfo = user.healthInfo;
+            if (typeof hInfo === 'string') {
+                try { hInfo = JSON.parse(hInfo); } catch(e) { hInfo = null; }
+            }
+            if (hInfo) {
+                setEmergencyPhone(hInfo.emergencyContact || '');
+                setHeight(hInfo.height ? String(hInfo.height) : '');
+                setWeight(hInfo.weight ? String(hInfo.weight) : '');
+                setBloodType(hInfo.bloodType || '');
+                setHealthHistory(hInfo.medicalHistory || '');
+            } else {
+                setEmergencyPhone('');
+                setHeight('');
+                setWeight('');
+                setBloodType('');
+                setHealthHistory('');
+            }
+            setError(null);
+        }
+    }, [isOpen, user]);
+
     const isParticipantRole = useMemo(() => {
         const selectedRole = roles.find(r => r.id === roleId);
         return selectedRole?.name === 'PARTICIPANT';
     }, [roleId, roles]);
 
-    if (!isOpen) return null;
+    if (!isOpen || !user) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         
-        if (!name || !email || !password || roleId === '') {
+        if (!name || !email || roleId === '') {
             setError('Please fill in all required fields');
             return;
         }
@@ -57,34 +87,21 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     weight: weight ? Number(weight) : undefined,
                     medicalHistory: healthHistory || undefined
                 };
-                // Only keep defined values
                 healthInfo = Object.fromEntries(Object.entries(rawInfo).filter(([_, v]) => v !== undefined));
-                // If it's empty, set to null
                 if (Object.keys(healthInfo).length === 0) healthInfo = null;
             }
 
-            await onSave({
+            await onSave(user.id, {
                 name,
                 email,
-                password,
+                ...(password ? { password } : {}),
                 roleId: Number(roleId),
                 phone: isParticipantRole ? phone : undefined,
                 healthInfo: healthInfo
             });
-            // Reset form
-            setName('');
-            setEmail('');
-            setPassword('');
-            setRoleId('');
-            setPhone('');
-            setEmergencyPhone('');
-            setHeight('');
-            setWeight('');
-            setBloodType('');
-            setHealthHistory('');
             onClose();
         } catch (err: any) {
-            setError(err.message || 'Failed to create user');
+            setError(err.message || 'Failed to update user');
         } finally {
             setIsSaving(false);
         }
@@ -92,19 +109,16 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
 
     return (
         <>
-            {/* Backdrop */}
             <div 
                 className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 transition-opacity"
                 onClick={onClose}
             />
 
-            {/* Modal */}
             <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none ${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
                 <div className={`pointer-events-auto w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 transform transition-all duration-300 ease-out flex flex-col max-h-full ${isOpen ? 'translate-y-0 scale-100' : 'translate-y-8 scale-95'}`}>
                     
-                    {/* Header */}
                     <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-t-3xl">
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Add New User</h2>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Edit User</h2>
                         <button 
                             onClick={onClose}
                             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-300 rounded-full transition-colors"
@@ -113,7 +127,6 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                         </button>
                     </div>
 
-                    {/* Form Content */}
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                         {error && (
                             <div className="mb-6 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl text-sm font-medium">
@@ -121,7 +134,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                             </div>
                         )}
 
-                        <form id="addUserForm" onSubmit={handleSubmit} className="space-y-5">
+                        <form id="editUserForm" onSubmit={handleSubmit} className="space-y-5">
                             
                             <div className="space-y-1.5">
                                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Full Name</label>
@@ -156,7 +169,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Temporary Password</label>
+                                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Update Password (Optional)</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Lock className="h-4 w-4 text-slate-400" />
@@ -165,7 +178,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                                         type="password" 
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="Min. 8 characters"
+                                        placeholder="Leave blank to keep unchanged"
                                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow text-slate-800 dark:text-slate-200"
                                     />
                                 </div>
@@ -190,7 +203,6 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                                 </div>
                             </div>
 
-                            {/* Conditional Participant Fields */}
                             {isParticipantRole && (
                                 <div className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center gap-2 mb-2">
@@ -284,7 +296,6 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                         </form>
                     </div>
                     
-                    {/* Footer Actions */}
                     <div className="p-6 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-900 flex justify-end gap-3 rounded-b-3xl">
                         <button 
                             type="button"
@@ -295,12 +306,12 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                         </button>
                         <button 
                             type="submit"
-                            form="addUserForm"
+                            form="editUserForm"
                             disabled={isSaving}
                             className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-all text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             <Save className="w-4 h-4" />
-                            {isSaving ? 'Creating...' : 'Create User'}
+                            {isSaving ? 'Updating...' : 'Update User'}
                         </button>
                     </div>
                 </div>

@@ -7,6 +7,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { UserTable } from '../../../components/users/UserTable';
 import { RoleManagement } from '../../../components/roles/RoleManagement';
 import { AddUserModal } from '../../../components/users/AddUserModal';
+import { EditUserModal } from '../../../components/users/EditUserModal';
 
 interface RoleData {
     id: number;
@@ -41,6 +42,8 @@ export default function UsersPage() {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserData | null>(null);
 
     // Fetch auth user if not loaded
     useEffect(() => {
@@ -121,7 +124,37 @@ export default function UsersPage() {
     };
 
     const handleEditUser = (user: UserData) => {
-        alert(`Edit feature for user ${user.name} is not fully implemented yet.`);
+        setEditingUser(user);
+        setIsEditModalOpen(true);
+    };
+
+    const handleUpdateUser = async (userId: number, userData: any) => {
+        const tokenMatch = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
+        const token = tokenMatch ? tokenMatch[2] : null;
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+        const response = await fetch(`${apiUrl}/users/${userId}`, {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}` 
+            },
+            body: JSON.stringify(userData)
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || 'Failed to update user');
+        }
+
+        const updatedUser = await response.json();
+        
+        const assignedRole = roles.find(r => r.id === updatedUser.roleId);
+        if (assignedRole) {
+            updatedUser.role = assignedRole;
+        }
+
+        setUsers(users.map(u => u.id === userId ? { ...u, ...updatedUser } : u));
     };
 
     const handleUpdateRole = async (roleId: number, newPermissions: string[]) => {
@@ -273,6 +306,15 @@ export default function UsersPage() {
                 roles={roles} 
                 onClose={() => setIsAddModalOpen(false)} 
                 onSave={handleCreateUser} 
+            />
+
+            {/* Edit User Modal */}
+            <EditUserModal 
+                isOpen={isEditModalOpen} 
+                user={editingUser}
+                roles={roles} 
+                onClose={() => setIsEditModalOpen(false)} 
+                onSave={handleUpdateUser} 
             />
         </div>
     );
