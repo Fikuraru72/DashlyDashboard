@@ -583,7 +583,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3 text-slate-800 dark:text-slate-100">
                       <div className="p-2.5 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20"><Users size={20} /></div>
-                      <h3 className="font-bold text-lg tracking-tight">Registered Participants</h3>
+                      <h3 className="font-bold text-lg tracking-tight">Detail Participant</h3>
                     </div>
                     <div className="flex items-center gap-3">
                       <button onClick={handleDownloadCSV} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition-all">
@@ -643,7 +643,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                                     onClick={() => handleOpenParticipant(p)}
                                     className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-md text-xs font-bold transition-all"
                                   >
-                                    View / QR
+                                    Detail
                                   </button>
                                 </div>
                               </td>
@@ -752,7 +752,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       <UserCircle size={40} />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{selectedParticipant.name}</h2>
+                      <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{selectedParticipant.user?.name || selectedParticipant.name || "Unknown"}</h2>
                       <p className="text-sm font-bold text-indigo-600 dark:text-cyan-400 uppercase tracking-widest">Participant Profile</p>
                     </div>
                   </div>
@@ -771,7 +771,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         <Mail size={14} />
                         <span className="text-[10px] uppercase font-black tracking-widest">Email Address</span>
                       </div>
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedParticipant.email}</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selectedParticipant.user?.email || selectedParticipant.email || "Not Provided"}</p>
                     </div>
                     <div className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-100 dark:border-slate-800/60">
                       <div className="flex items-center gap-2 mb-2 text-slate-400">
@@ -779,9 +779,18 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         <span className="text-[10px] uppercase font-black tracking-widest">Contact Number</span>
                       </div>
                       <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                        {selectedParticipant.phone || <span className="text-slate-400 font-medium italic">Not Provided</span>}
+                        {selectedParticipant.user?.phone || selectedParticipant.phone || <span className="text-slate-400 font-medium italic">Not Provided</span>}
                       </p>
                     </div>
+                  </div>
+
+                  <div className="p-4 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20">
+                    <div className="flex items-center gap-2 mb-2 text-indigo-400">
+                      <span className="text-[10px] uppercase font-black tracking-widest text-indigo-500">BIB Number</span>
+                    </div>
+                    <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300 tracking-widest">
+                      {selectedParticipant.bibNumber || <span className="text-sm font-medium italic opacity-70">Not Assigned</span>}
+                    </p>
                   </div>
 
                   <div className="p-6 bg-rose-50/50 dark:bg-rose-500/5 rounded-2xl border border-rose-100 dark:border-rose-500/20">
@@ -790,9 +799,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       <h3 className="font-bold text-sm uppercase tracking-wider">Safety & Health Info</h3>
                     </div>
                     
-                    {selectedParticipant.healthInfo ? (
+                    {selectedParticipant.healthInfo || selectedParticipant.user?.healthInfo ? (
                       <div className="grid grid-cols-2 gap-y-4 gap-x-2">
-                        {Object.entries(selectedParticipant.healthInfo).map(([key, value]) => (
+                        {Object.entries(selectedParticipant.healthInfo || selectedParticipant.user?.healthInfo).map(([key, value]) => (
                           <div key={key}>
                             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter block mb-0.5">{key.replace(/([A-Z])/g, ' $1')}</span>
                             <span className="text-xs font-black text-slate-800 dark:text-slate-200">{String(value)}</span>
@@ -810,14 +819,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 font-mono">
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Registration Date</span>
                     <span className="text-xs font-bold text-slate-500">{new Date(selectedParticipant.joinedAt).toLocaleString()}</span>
-                  </div>
-                  
-                  {/* QR Code Section */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-3">Ticket QR Code</span>
-                    <div className="bg-white p-3 rounded-2xl shadow-md border border-slate-200">
-                      <QRCodeSVG value={`ticket:${eventId}:${selectedParticipant.id}`} size={120} level="M" />
-                    </div>
                   </div>
                 </div>
 
