@@ -51,14 +51,19 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
   }, [query]);
 
   const performSearch = async (searchQuery: string) => {
-    if (!MAPTILER_KEY) return;
     setIsSearching(true);
     try {
-      const res = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(searchQuery)}.json?key=${MAPTILER_KEY}&limit=5`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`, {
+        headers: {
+          'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
+      });
       const data = await res.json();
-      if (data && data.features) {
-        setResults(data.features);
+      if (data && data.length > 0) {
+        setResults(data);
         setShowDropdown(true);
+      } else {
+        setResults([]);
       }
     } catch (error) {
       console.error("Search error:", error);
@@ -68,35 +73,33 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
   };
 
   const handleSelectResult = (feature: any) => {
-    // Extract context
+    // Extract context for Nominatim
+    const parts = feature.display_name ? feature.display_name.split(',').map((p: string) => p.trim()) : [];
+    
+    let name = feature.name || parts[0] || "Unknown Location";
     let city = "";
     let province = "";
     
-    if (feature.context) {
-      const cityCtx = feature.context.find((c: any) => c.id.startsWith("municipality") || c.id.startsWith("city") || c.id.startsWith("county"));
-      const provCtx = feature.context.find((c: any) => c.id.startsWith("region") || c.id.startsWith("state") || c.id.startsWith("province"));
-      
-      if (cityCtx) city = cityCtx.text;
-      if (provCtx) province = provCtx.text;
+    if (parts.length >= 3) {
+      province = parts[parts.length - 2] || ""; // Usually province is second to last before Country
+      city = parts[parts.length - 3] || "";     // Usually city is third to last
     }
-    
-    // If city is empty but place_type is city, use text
-    if (!city && feature.place_type?.includes("municipality")) {
-      city = feature.text;
-    }
-    if (!province && feature.place_type?.includes("region")) {
-      province = feature.text;
+
+    // fallback using feature address if available (for /reverse or if addressdetails=1)
+    if (feature.address) {
+      city = feature.address.city || feature.address.town || feature.address.municipality || feature.address.county || feature.address.city_district || feature.address.village || city;
+      province = feature.address.state || feature.address.region || feature.address.province || province;
     }
 
     onLocationSelect({
-      name: feature.text,
+      name: name,
       city: city,
       province: province,
-      longitude: feature.center[0],
-      latitude: feature.center[1],
+      longitude: parseFloat(feature.lon),
+      latitude: parseFloat(feature.lat),
     });
     
-    setQuery(feature.place_name || feature.text);
+    setQuery(name);
     setShowDropdown(false);
   };
 
@@ -110,24 +113,29 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        if (!MAPTILER_KEY) {
-          onLocationSelect({
-            name: "Current Location",
-            city: "",
-            province: "",
-            latitude,
-            longitude
-          });
-          setIsGettingLocation(false);
-          return;
-        }
 
-        // Reverse geocoding
+        // Reverse geocoding with OSM
         try {
-          const res = await fetch(`https://api.maptiler.com/geocoding/${longitude},${latitude}.json?key=${MAPTILER_KEY}`);
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+            headers: {
+              'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
+            }
+          });
           const data = await res.json();
-          if (data && data.features && data.features.length > 0) {
-            handleSelectResult(data.features[0]);
+          if (data && data.address) {
+            const addr = data.address;
+            const name = addr.amenity || addr.building || addr.road || addr.suburb || "Current Location";
+            const city = addr.city || addr.town || addr.municipality || addr.county || addr.city_district || addr.village || "";
+            const province = addr.state || addr.region || addr.province || "";
+
+            onLocationSelect({
+              name: name,
+              city: city,
+              province: province,
+              latitude,
+              longitude
+            });
+            setQuery(name);
             toast.success("Location found!");
           } else {
              onLocationSelect({
@@ -191,8 +199,8 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
               >
                 <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{result.text}</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{result.place_name}</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{result.name || result.display_name.split(',')[0]}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{result.display_name}</span>
                 </div>
               </button>
             ))}
