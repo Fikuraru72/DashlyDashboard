@@ -1052,33 +1052,32 @@ export default function PublicEventMonitoringPage() {
   const StatusIcon = currentStatus?.icon || Activity;
 
   return (
-    <div className="relative flex flex-1 h-full w-full overflow-hidden bg-[#0a0f1d] font-sans">
+    <div className="relative flex h-screen w-screen overflow-hidden bg-[#0a0f1d] font-sans">
 
       {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
       {/* Global HUD Header (Floating Top) */}
-      <div className="absolute top-6 left-6 right-6 z-40 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-40 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 pointer-events-none">
         {/* Left: Event Branding */}
-        <div className="flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl p-2 pr-6 rounded-3xl border border-white/10 shadow-2xl pointer-events-auto">
-          <Link href={`/dashboard/public-events/${eventId}`} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors">
-            <ChevronLeft className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-2 sm:gap-4 bg-slate-900/90 backdrop-blur-xl p-2 pr-4 sm:pr-6 rounded-3xl border border-white/10 shadow-2xl pointer-events-auto max-w-full overflow-hidden">
+          <Link href={`/events/${eventId}`} className="p-2 sm:p-3 bg-slate-800 hover:bg-slate-700 rounded-xl sm:rounded-2xl transition-colors shrink-0">
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </Link>
-          <div className="flex flex-col">
-            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">Telemetry Monitor</span>
-            <h1 className="text-lg font-black text-white uppercase tracking-tight truncate max-w-[200px] leading-none">{event.name}</h1>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[8px] sm:text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">Telemetry Monitor</span>
+            <h1 className="text-sm sm:text-lg font-black text-white uppercase tracking-tight truncate max-w-[120px] sm:max-w-[200px] leading-none">{event.name}</h1>
           </div>
           {/* Category Badge */}
-          <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${event.category === 'CYCLING' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+          <div className={`hidden sm:flex px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest items-center gap-1 shrink-0 ${event.category === 'CYCLING' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
             }`}>
             {event.category === 'CYCLING' ? <Bike size={10} /> : <Footprints size={10} />}
             {event.category || 'RUNNING'}
           </div>
         </div>
 
-        {/* Center: Status Indicator + Race Control */}
-        <div className="flex items-center gap-3 pointer-events-auto">
-          {/* Status Indicator */}
+        {/* Center: Status Indicator */}
+        <div className="hidden md:flex items-center gap-3 pointer-events-auto">
           {currentStatus && (
             <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border backdrop-blur-md shadow-2xl ${currentStatus.bgColor}`}>
               <div className={`w-2.5 h-2.5 rounded-full ${currentStatus.dotColor} ${monitoringStatus === 'START' ? 'animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]' : ''}`}></div>
@@ -1096,7 +1095,7 @@ export default function PublicEventMonitoringPage() {
         </div>
 
         {/* HUD Controls (Toggle Sidebars) */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-2 pointer-events-auto ml-auto sm:ml-0">
           <button
             onClick={() => setShowLeaderboard(!showLeaderboard)}
             className={`p-3 rounded-2xl border transition-all ${showLeaderboard ? 'bg-indigo-600 text-white border-white/20' : 'bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md'}`}
@@ -1143,7 +1142,7 @@ export default function PublicEventMonitoringPage() {
       )}
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
-      <aside className={`absolute left-6 top-24 bottom-6 w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? 'translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20' : '-translate-x-[calc(100%+24px)] opacity-0'}`}>
+      <aside className={`absolute left-2 sm:left-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? 'translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20' : '-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none'}`}>
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
             <div className="flex items-center gap-3 mb-1">
@@ -1236,7 +1235,7 @@ export default function PublicEventMonitoringPage() {
       </aside>
 
       {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
-      <aside className={`absolute right-6 top-24 bottom-6 w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? 'translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20' : 'translate-x-[calc(100%+24px)] opacity-0'}`}>
+      <aside className={`absolute right-2 sm:right-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? 'translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20' : 'translate-x-[calc(100%+24px)] opacity-0 pointer-events-none'}`}>
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
             <div className="flex items-center gap-3 mb-1">
