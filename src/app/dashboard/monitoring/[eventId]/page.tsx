@@ -334,6 +334,45 @@ export default function EventMonitoringPage() {
     }
   };
 
+  const handleDismissAnomaly = async (userIdStr: string, alertId: string) => {
+    try {
+      const token = getCookie("auth_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+      
+      const res = await fetch(`${apiUrl}/events/${eventId}/anomalies/${alertId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (!res.ok) {
+        console.warn("Failed to delete anomaly on backend");
+      }
+      
+      // Local state update
+      setParticipants((prev) => {
+        const next = new Map(prev);
+        const current = next.get(userIdStr);
+        if (current) {
+          next.set(userIdStr, { ...current, status: "active", isAnomaly: false, hasAlert: false });
+        }
+        return next;
+      });
+
+      // Reset marker appearance
+      let marker = markers.current.get(userIdStr);
+      if (marker) {
+        const pInfo = participantsInfo.current.get(userIdStr);
+        updateMarkerElement(marker.getElement(), pInfo?.formattedName || `User ${userIdStr.substring(0, 4)}`, "active", false, false);
+      }
+      
+      removeAnomaly(alertId);
+    } catch (e) {
+      console.warn("Error dismissing anomaly:", e);
+      removeAnomaly(alertId); // Still remove from UI
+    }
+  };
+
+
   // ── 1. Initial Data Fetch ───────────────────────────────────
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -473,19 +512,44 @@ export default function EventMonitoringPage() {
             const anomaliesData = await anomaliesRes.json();
             if (Array.isArray(anomaliesData)) {
               console.log("[INIT] 🚨 Loaded", anomaliesData.length, "recent anomalies");
-              // Deduplicate and insert anomalies sequentially
+              const uidsWithAnomaly = new Set<string>();
               anomaliesData.reverse().forEach((anomaly: any) => {
+                const userIdStr = String(anomaly.userId);
                 useParticipantStore.getState().addAnomaly({
                   id: anomaly.id,
                   eventId: anomaly.eventId,
-                  userId: String(anomaly.userId),
+                  userId: userIdStr,
                   type: anomaly.type,
                   message: anomaly.message,
                   timestamp: anomaly.timestamp,
                   severity: anomaly.type === 'SOS_EMERGENCY' ? 'CRITICAL' : 'HIGH',
                   name: anomaly.name,
                 });
+                uidsWithAnomaly.add(userIdStr);
               });
+              
+              if (uidsWithAnomaly.size > 0) {
+                setParticipants(prev => {
+                  const next = new Map(prev);
+                  uidsWithAnomaly.forEach(uid => {
+                    const current = next.get(uid);
+                    if (current) {
+                      const store = useParticipantStore.getState();
+                      const hasSos = store.anomalies.some(a => String(a.userId) === uid && a.type === 'SOS_EMERGENCY');
+                      const hasOffRoute = store.anomalies.some(a => String(a.userId) === uid && a.type === 'OFF_ROUTE');
+                      const hasStop = store.anomalies.some(a => String(a.userId) === uid && a.type === 'STOP');
+                      
+                      let status = current.status;
+                      if (hasSos) status = 'emergency';
+                      else if (hasOffRoute) status = 'off-route';
+                      else if (hasStop) status = 'stopped';
+                      
+                      next.set(uid, { ...current, status, isAnomaly: true, hasAlert: true });
+                    }
+                  });
+                  return next;
+                });
+              }
             }
           }
         } catch (anomalyErr) {
@@ -692,6 +756,17 @@ export default function EventMonitoringPage() {
           // Auto-resolve off-route if they returned
           if (data.offRoute === false) {
              useParticipantStore.getState().removeAnomalyByType(userId, 'OFF_ROUTE');
+             
+             // Auto-delete off-route from backend
+             try {
+               fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/events/${eventId}/participants/${userId}/anomalies?type=OFF_ROUTE`, {
+                 method: 'DELETE',
+                 headers: { Authorization: `Bearer ${getCookie("auth_token")}` }
+               });
+             } catch(e) {
+               console.warn("Auto-resolve delete failed", e);
+             }
+
              // Also reflect in local data so next.set doesn't override it with true
              const store = useParticipantStore.getState();
              const hasOtherAnomalies = store.anomalies.some(a => String(a.userId) === userId && a.type !== 'OFF_ROUTE');
@@ -1424,7 +1499,7 @@ export default function EventMonitoringPage() {
                     </button>
                   ) : (
                     <button
-                      onClick={(e) => { e.stopPropagation(); removeAnomaly(alert.id); }}
+                      onClick={(e) => { e.stopPropagation(); handleDismissAnomaly(userIdStr, alert.id); }}
                       className="px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-400 border border-white/10 rounded text-[9px] font-black uppercase transition-all"
                     >
                       Dismiss ✕
