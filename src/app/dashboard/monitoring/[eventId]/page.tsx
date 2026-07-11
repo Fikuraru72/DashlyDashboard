@@ -101,21 +101,53 @@ const createPulseMarker = (name: string, status: string = 'moving', isStale: boo
 
 // ── Status Config ────────────────────────────────────────────
 const STATUS_CONFIG = {
-  WAITING_FOR_WINDOW: {
-    label: "Waiting for Window",
+  DRAFT: {
+    label: "Draft",
     color: "text-slate-400",
     bgColor: "bg-slate-500/10 border-slate-500/20",
     dotColor: "bg-slate-400",
-    icon: Hourglass,
-    description: "Monitoring window has not opened yet",
+    icon: LayoutTemplate,
+    description: "Event is in draft state",
   },
-  READY_TO_START: {
-    label: "Ready to Start",
+  IDLE: {
+    label: "Idle",
+    color: "text-slate-400",
+    bgColor: "bg-slate-500/10 border-slate-500/20",
+    dotColor: "bg-slate-400",
+    icon: LayoutTemplate,
+    description: "Event is idle",
+  },
+  REGISTRATION_OPEN: {
+    label: "Reg Open",
+    color: "text-blue-400",
+    bgColor: "bg-blue-500/10 border-blue-500/20",
+    dotColor: "bg-blue-400",
+    icon: LayoutTemplate,
+    description: "Registration is currently open",
+  },
+  REGISTRATION_CLOSED: {
+    label: "Reg Closed",
+    color: "text-slate-400",
+    bgColor: "bg-slate-500/10 border-slate-500/20",
+    dotColor: "bg-slate-400",
+    icon: LayoutTemplate,
+    description: "Registration is closed",
+  },
+  READY: {
+    label: "Ready",
     color: "text-amber-400",
     bgColor: "bg-amber-500/10 border-amber-500/20",
     dotColor: "bg-amber-400",
     icon: Timer,
-    description: "Window is open — waiting for event to start",
+    description: "Event is ready to start",
+  },
+  START: {
+    label: "Live (Starting)",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/10 border-emerald-500/20",
+    dotColor: "bg-emerald-500",
+    icon: Activity,
+    description: "Race is starting",
   },
   LIVE: {
     label: "Live",
@@ -133,6 +165,14 @@ const STATUS_CONFIG = {
     icon: CheckCircle2,
     description: "Race has concluded",
   },
+  CANCELLED: {
+    label: "Cancelled",
+    color: "text-rose-400",
+    bgColor: "bg-rose-500/10 border-rose-500/20",
+    dotColor: "bg-rose-400",
+    icon: X,
+    description: "Event has been cancelled",
+  }
 };
 
 export default function EventMonitoringPage() {
@@ -191,25 +231,8 @@ export default function EventMonitoringPage() {
 
   // Compute monitoring status
   const monitoringStatus = useMemo(() => {
-    if (!event) return null;
-
-    // If server provided monitoringWindow, use it
-    if (event.monitoringWindow) {
-      // Re-evaluate status using current client time
-      const actualStart = new Date(event.monitoringWindow.actualStart);
-      const actualEnd = new Date(event.monitoringWindow.actualEnd);
-
-      if (event.status === 'FINISHED') return 'FINISHED';
-      if (event.status === 'START') return 'LIVE';
-      if (now >= actualStart) return 'READY_TO_START';
-      return 'WAITING_FOR_WINDOW';
-    }
-
-    // Fallback if no monitoring window data
-    if (event.status === 'FINISHED') return 'FINISHED';
-    if (event.status === 'START') return 'LIVE';
-    return 'WAITING_FOR_WINDOW';
-  }, [event, now]);
+    return event?.status || null;
+  }, [event]);
 
   // Countdown to actualStart
   const countdown = useMemo(() => {
@@ -1094,12 +1117,12 @@ export default function EventMonitoringPage() {
           {/* Status Indicator */}
           {currentStatus && (
             <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border backdrop-blur-md shadow-2xl ${currentStatus.bgColor}`}>
-              <div className={`w-2.5 h-2.5 rounded-full ${currentStatus.dotColor} ${monitoringStatus === 'LIVE' ? 'animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]' : ''}`}></div>
+              <div className={`w-2.5 h-2.5 rounded-full ${currentStatus.dotColor} ${monitoringStatus === 'START' ? 'animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]' : ''}`}></div>
               <div className="flex flex-col">
                 <span className={`text-[10px] font-black uppercase tracking-widest ${currentStatus.color}`}>{currentStatus.label}</span>
                 <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tight">{currentStatus.description}</span>
               </div>
-              {countdown && monitoringStatus === 'WAITING_FOR_WINDOW' && (
+              {countdown && monitoringStatus === 'READY' && (
                 <div className="ml-2 px-2 py-1 bg-slate-800 rounded-lg">
                   <span className="text-xs font-mono font-black text-white tracking-widest">{countdown}</span>
                 </div>
@@ -1120,8 +1143,8 @@ export default function EventMonitoringPage() {
 
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${monitoringStatus === 'LIVE' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse' : 'bg-slate-600'}`}></div>
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">{monitoringStatus === 'LIVE' ? 'Live Link' : 'Standby'}</span>
+              <div className={`w-2 h-2 rounded-full ${monitoringStatus === 'START' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse' : 'bg-slate-600'}`}></div>
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">{monitoringStatus === 'START' ? 'Live Link' : (currentStatus?.label || 'Standby')}</span>
             </div>
             <div className="w-px h-4 bg-slate-800"></div>
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{participants.size} Active Tracking(s)</div>
