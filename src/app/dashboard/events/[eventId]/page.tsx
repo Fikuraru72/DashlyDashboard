@@ -586,7 +586,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       <h3 className="font-bold text-lg tracking-tight">Detail Participant</h3>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button onClick={handleDownloadCSV} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition-all">
+                      <button type="button" onClick={handleDownloadCSV} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition-all">
                         <Download size={14} /> Export CSV
                       </button>
                       <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-xs font-bold font-mono">
@@ -640,6 +640,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center gap-2 justify-end">
                                   <button 
+                                    type="button"
                                     onClick={() => handleOpenParticipant(p)}
                                     className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-md text-xs font-bold transition-all"
                                   >
