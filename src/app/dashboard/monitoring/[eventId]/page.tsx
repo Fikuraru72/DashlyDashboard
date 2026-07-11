@@ -34,17 +34,19 @@ const generateRandomColor = () => {
 
 // Helper to inject HTML into an existing DOM element so we can update colors dynamically
 const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'moving', isStale: boolean = false, isAnomaly: boolean = false, userColor?: string) => {
-  let coreColor = isAnomaly
-    ? '#e11d48'        // Bright RED — Stationary Incident
-    : isStale || status === 'inactive'
-      ? '#64748b'        // Grey — Signal lost or disconnected
-      : status === 'stationary'
-        ? '#f97316'        // Orange — Long stationary (not yet incident)
-        : status === 'emergency'
-          ? '#f43f5e'        // Rose — Emergency
-          : status === 'stopped'
-            ? '#f59e0b'        // Amber — Stopped
-            : userColor || '#10b981';       // Custom User Color or Emerald — Moving
+  let coreColor = status === 'emergency'
+    ? '#f43f5e'        // Rose — Emergency
+    : status === 'off-route'
+      ? '#f97316'      // Orange — Off Route
+      : isAnomaly
+        ? '#e11d48'        // Bright RED — Stationary Incident
+        : isStale || status === 'inactive'
+          ? '#64748b'        // Grey — Signal lost or disconnected
+          : status === 'stationary'
+            ? '#f97316'        // Orange — Long stationary (not yet incident)
+            : status === 'stopped'
+              ? '#f59e0b'        // Amber — Stopped
+              : userColor || '#10b981';       // Custom User Color or Emerald — Moving
 
   el.innerHTML = `
     <div style="
@@ -658,6 +660,21 @@ export default function EventMonitoringPage() {
             }
           }
 
+          // Auto-resolve off-route if they returned
+          if (data.offRoute === false) {
+             useParticipantStore.getState().removeAnomalyByType(userId, 'OFF_ROUTE');
+             // Also reflect in local data so next.set doesn't override it with true
+             const store = useParticipantStore.getState();
+             const hasOtherAnomalies = store.anomalies.some(a => String(a.userId) === userId && a.type !== 'OFF_ROUTE');
+             data.isAnomaly = hasOtherAnomalies;
+             data.hasAlert = hasOtherAnomalies;
+             if (!hasOtherAnomalies && data.status !== 'inactive') {
+               data.status = 'active'; // Reset to moving/active
+             }
+          } else if (data.offRoute === true) {
+             data.status = 'off-route';
+          }
+
           if (marker) {
             // Exists: Just slide it smoothly
             marker.setLngLat([lng, lat]);
@@ -688,7 +705,30 @@ export default function EventMonitoringPage() {
               const current = next.get(userId) || { id: userId, pathHistory: [] };
               const newHistory = [...(current.pathHistory || []), [lng, lat]];
               const isOfflineNormalized = isParticipantOffline(data.isOffline);
-              next.set(userId, { ...current, ...data, isOffline: isOfflineNormalized, status: isOfflineNormalized ? 'inactive' : data.status, lat, lng, lastUpdate: Date.now(), pathHistory: newHistory });
+              
+              // Preserve emergency/anomaly state
+              // If data.isAnomaly is explicitly boolean, prefer it over current (allows resolution)
+              const finalIsAnomaly = typeof data.isAnomaly === 'boolean' ? data.isAnomaly : (current.isAnomaly || false);
+              
+              let finalStatus = isOfflineNormalized ? 'inactive' : data.status;
+              if (current.status === 'emergency' && finalStatus !== 'inactive' && finalIsAnomaly) {
+                finalStatus = 'emergency';
+              }
+              
+              const finalHasAlert = typeof data.hasAlert === 'boolean' ? data.hasAlert : current.hasAlert;
+
+              next.set(userId, { 
+                ...current, 
+                ...data, 
+                isAnomaly: finalIsAnomaly,
+                hasAlert: finalHasAlert,
+                isOffline: isOfflineNormalized, 
+                status: finalStatus, 
+                lat, 
+                lng, 
+                lastUpdate: Date.now(), 
+                pathHistory: newHistory 
+              });
             });
             return next;
           });

@@ -44,6 +44,7 @@ interface ParticipantStore {
   setParticipants: (participants: Record<string, ParticipantData>) => void; // helper for mock data
   setSelectedParticipantId: (id: string | null) => void;
   removeAnomaly: (id: string) => void;
+  removeAnomalyByType: (userId: string, type: string) => void;
 }
 
 export const useParticipantStore = create<ParticipantStore>((set) => ({
@@ -157,16 +158,64 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
         id: anomaly.id || `anomaly-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
       };
 
+      // Deduplicate by userId and type
+      const filteredAnomalies = state.anomalies.filter(
+        (a) => !(a.userId === newAnomaly.userId && a.type === newAnomaly.type)
+      );
+
       return {
-        anomalies: [newAnomaly, ...state.anomalies].slice(0, 50), // keep last 50
+        anomalies: [newAnomaly, ...filteredAnomalies].slice(0, 50), // keep last 50
         participants
       };
     }),
 
   removeAnomaly: (id) =>
-    set((state) => ({
-      anomalies: state.anomalies.filter((a) => a.id !== id)
-    })),
+    set((state) => {
+      const anomalyToRemove = state.anomalies.find(a => a.id === id);
+      const remainingAnomalies = state.anomalies.filter((a) => a.id !== id);
+      
+      const participants = { ...state.participants };
+      
+      if (anomalyToRemove) {
+        const pId = String(anomalyToRemove.userId || anomalyToRemove.participantId);
+        if (pId && participants[pId]) {
+          const hasOtherAnomalies = remainingAnomalies.some(a => String(a.userId) === pId || String(a.participantId) === pId);
+          participants[pId] = {
+            ...participants[pId],
+            isAnomaly: hasOtherAnomalies,
+            status: hasOtherAnomalies ? "emergency" : "active"
+          };
+        }
+      }
+
+      return {
+        anomalies: remainingAnomalies,
+        participants
+      };
+    }),
+
+  removeAnomalyByType: (userId: string, type: string) =>
+    set((state) => {
+      const pId = String(userId);
+      const participants = { ...state.participants };
+      
+      // Also reset anomaly flag on participant if they have no other anomalies
+      const remainingAnomalies = state.anomalies.filter((a) => !(a.userId === pId && a.type === type));
+      const hasOtherAnomalies = remainingAnomalies.some(a => a.userId === pId);
+      
+      if (pId && participants[pId]) {
+        participants[pId] = {
+          ...participants[pId],
+          isAnomaly: hasOtherAnomalies,
+          status: hasOtherAnomalies ? "emergency" : "active"
+        };
+      }
+
+      return {
+        anomalies: remainingAnomalies,
+        participants
+      };
+    }),
 
   setEventMetadata: (metadata) =>
     set(() => ({
