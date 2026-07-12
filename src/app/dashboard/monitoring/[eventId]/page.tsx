@@ -51,6 +51,8 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
   el.innerHTML = `
     <div style="
       position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
       width: 32px; height: 32px;
       border-radius: 50%;
       background: ${coreColor}30;
@@ -58,6 +60,8 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
     "></div>
     <div style="
       position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
       width: 20px; height: 20px;
       border-radius: 50%;
       background: ${coreColor};
@@ -66,7 +70,10 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
     "></div>
     <div class="marker-label" style="
       position: absolute;
-      top: -22px;
+      bottom: 100%;
+      margin-bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
       background: rgba(15,23,42,0.9);
       color: white;
       padding: 2px 8px;
@@ -1624,12 +1631,12 @@ export default function EventMonitoringPage() {
         }
         .map-zoomed-out .marker-label {
           opacity: 0;
-          transform: scale(0.8) translateY(10px);
+          transform: translateX(-50%) scale(0.8) translateY(10px) !important;
           pointer-events: none;
         }
         .map-zoomed-out .dashly-marker:hover .marker-label {
           opacity: 1;
-          transform: scale(1) translateY(0);
+          transform: translateX(-50%) scale(1) translateY(0) !important;
         }
       `}</style>
     </div>
