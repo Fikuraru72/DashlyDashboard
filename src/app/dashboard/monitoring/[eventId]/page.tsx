@@ -13,6 +13,7 @@ const isParticipantOffline = (val: any): boolean => {
 };
 
 import "maplibre-gl/dist/maplibre-gl.css";
+import Supercluster from 'supercluster';
 import { io } from "socket.io-client";
 import { useTheme } from "next-themes";
 import {
@@ -231,6 +232,123 @@ export default function EventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const clusterMarkers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const superclusterRef = useRef<Supercluster | null>(null);
+
+  useEffect(() => {
+    superclusterRef.current = new Supercluster({
+      radius: 40,
+      maxZoom: 16,
+    });
+  }, []);
+
+  const updateClusters = useCallback(() => {
+    if (!mapInstance.current || !superclusterRef.current || !mapIsReadyRef.current) return;
+    const map = mapInstance.current;
+    
+    const features: any[] = Array.from(participants.values())
+      .filter(p => typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng))
+      .map(p => ({
+        type: 'Feature',
+        properties: { cluster: false, userId: String(p.id) },
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] }
+      }));
+    
+    superclusterRef.current.load(features);
+    
+    const zoom = Math.round(map.getZoom());
+    const clusters = superclusterRef.current.getClusters([-180, -85, 180, 85], zoom);
+    
+    const nextKeys = new Set<string>();
+    
+    clusters.forEach((cluster: any) => {
+      const [lng, lat] = cluster.geometry.coordinates;
+      const isCluster = cluster.properties.cluster;
+      
+      if (isCluster) {
+        const clusterId = cluster.properties.cluster_id;
+        const pointCount = cluster.properties.point_count;
+        const key = `cluster-${clusterId}`;
+        nextKeys.add(key);
+        
+        let marker = clusterMarkers.current.get(key);
+        if (!marker) {
+          const el = document.createElement('div');
+          el.className = 'dashly-cluster';
+          el.style.cssText = `
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: rgba(79, 70, 229, 0.9);
+            border: 3px solid white;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 0 15px rgba(79,70,229,0.5);
+            cursor: pointer;
+            z-index: 10000;
+            transition: transform 0.2s;
+          `;
+          el.innerText = String(pointCount);
+          
+          el.addEventListener('click', () => {
+             const expansionZoom = superclusterRef.current!.getClusterExpansionZoom(clusterId);
+             map.flyTo({ center: [lng, lat], zoom: expansionZoom });
+          });
+          el.addEventListener('mouseenter', () => el.style.transform = 'scale(1.1)');
+          el.addEventListener('mouseleave', () => el.style.transform = 'scale(1)');
+          
+          marker = new maplibregl.Marker({ element: el, anchor: 'center', pitchAlignment: 'viewport' })
+            .setLngLat([lng, lat])
+            .addTo(map);
+          clusterMarkers.current.set(key, marker);
+        } else {
+          marker.setLngLat([lng, lat]);
+          marker.getElement().innerText = String(pointCount);
+          marker.getElement().style.display = 'flex';
+        }
+      } else {
+        const userId = cluster.properties.userId;
+        const key = `user-${userId}`;
+        nextKeys.add(key);
+        
+        const marker = markers.current.get(userId);
+        if (marker) {
+          marker.getElement().style.display = 'flex';
+        }
+      }
+    });
+    
+    clusterMarkers.current.forEach((marker, key) => {
+      if (!nextKeys.has(key)) {
+        marker.getElement().style.display = 'none';
+      }
+    });
+    
+    markers.current.forEach((marker, userId) => {
+      if (!nextKeys.has(`user-${userId}`)) {
+        marker.getElement().style.display = 'none';
+      }
+    });
+    
+  }, [participants]);
+
+  useEffect(() => {
+    updateClusters();
+  }, [updateClusters]);
+
+  useEffect(() => {
+    if (!mapIsReady) return;
+    const map = mapInstance.current;
+    if (map) {
+      map.on('zoom', updateClusters);
+      return () => {
+        map.off('zoom', updateClusters);
+      };
+    }
+  }, [mapIsReady, updateClusters]);
 
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
