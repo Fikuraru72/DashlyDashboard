@@ -64,7 +64,7 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
       border: 3px solid white;
       box-shadow: 0 0 15px ${coreColor}80;
     "></div>
-    <div style="
+    <div class="marker-label" style="
       position: absolute;
       top: -22px;
       background: rgba(15,23,42,0.9);
@@ -76,6 +76,7 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
       white-space: nowrap;
       border: 1px solid rgba(255,255,255,0.1);
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+      transition: opacity 0.2s ease, transform 0.2s ease;
     ">
       ${name}
     </div>
@@ -84,6 +85,7 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
 
 const createPulseMarker = (name: string, status: string = 'moving', isStale: boolean = false, isAnomaly: boolean = false, userColor?: string) => {
   const el = document.createElement("div");
+  el.className = "dashly-marker";
   // PILLAR 3: Inline styles + z-index force
   el.style.cssText = `
     position: relative;
@@ -92,7 +94,7 @@ const createPulseMarker = (name: string, status: string = 'moving', isStale: boo
     justify-content: center;
     width: 36px;
     height: 36px;
-    z-index: 9999 !important;
+    z-index: 9999;
     border-radius: 50%;
     cursor: pointer;
   `;
@@ -674,6 +676,16 @@ export default function EventMonitoringPage() {
     });
 
     map.on('error', (e) => console.error('[Map] ❌ MapLibre error:', e));
+
+    const updateZoomClass = () => {
+      if (map.getZoom() < 16) {
+        mapContainer.current?.classList.add('map-zoomed-out');
+      } else {
+        mapContainer.current?.classList.remove('map-zoomed-out');
+      }
+    };
+    map.on('zoom', updateZoomClass);
+    map.once('load', updateZoomClass);
 
     return () => {
       map.remove();
@@ -1603,9 +1615,21 @@ export default function EventMonitoringPage() {
             opacity: 0;
           }
         }
-        /* Force MapLibre markers above all other layers */
+        /* Marker Hover & Zoom Visibility Logic */
         .maplibregl-marker {
-          z-index: 9999 !important;
+          z-index: 9999;
+        }
+        .maplibregl-marker:hover {
+          z-index: 10000 !important;
+        }
+        .map-zoomed-out .marker-label {
+          opacity: 0;
+          transform: scale(0.8) translateY(10px);
+          pointer-events: none;
+        }
+        .map-zoomed-out .dashly-marker:hover .marker-label {
+          opacity: 1;
+          transform: scale(1) translateY(0);
         }
       `}</style>
     </div>
