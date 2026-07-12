@@ -684,16 +684,6 @@ export default function EventMonitoringPage() {
 
     map.on('error', (e) => console.error('[Map] ❌ MapLibre error:', e));
 
-    const updateZoomClass = () => {
-      if (map.getZoom() < 16) {
-        mapContainer.current?.classList.add('map-zoomed-out');
-      } else {
-        mapContainer.current?.classList.remove('map-zoomed-out');
-      }
-    };
-    map.on('zoom', updateZoomClass);
-    map.once('load', updateZoomClass);
-
     return () => {
       map.remove();
       setMapIsReady(false);
@@ -807,7 +797,7 @@ export default function EventMonitoringPage() {
             // Doesn't exist: Create instantly bypassing React
             console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
             const el = createPulseMarker(data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly, data.color);
-            marker = new maplibregl.Marker({ element: el })
+            marker = new maplibregl.Marker({ element: el, anchor: 'center', pitchAlignment: 'viewport' })
               .setLngLat([lng, lat])
               .addTo(mapInstance.current!);
             markers.current.set(userId, marker);
@@ -1628,15 +1618,6 @@ export default function EventMonitoringPage() {
         }
         .maplibregl-marker:hover {
           z-index: 10000 !important;
-        }
-        .map-zoomed-out .marker-label {
-          opacity: 0;
-          transform: translateX(-50%) scale(0.8) translateY(10px) !important;
-          pointer-events: none;
-        }
-        .map-zoomed-out .dashly-marker:hover .marker-label {
-          opacity: 1;
-          transform: translateX(-50%) scale(1) translateY(0) !important;
         }
       `}</style>
     </div>
