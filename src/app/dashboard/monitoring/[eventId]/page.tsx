@@ -206,7 +206,7 @@ export default function EventMonitoringPage() {
   // HUD Visibility
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showAlerts, setShowAlerts] = useState(true);
-  const [showPolylines, setShowPolylines] = useState(true);
+  const [showPolylines, setShowPolylines] = useState(false);
 
   // Timer for monitoring window countdown
   const [now, setNow] = useState(new Date());
@@ -1612,12 +1612,21 @@ export default function EventMonitoringPage() {
             opacity: 0;
           }
         }
-        /* Marker Hover & Zoom Visibility Logic */
+        /* Marker Hover Visibility Logic */
         .maplibregl-marker {
           z-index: 9999;
         }
         .maplibregl-marker:hover {
           z-index: 10000 !important;
+        }
+        .marker-label {
+          opacity: 0;
+          transform: translateX(-50%) scale(0.8) translateY(10px) !important;
+          pointer-events: none;
+        }
+        .dashly-marker:hover .marker-label {
+          opacity: 1;
+          transform: translateX(-50%) scale(1) translateY(0) !important;
         }
       `}</style>
     </div>
