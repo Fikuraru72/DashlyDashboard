@@ -28,15 +28,8 @@ import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
-const generateRandomColor = (userId?: string) => {
+const generateRandomColor = () => {
   const colors = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#4ade80', '#34d399', '#2dd4bf', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#c084fc', '#e879f9', '#f472b6', '#fb7185'];
-  if (userId) {
-    let hash = 0;
-    for (let i = 0; i < userId.length; i++) {
-      hash = userId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  }
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
@@ -48,11 +41,13 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
       ? '#f97316'      // Orange — Off Route
       : isAnomaly
         ? '#e11d48'        // Bright RED — Stationary Incident
-        : status === 'stationary'
-          ? '#f97316'        // Orange — Long stationary (not yet incident)
-          : status === 'stopped'
-            ? '#f59e0b'        // Amber — Stopped
-            : userColor || '#10b981';       // Custom User Color or Emerald — Moving/Offline
+        : isStale || status === 'inactive'
+          ? '#64748b'        // Grey — Signal lost or disconnected
+          : status === 'stationary'
+            ? '#f97316'        // Orange — Long stationary (not yet incident)
+            : status === 'stopped'
+              ? '#f59e0b'        // Amber — Stopped
+              : userColor || '#10b981';       // Custom User Color or Emerald — Moving
 
   el.innerHTML = `
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
@@ -880,15 +875,11 @@ export default function EventMonitoringPage() {
           let marker = markers.current.get(userId);
           // If we don't have a color yet, generate one for the new participant
           if (!data.color) {
-            let currentP = participantsInfo.current.get(userId) as any;
-            if (!currentP) {
-               currentP = { name: data.name, bibNumber: data.bibNumber };
-               participantsInfo.current.set(userId, currentP);
+            const currentP = participantsInfo.current.get(userId) as any;
+            data.color = currentP?.color || generateRandomColor();
+            if (currentP) {
+               currentP.color = data.color; // Save it back so it's consistent
             }
-            if (!currentP.color) {
-               currentP.color = generateRandomColor(userId);
-            }
-            data.color = currentP.color;
           }
 
           // Auto-resolve off-route if they returned
