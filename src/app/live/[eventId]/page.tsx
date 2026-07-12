@@ -690,7 +690,7 @@ export default function PublicEventMonitoringPage() {
     // This fires for EVERY event the server sends, regardless of name.
     // If you see events here but NOT in position_update, the event name is wrong.
     socket.onAny((eventName: string, ...args: any[]) => {
-      console.log('📡 RAW WS EVENT:', eventName, args);
+      // console.log('📡 RAW WS EVENT:', eventName, args);
     });
 
     socket.on("position_batch", (batchData: any) => {
@@ -751,7 +751,7 @@ export default function PublicEventMonitoringPage() {
           if (!hasFlown && mapInstance.current) {
             hasFlown = true;
             mapInstance.current.flyTo({ center: [lng, lat], zoom: 16 });
-            console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
+            // console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
           }
 
           // --- DIRECT MARKER MANIPULATION (Zero Latency) ---
@@ -772,7 +772,7 @@ export default function PublicEventMonitoringPage() {
             updateMarkerElement(marker.getElement(), data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly, data.color);
           } else {
             // Doesn't exist: Create instantly bypassing React
-            console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
+            // console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
             const el = createPulseMarker(data.name || `User ${String(userId).substring(0, 4)}`, data.status, false, data.isAnomaly, data.color);
             marker = new maplibregl.Marker({ element: el })
               .setLngLat([lng, lat])
@@ -810,7 +810,7 @@ export default function PublicEventMonitoringPage() {
         if (!data || !data.userId || !data.points || !Array.isArray(data.points)) return;
         const userId = String(data.userId);
         
-        console.log(`[Map] 📦 Received offline sync batch for ${userId} with ${data.points.length} points.`);
+        // console.log(`[Map] 📦 Received offline sync batch for ${userId} with ${data.points.length} points.`);
         
         setParticipants((prev) => {
           const next = new Map(prev);
@@ -846,7 +846,7 @@ export default function PublicEventMonitoringPage() {
           console.warn('[Map] ⚠️ Anomaly with no userId, skipping:', data);
           return;
         }
-        console.log(`[Map] 🚨 Anomaly detected for user ${userId}:`, data.type);
+        // console.log(`[Map] 🚨 Anomaly detected for user ${userId}:`, data.type);
         
         const pInfo = participantsInfo.current.get(userId);
         if (pInfo) {
@@ -887,7 +887,7 @@ export default function PublicEventMonitoringPage() {
           console.warn('[Map] ⚠️ SOS with no userId, skipping:', data);
           return;
         }
-        console.log(`[Map] 🚨 SOS EMERGENCY triggered for user ${userId}`);
+        // console.log(`[Map] 🚨 SOS EMERGENCY triggered for user ${userId}`);
         
         const pInfo = participantsInfo.current.get(userId);
         if (pInfo) {
@@ -929,7 +929,7 @@ export default function PublicEventMonitoringPage() {
         const userId = String(data.userId);
         if (!userId || userId === 'undefined') return;
         const distance = data.distance ?? data.offRouteDistance ?? 0;
-        console.log(`[Map] ⚠️ Off-route alert for user ${userId}:`, distance, 'm');
+        // console.log(`[Map] ⚠️ Off-route alert for user ${userId}:`, distance, 'm');
 
         const pInfo = participantsInfo.current.get(userId);
         const name = pInfo?.formattedName || pInfo?.name || `User ${userId.substring(0, 4)}`;
@@ -963,7 +963,7 @@ export default function PublicEventMonitoringPage() {
       try {
         const userId = String(data.userId);
         if (!userId || userId === 'undefined') return;
-        console.log(`[Map] 🛑 User stopped alert for user ${userId}:`, data.durationSec, 's');
+        // console.log(`[Map] 🛑 User stopped alert for user ${userId}:`, data.durationSec, 's');
 
         const pInfo = participantsInfo.current.get(userId);
         const name = pInfo?.formattedName || pInfo?.name || `User ${userId.substring(0, 4)}`;
@@ -997,7 +997,7 @@ export default function PublicEventMonitoringPage() {
         const userId = String(data.userId);
         if (!data.points || !Array.isArray(data.points)) return;
         
-        console.log(`[Map] 📦 Received offline sync batch for user ${userId}: ${data.points.length} points`);
+        // console.log(`[Map] 📦 Received offline sync batch for user ${userId}: ${data.points.length} points`);
         
         setParticipants((prev) => {
           const next = new Map(prev);
@@ -1041,7 +1041,7 @@ export default function PublicEventMonitoringPage() {
     });
 
     socket.on("EVENT_STATUS_CHANGED", (data: any) => {
-      console.log(`[Map] 🚦 EVENT STATUS CHANGED:`, data.status);
+      // console.log(`[Map] 🚦 EVENT STATUS CHANGED:`, data.status);
       setEvent((prev: any) => {
         if (!prev) return prev;
         return { ...prev, status: data.status };
@@ -1058,7 +1058,7 @@ export default function PublicEventMonitoringPage() {
         return;
       }
       const center = mapInstance.current.getCenter();
-      console.log('🧪 Adding test marker at map center:', center);
+      // console.log('🧪 Adding test marker at map center:', center);
       const el = document.createElement('div');
       el.style.cssText = `
         width: 30px; height: 30px;
@@ -1071,13 +1071,13 @@ export default function PublicEventMonitoringPage() {
       new maplibregl.Marker({ element: el })
         .setLngLat([center.lng, center.lat])
         .addTo(mapInstance.current!);
-      console.log('🧪 ✅ Test marker added! If you see a RED DOT, rendering works.');
+      // console.log('🧪 ✅ Test marker added! If you see a RED DOT, rendering works.');
     };
-    console.log('🧪 Debug: window.addTestMarker() is ready. Call it in the console.');
+    // console.log('🧪 Debug: window.addTestMarker() is ready. Call it in the console.');
 
     mqttClient.current = socket as any;
     return () => {
-      console.log("Socket: Cleanup - Disconnecting...");
+      // console.log("Socket: Cleanup - Disconnecting...");
       socket.emit("leaveEventRoom", { eventId: Number(eventId) });
       socket.disconnect();
       delete (window as any).addTestMarker;
@@ -1103,7 +1103,7 @@ export default function PublicEventMonitoringPage() {
 
       if (!marker) {
         // PILLAR 5: Create marker ONCE, then only update position
-        console.log(`[Marker] ➕ Creating new marker for userId=${userId} at [lng=${data.lng}, lat=${data.lat}]`);
+        // console.log(`[Marker] ➕ Creating new marker for userId=${userId} at [lng=${data.lng}, lat=${data.lat}]`);
         const el = createPulseMarker(
           data.name || `User ${String(userId).substring(0, 4)}`,
           data.status,
