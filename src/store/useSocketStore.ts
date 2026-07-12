@@ -10,6 +10,7 @@ interface Position {
   name?: string;
   bibNumber?: string;
   isOffline?: boolean;
+  timestamp?: string | Date;
 }
 
 interface LeaderboardEntry {
@@ -89,6 +90,31 @@ export const useSocketStore = create<SocketState>((set, get) => ({
             ...newPositions[p.userId],
             ...p,
           };
+
+          // ==========================================
+          // KODE PENGUJIAN LATENSI UNTUK SKRIPSI
+          // ==========================================
+          if (p.timestamp) {
+            const timeSentFromMobile = new Date(p.timestamp);
+            const timeReceivedAtDashboard = new Date();
+            
+            const latencyMs = timeReceivedAtDashboard.getTime() - timeSentFromMobile.getTime();
+            
+            const formatTime = (date: Date) => {
+              return `${date.getHours().toString().padStart(2, '0')}:` +
+                     `${date.getMinutes().toString().padStart(2, '0')}:` +
+                     `${date.getSeconds().toString().padStart(2, '0')}.` +
+                     `${date.getMilliseconds().toString().padStart(3, '0')}`;
+            };
+
+            console.log(
+              `[LATENCY TEST] Peserta ID: ${p.userId} \n` +
+              `  ├─ Dikirim dari Mobile : ${formatTime(timeSentFromMobile)} \n` +
+              `  ├─ Diterima di Dasbor  : ${formatTime(timeReceivedAtDashboard)} \n` +
+              `  └─ Total Latensi       : ${latencyMs} ms`
+            );
+          }
+          // ==========================================
         });
         return { livePositions: newPositions };
       });
