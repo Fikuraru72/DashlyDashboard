@@ -8,7 +8,7 @@ import { Activity, ArrowRight, ShieldAlert, Zap, MapPin, Calendar, Users, Smartp
 export default function LandingPage() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [downloadUrl, setDownloadUrl] = useState<string>("#download");
+  const downloadUrl = "https://github.com/Fikuraru72/DashlyBackend/releases/download/v1/dashly.apk";
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -26,21 +26,7 @@ export default function LandingPage() {
       }
     };
 
-    const fetchLatestRelease = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-        const res = await fetch(`${apiUrl}/app-releases/latest`);
-        const data = await res.json();
-        if (data.success && data.data?.fileUrl) {
-          setDownloadUrl(data.data.fileUrl);
-        }
-      } catch (err) {
-        console.error("Failed to fetch latest app release", err);
-      }
-    };
-
     fetchEvents();
-    fetchLatestRelease();
   }, []);
 
   return (
