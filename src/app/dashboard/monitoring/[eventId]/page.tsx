@@ -1311,7 +1311,7 @@ export default function EventMonitoringPage() {
         markers.current.set(userId, marker);
       } else {
         // PILLAR 5: Efficient update — no new DOM elements
-        console.log(`[Marker] 🔄 Updating existing marker for userId: ${userId} to [${data.lng}, ${data.lat}]`);
+        // console.log(`[Marker] 🔄 Updating existing marker for userId: ${userId} to [${data.lng}, ${data.lat}]`);
         marker.setLngLat([data.lng, data.lat]);
         const el = marker.getElement();
         const newEl = createPulseMarker(
