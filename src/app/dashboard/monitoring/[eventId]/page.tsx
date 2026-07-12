@@ -971,6 +971,39 @@ export default function EventMonitoringPage() {
       }
     });
 
+    socket.on("sync_batch", (data: any) => {
+      try {
+        if (!data || !data.userId || !data.points || !Array.isArray(data.points)) return;
+        const userId = String(data.userId);
+        
+        console.log(`[Map] 📦 Received offline sync batch for ${userId} with ${data.points.length} points.`);
+        
+        setParticipants((prev) => {
+          const next = new Map(prev);
+          const current = next.get(userId);
+          if (!current) return prev; // If user not on map yet, wait for position_batch
+
+          // Extract coordinates and append to history
+          const newHistory = [...(current.pathHistory || [])];
+          data.points.forEach((p: any) => {
+            const lat = parseFloat(p.lat);
+            const lng = parseFloat(p.lng);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              newHistory.push([lng, lat]);
+            }
+          });
+
+          next.set(userId, {
+            ...current,
+            pathHistory: newHistory,
+          });
+          return next;
+        });
+      } catch (e) {
+        console.error("Socket error processing sync_batch:", e);
+      }
+    });
+
     socket.on("anomaly_detected", (data: any) => {
       try {
         // CRITICAL: Always use data.userId (users.id), NOT data.participantId (event_participants.id)
