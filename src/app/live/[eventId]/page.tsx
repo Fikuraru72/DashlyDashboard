@@ -202,7 +202,7 @@ export default function PublicEventMonitoringPage() {
   // HUD Visibility
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showAlerts, setShowAlerts] = useState(true);
-  const [showPolylines, setShowPolylines] = useState(true);
+  const [showPolylines, setShowPolylines] = useState(false);
 
   // Timer for monitoring window countdown
   const [now, setNow] = useState(new Date());
