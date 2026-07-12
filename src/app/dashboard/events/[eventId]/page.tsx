@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Activity, ArrowLeft, Edit3, Settings, ShieldAlert, Calendar, MapPin, Users, Key, Save, X, Play, Square, PauseCircle, Trash2, UserCircle, Download, Copy, Check, QrCode, Phone, Mail, HeartPulse, Info as InfoIcon, Clock, Timer, Bike, Footprints, Image as ImageIcon } from "lucide-react";
+import { Activity, ArrowLeft, Edit3, Settings, ShieldAlert, Calendar, MapPin, Users, Key, Save, X, Play, Square, PauseCircle, Trash2, UserCircle, Download, Copy, Check, QrCode, Phone, Mail, HeartPulse, Info as InfoIcon, Clock, Timer, Bike, Footprints, Image as ImageIcon, Upload } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import StaticMapWrapper from "@/components/map/index-static";
 import MapWrapper from "@/components/map/DynamicLiveMap";
@@ -31,7 +31,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     latitude: "" as number | "", longitude: "" as number | "", bannerImage: ""
   });
   const [tempGeoJson, setTempGeoJson] = useState<any>(null);
-
+  const [editorKey, setEditorKey] = useState(Date.now());
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -247,6 +248,53 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
       }
     } catch (err: any) {
       alert(err.message);
+    }
+  };
+
+  const handleGpxUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (extension !== "gpx" && extension !== "kml") {
+      alert("Please upload a .gpx or .kml file.");
+      return;
+    }
+
+    try {
+      const token = getCookie("auth_token");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${apiUrl}/events/upload-gpx`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Failed to parse GPX file");
+      }
+
+      const { data } = await res.json();
+      
+      const newGeoJson = {
+        type: "FeatureCollection",
+        features: [data.geoJson]
+      };
+      
+      setTempGeoJson(newGeoJson);
+      setEditorKey(Date.now());
+      alert("GPX file loaded successfully!");
+    } catch (err: any) {
+      alert(err.message || "Failed to upload file");
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -570,6 +618,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         <div className="text-[11px] text-slate-500 uppercase font-black tracking-widest opacity-70 flex items-center gap-1.5"><MapPin size={13} /> Route Configuration</div>
                         {isEditingRoute ? (
                           <div className="flex gap-2 relative z-20">
+                            <input 
+                              type="file" 
+                              accept=".gpx,.kml" 
+                              ref={fileInputRef} 
+                              className="hidden" 
+                              onChange={handleGpxUpload} 
+                            />
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="px-2 py-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 rounded text-[10px] font-bold flex items-center gap-1 transition-all"><Upload size={10}/> Upload GPX</button>
                             <button type="button" onClick={() => setIsEditingRoute(false)} className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded text-[10px] font-bold">Cancel</button>
                             <button type="button" onClick={() => handleSaveDetails()} disabled={isSaving} className="px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-bold">{isSaving ? "Saving..." : "Save Route"}</button>
                           </div>
@@ -581,7 +637,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       </div>
                       <div className="h-80 w-full rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-800 z-10 relative">
                         {isEditingRoute ? (
-                          <RouteEditorMapWrapper initialGeoJSON={event.routeGeojson} onGeoJsonChange={setTempGeoJson} />
+                          <RouteEditorMapWrapper key={editorKey} initialGeoJSON={tempGeoJson || event.routeGeojson} onGeoJsonChange={setTempGeoJson} />
                         ) : (
                           <StaticMapWrapper geoJson={event.routeGeojson} />
                         )}
