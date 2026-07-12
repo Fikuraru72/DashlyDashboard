@@ -8,6 +8,7 @@ import { Activity, ArrowRight, ShieldAlert, Zap, MapPin, Calendar, Users, Smartp
 export default function LandingPage() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadUrl, setDownloadUrl] = useState<string>("#download");
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -24,7 +25,22 @@ export default function LandingPage() {
         setLoading(false);
       }
     };
+
+    const fetchLatestRelease = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+        const res = await fetch(`${apiUrl}/app-releases/latest`);
+        const data = await res.json();
+        if (data.success && data.data?.fileUrl) {
+          setDownloadUrl(data.data.fileUrl);
+        }
+      } catch (err) {
+        console.error("Failed to fetch latest app release", err);
+      }
+    };
+
     fetchEvents();
+    fetchLatestRelease();
   }, []);
 
   return (
@@ -50,7 +66,7 @@ export default function LandingPage() {
               Organizer Login
             </Link>
             <a
-              href="#download"
+              href={downloadUrl}
               className="px-5 py-2.5 bg-white text-slate-900 hover:bg-slate-100 rounded-full text-sm font-bold transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)]"
             >
               Get App
@@ -88,7 +104,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="#download"
+              href={downloadUrl}
               className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-bold text-lg transition-all shadow-[0_0_30px_rgba(79,70,229,0.4)] hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] hover:-translate-y-1 flex items-center justify-center gap-2"
             >
               Download APK <ArrowRight className="w-5 h-5" />
@@ -248,9 +264,9 @@ export default function LandingPage() {
                 Download the Dashly participant app to register for events, access your QR ticket, and enable live tracking during the race.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="px-8 py-4 bg-white text-slate-900 hover:bg-slate-100 rounded-full font-bold text-lg transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] flex items-center justify-center gap-2">
+                <a href={downloadUrl} className="px-8 py-4 bg-white text-slate-900 hover:bg-slate-100 rounded-full font-bold text-lg transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] flex items-center justify-center gap-2">
                   <Smartphone className="w-5 h-5" /> Download for Android
-                </button>
+                </a>
               </div>
             </div>
 
