@@ -28,8 +28,15 @@ import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
-const generateRandomColor = () => {
+const generateRandomColor = (userId?: string) => {
   const colors = ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#4ade80', '#34d399', '#2dd4bf', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#c084fc', '#e879f9', '#f472b6', '#fb7185'];
+  if (userId) {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
@@ -48,15 +55,14 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
             : userColor || '#10b981';       // Custom User Color or Emerald — Moving/Offline
 
   el.innerHTML = `
-    <div style="
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: ${coreColor}30;
-      animation: ${!isStale && status !== 'inactive' ? 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite' : 'none'};
-    "></div>
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+      <div style="
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        background: ${coreColor}30;
+        animation: ${!isStale && status !== 'inactive' ? 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite' : 'none'};
+      "></div>
+    </div>
     <div style="
       position: absolute;
       top: 50%; left: 50%;
@@ -880,7 +886,7 @@ export default function EventMonitoringPage() {
                participantsInfo.current.set(userId, currentP);
             }
             if (!currentP.color) {
-               currentP.color = generateRandomColor();
+               currentP.color = generateRandomColor(userId);
             }
             data.color = currentP.color;
           }
