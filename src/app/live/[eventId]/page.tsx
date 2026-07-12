@@ -226,7 +226,6 @@ export default function PublicEventMonitoringPage() {
   const { theme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
-  const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
   const clusterMarkers = useRef<Map<string, maplibregl.Marker>>(new Map());
   const superclusterRef = useRef<Supercluster | null>(null);
