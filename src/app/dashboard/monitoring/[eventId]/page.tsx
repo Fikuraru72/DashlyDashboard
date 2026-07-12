@@ -41,13 +41,11 @@ const updateMarkerElement = (el: HTMLElement, name: string, status: string = 'mo
       ? '#f97316'      // Orange — Off Route
       : isAnomaly
         ? '#e11d48'        // Bright RED — Stationary Incident
-        : isStale || status === 'inactive'
-          ? '#64748b'        // Grey — Signal lost or disconnected
-          : status === 'stationary'
-            ? '#f97316'        // Orange — Long stationary (not yet incident)
-            : status === 'stopped'
-              ? '#f59e0b'        // Amber — Stopped
-              : userColor || '#10b981';       // Custom User Color or Emerald — Moving
+        : status === 'stationary'
+          ? '#f97316'        // Orange — Long stationary (not yet incident)
+          : status === 'stopped'
+            ? '#f59e0b'        // Amber — Stopped
+            : userColor || '#10b981';       // Custom User Color or Emerald — Moving/Offline
 
   el.innerHTML = `
     <div style="
@@ -273,6 +271,8 @@ export default function EventMonitoringPage() {
         
         let marker = clusterMarkers.current.get(key);
         if (!marker) {
+          const wrapper = document.createElement('div');
+          
           const el = document.createElement('div');
           el.className = 'dashly-cluster';
           el.style.cssText = `
@@ -292,22 +292,23 @@ export default function EventMonitoringPage() {
             transition: transform 0.2s;
           `;
           el.innerText = String(pointCount);
+          wrapper.appendChild(el);
           
-          el.addEventListener('click', () => {
+          wrapper.addEventListener('click', () => {
              const expansionZoom = superclusterRef.current!.getClusterExpansionZoom(clusterId);
              map.flyTo({ center: [lng, lat], zoom: expansionZoom });
           });
-          el.addEventListener('mouseenter', () => el.style.transform = 'scale(1.1)');
-          el.addEventListener('mouseleave', () => el.style.transform = 'scale(1)');
+          wrapper.addEventListener('mouseenter', () => el.style.transform = 'scale(1.15)');
+          wrapper.addEventListener('mouseleave', () => el.style.transform = 'scale(1)');
           
-          marker = new maplibregl.Marker({ element: el, anchor: 'center', pitchAlignment: 'viewport' })
+          marker = new maplibregl.Marker({ element: wrapper, anchor: 'center', pitchAlignment: 'viewport' })
             .setLngLat([lng, lat])
             .addTo(map);
           clusterMarkers.current.set(key, marker);
         } else {
           marker.setLngLat([lng, lat]);
-          marker.getElement().innerText = String(pointCount);
-          marker.getElement().style.display = 'flex';
+          (marker.getElement().firstChild as HTMLDivElement).innerText = String(pointCount);
+          marker.getElement().style.display = 'block';
         }
       } else {
         const userId = cluster.properties.userId;
@@ -873,11 +874,15 @@ export default function EventMonitoringPage() {
           let marker = markers.current.get(userId);
           // If we don't have a color yet, generate one for the new participant
           if (!data.color) {
-            const currentP = participantsInfo.current.get(userId) as any;
-            data.color = currentP?.color || generateRandomColor();
-            if (currentP) {
-               currentP.color = data.color; // Save it back so it's consistent
+            let currentP = participantsInfo.current.get(userId) as any;
+            if (!currentP) {
+               currentP = { name: data.name, bibNumber: data.bibNumber };
+               participantsInfo.current.set(userId, currentP);
             }
+            if (!currentP.color) {
+               currentP.color = generateRandomColor();
+            }
+            data.color = currentP.color;
           }
 
           // Auto-resolve off-route if they returned
