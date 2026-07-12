@@ -10,7 +10,9 @@ interface Position {
   name?: string;
   bibNumber?: string;
   isOffline?: boolean;
-  timestamp?: string | Date;
+  timestamp?: string | Date | number;
+  capturedAt?: string | Date | number;
+  captured_at?: string | Date | number;
 }
 
 interface LeaderboardEntry {
@@ -94,8 +96,10 @@ export const useSocketStore = create<SocketState>((set, get) => ({
           // ==========================================
           // KODE PENGUJIAN LATENSI UNTUK SKRIPSI
           // ==========================================
-          if (p.timestamp) {
-            const timeSentFromMobile = new Date(p.timestamp);
+          const rawTime = p.timestamp || p.capturedAt || p.captured_at;
+          
+          if (rawTime) {
+            const timeSentFromMobile = new Date(rawTime);
             const timeReceivedAtDashboard = new Date();
             
             const latencyMs = timeReceivedAtDashboard.getTime() - timeSentFromMobile.getTime();
@@ -113,6 +117,8 @@ export const useSocketStore = create<SocketState>((set, get) => ({
               `  ├─ Diterima di Dasbor  : ${formatTime(timeReceivedAtDashboard)} \n` +
               `  └─ Total Latensi       : ${latencyMs} ms`
             );
+          } else {
+            console.warn(`[DEBUG] Tidak ada variabel waktu pada peserta ${p.userId}. Isi data:`, p);
           }
           // ==========================================
         });
