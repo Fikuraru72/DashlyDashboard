@@ -713,6 +713,35 @@ export default function PublicEventMonitoringPage() {
             data.bibNumber = pInfo.bibNumber || data.bibNumber;
           }
 
+          // ==========================================
+          // KODE PENGUJIAN LATENSI UNTUK SKRIPSI
+          // ==========================================
+          const rawTime = data.timestamp || data.capturedAt || data.captured_at;
+          
+          if (rawTime) {
+            const timeSentFromMobile = new Date(rawTime);
+            const timeReceivedAtDashboard = new Date();
+            
+            const latencyMs = timeReceivedAtDashboard.getTime() - timeSentFromMobile.getTime();
+            
+            const formatTime = (d: Date) => {
+              return `${d.getHours().toString().padStart(2, '0')}:` +
+                     `${d.getMinutes().toString().padStart(2, '0')}:` +
+                     `${d.getSeconds().toString().padStart(2, '0')}.` +
+                     `${d.getMilliseconds().toString().padStart(3, '0')}`;
+            };
+
+            console.log(
+              `[LATENCY TEST] Peserta ID: ${userId} \n` +
+              `  ├─ Dikirim dari Mobile : ${formatTime(timeSentFromMobile)} \n` +
+              `  ├─ Diterima di Dasbor  : ${formatTime(timeReceivedAtDashboard)} \n` +
+              `  └─ Total Latensi       : ${latencyMs} ms`
+            );
+          } else {
+            console.warn(`[DEBUG] Tidak ada variabel waktu pada peserta ${userId}. Isi data:`, data);
+          }
+          // ==========================================
+
           if (!mapIsReadyRef.current || !mapInstance.current) {
             pendingUpdates.current.push({ userId, data, lat, lng });
             return;
