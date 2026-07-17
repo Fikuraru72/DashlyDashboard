@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react() as any],
   resolve: { tsconfigPaths: true },
   fmt: {
     ignorePatterns: [".next/**", "dist/**", ".pi-subagents/**", "AGENTS.md", "next-env.d.ts"],
