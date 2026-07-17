@@ -2,13 +2,28 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Route, Trash2, MapPin, Users, Info, BoxSelect, Sparkles, CheckCircle, Calendar, Upload, MousePointer2, FileCode, Check, X as CloseIcon, Timer, Clock, Bike, Footprints, Image as ImageIcon } from "lucide-react";
-import { apiFetch } from "@/lib/api";
-import { toast } from "sonner";
+import {
+  Activity,
+  Route,
+  Trash2,
+  MapPin,
+  Users,
+  Info,
+  Sparkles,
+  CheckCircle,
+  Calendar,
+  Upload,
+  MousePointer2,
+  FileCode,
+  Timer,
+  Clock,
+  Bike,
+  Footprints,
+  Image as ImageIcon,
+} from "lucide-react";
+import { apiFetch, authenticatedFetch } from "@/lib/api";
 import MapBuilderWrapper from "@/components/map/index-builder";
 import LocationPickerMapWrapper from "@/components/map/index-picker";
-import LocationSearch from "@/components/map/LocationSearch";
-import { convertFileToGeoJSON, extractMainRoute } from "@/lib/utils/route-converter";
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -61,7 +76,7 @@ export default function CreateEventPage() {
   const handleFileUpload = async (file: File) => {
     setUploadError("");
     const extension = file.name.split(".").pop()?.toLowerCase();
-    
+
     if (extension !== "gpx" && extension !== "kml") {
       setUploadError("Please upload a .gpx or .kml file.");
       return;
@@ -69,16 +84,16 @@ export default function CreateEventPage() {
 
     try {
       const token = getCookie("auth_token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`${apiUrl}/events/upload-gpx`, {
+      const res = await authenticatedFetch(`${apiUrl}/events/upload-gpx`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: formData
+        body: formData,
       });
 
       if (!res.ok) {
@@ -87,7 +102,7 @@ export default function CreateEventPage() {
       }
 
       const { data } = await res.json();
-      
+
       // Keep distance and elevation state
       // (Need to add these to component state to submit later)
       setTotalDistance(data.totalDistanceMeters);
@@ -95,7 +110,7 @@ export default function CreateEventPage() {
 
       setGeoJson({
         type: "FeatureCollection",
-        features: [data.geoJson]
+        features: [data.geoJson],
       });
     } catch (err: any) {
       setUploadError(err.message || "Failed to upload file");
@@ -106,13 +121,13 @@ export default function CreateEventPage() {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
+    if (file) void handleFileUpload(file);
   };
 
   const getCookie = (name: string) => {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(';').shift();
+    if (parts.length === 2) return parts.pop()?.split(";").shift();
     return null;
   };
 
@@ -135,7 +150,7 @@ export default function CreateEventPage() {
 
     try {
       const token = getCookie("auth_token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
       const payload = {
         name,
@@ -146,7 +161,9 @@ export default function CreateEventPage() {
         startTime: new Date(startTime).toISOString(),
         endTime: new Date(endTime).toISOString(),
         registrationOpen: registrationOpen ? new Date(registrationOpen).toISOString() : undefined,
-        registrationClose: registrationClose ? new Date(registrationClose).toISOString() : undefined,
+        registrationClose: registrationClose
+          ? new Date(registrationClose).toISOString()
+          : undefined,
         locationName,
         city,
         province,
@@ -164,16 +181,15 @@ export default function CreateEventPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       setSuccess(true);
       setTimeout(() => {
         router.push("/dashboard/events");
       }, 2000);
-
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -183,7 +199,6 @@ export default function CreateEventPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors font-sans overflow-hidden">
-
       {/* Header */}
       <header className="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 flex items-center justify-between shadow-sm z-10 transition-colors">
         <div className="flex items-center gap-4">
@@ -203,7 +218,6 @@ export default function CreateEventPage() {
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden p-6 gap-6 relative">
-
         {/* Success Toast / Notification */}
         {success && (
           <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-10 duration-500">
@@ -216,13 +230,14 @@ export default function CreateEventPage() {
 
         {/* Left Column: Form */}
         <aside className="w-full lg:w-[450px] flex-shrink-0 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-y-auto">
-          
           <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
             <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <MapPin className="w-6 h-6 text-indigo-500" />
               Event Details
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Configure competition parameters and race details.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Configure competition parameters and race details.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 flex-1 flex flex-col gap-5">
@@ -235,7 +250,9 @@ export default function CreateEventPage() {
 
             {/* General Information */}
             <div className="pt-2 space-y-4">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">General Information</h3>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">
+                General Information
+              </h3>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
                   Event Name
@@ -278,7 +295,11 @@ export default function CreateEventPage() {
                   <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 group">
                     <img src={bannerImage} alt="Banner" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button type="button" onClick={() => setBannerImage("")} className="px-4 py-2 bg-rose-500 text-white rounded-lg text-sm font-bold flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBannerImage("")}
+                        className="px-4 py-2 bg-rose-500 text-white rounded-lg text-sm font-bold flex items-center gap-2"
+                      >
                         <Trash2 size={16} /> Remove
                       </button>
                     </div>
@@ -287,10 +308,19 @@ export default function CreateEventPage() {
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer group">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <ImageIcon className="w-8 h-8 mb-2 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                      <p className="mb-2 text-sm text-slate-500 dark:text-slate-400"><span className="font-bold">Click to upload</span> or drag and drop</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">PNG, JPG, or WEBP (Max. 5MB)</p>
+                      <p className="mb-2 text-sm text-slate-500 dark:text-slate-400">
+                        <span className="font-bold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        PNG, JPG, or WEBP (Max. 5MB)
+                      </p>
                     </div>
-                    <input type="file" className="hidden" accept="image/*" onChange={handleBannerUpload} />
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleBannerUpload}
+                    />
                   </label>
                 )}
               </div>
@@ -350,8 +380,10 @@ export default function CreateEventPage() {
 
               {/* Registration Section */}
               <div className="pt-6 space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">Registration</h3>
-                
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">
+                  Registration
+                </h3>
+
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
                     Max Participants
@@ -365,7 +397,9 @@ export default function CreateEventPage() {
                       min="1"
                       required
                       value={maxParticipants}
-                      onChange={(e) => setMaxParticipants(e.target.value === "" ? "" : Number(e.target.value))}
+                      onChange={(e) =>
+                        setMaxParticipants(e.target.value === "" ? "" : Number(e.target.value))
+                      }
                       className="block w-full pl-10 pr-3 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:ring-cyan-500/20 dark:focus:border-cyan-500 transition-all outline-none"
                       placeholder="1000"
                     />
@@ -410,18 +444,10 @@ export default function CreateEventPage() {
 
               {/* Location Section */}
               <div className="pt-6 space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">Location</h3>
-                
-                <LocationSearch 
-                  onLocationSelect={(result) => {
-                    setLocationName(result.name);
-                    if (result.city) setCity(result.city);
-                    if (result.province) setProvince(result.province);
-                    setLatitude(result.latitude);
-                    setLongitude(result.longitude);
-                  }}
-                />
-                
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">
+                  Location
+                </h3>
+
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
                     Location Name (e.g. Venue)
@@ -434,10 +460,12 @@ export default function CreateEventPage() {
                     placeholder="Gelora Bung Karno"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">City</label>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
+                      City
+                    </label>
                     <input
                       type="text"
                       value={city}
@@ -447,7 +475,9 @@ export default function CreateEventPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">Province</label>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
+                      Province
+                    </label>
                     <input
                       type="text"
                       value={province}
@@ -460,39 +490,49 @@ export default function CreateEventPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">Latitude</label>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
+                      Latitude
+                    </label>
                     <input
                       type="number"
                       step="any"
                       value={latitude}
-                      onChange={(e) => setLatitude(e.target.value === "" ? "" : Number(e.target.value))}
+                      onChange={(e) =>
+                        setLatitude(e.target.value === "" ? "" : Number(e.target.value))
+                      }
                       className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-medium transition-all outline-none"
                       placeholder="-6.2146"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">Longitude</label>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
+                      Longitude
+                    </label>
                     <input
                       type="number"
                       step="any"
                       value={longitude}
-                      onChange={(e) => setLongitude(e.target.value === "" ? "" : Number(e.target.value))}
+                      onChange={(e) =>
+                        setLongitude(e.target.value === "" ? "" : Number(e.target.value))
+                      }
                       className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-medium transition-all outline-none"
                       placeholder="106.8451"
                     />
                   </div>
                 </div>
-                
+
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">Pick Location on Map</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
+                    Pick Location on Map
+                  </label>
                   <div className="h-[250px] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
-                    <LocationPickerMapWrapper 
-                      latitude={latitude} 
-                      longitude={longitude} 
+                    <LocationPickerMapWrapper
+                      latitude={latitude}
+                      longitude={longitude}
                       onChange={(lat: number, lng: number) => {
                         setLatitude(lat);
                         setLongitude(lng);
-                      }} 
+                      }}
                     />
                   </div>
                 </div>
@@ -500,7 +540,9 @@ export default function CreateEventPage() {
 
               {/* Monitoring Section */}
               <div className="pt-6 space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">Monitoring</h3>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-2">
+                  Monitoring
+                </h3>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
                     Start Time *
@@ -551,7 +593,9 @@ export default function CreateEventPage() {
                       onChange={(e) => setMonitoringStartOffset(Number(e.target.value))}
                       className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:ring-cyan-500/20 dark:focus:border-cyan-500 transition-all outline-none"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">min</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">
+                      min
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -566,16 +610,18 @@ export default function CreateEventPage() {
                       onChange={(e) => setMonitoringEndOffset(Number(e.target.value))}
                       className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:ring-cyan-500/20 dark:focus:border-cyan-500 transition-all outline-none"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">min</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">
+                      min
+                    </span>
                   </div>
                 </div>
               </div>
 
-
-
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-slate-600 dark:text-slate-300">Route Configuration</span>
+                  <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                    Route Configuration
+                  </span>
                   {geoJson?.features?.length > 0 ? (
                     <span className="px-2 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 rounded-md text-[10px] font-extrabold uppercase tracking-wide">
                       Route Captured
@@ -593,8 +639,8 @@ export default function CreateEventPage() {
                     type="button"
                     onClick={() => setActiveTab("manual")}
                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                      activeTab === "manual" 
-                        ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm" 
+                      activeTab === "manual"
+                        ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm"
                         : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                     }`}
                   >
@@ -605,8 +651,8 @@ export default function CreateEventPage() {
                     type="button"
                     onClick={() => setActiveTab("upload")}
                     className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                      activeTab === "upload" 
-                        ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm" 
+                      activeTab === "upload"
+                        ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm"
                         : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                     }`}
                   >
@@ -617,27 +663,34 @@ export default function CreateEventPage() {
 
                 {activeTab === "upload" && (
                   <div className="animate-in fade-in zoom-in-95 duration-200">
-                    <div 
-                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
                       onDragLeave={() => setIsDragging(false)}
                       onDrop={onDrop}
                       className={`relative border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center transition-all ${
-                        isDragging 
-                          ? "border-indigo-500 bg-indigo-500/10" 
+                        isDragging
+                          ? "border-indigo-500 bg-indigo-500/10"
                           : "border-slate-200 dark:border-slate-800/60 hover:border-slate-300"
                       }`}
                     >
                       <FileCode size={20} className="text-slate-400 mb-2" />
-                      <h3 className="text-[11px] font-bold text-slate-700 dark:text-white uppercase tracking-tight">Drop GPX/KML</h3>
-                      <input 
-                        type="file" 
-                        accept=".gpx,.kml" 
-                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                      <h3 className="text-[11px] font-bold text-slate-700 dark:text-white uppercase tracking-tight">
+                        Drop GPX/KML
+                      </h3>
+                      <input
+                        type="file"
+                        accept=".gpx,.kml"
+                        className="absolute inset-0 opacity-0 cursor-pointer"
                         onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
                       />
                     </div>
                     {uploadError && (
-                      <p className="text-[9px] font-bold text-rose-500 mt-2 text-center uppercase tracking-widest">{uploadError}</p>
+                      <p className="text-[9px] font-bold text-rose-500 mt-2 text-center uppercase tracking-widest">
+                        {uploadError}
+                      </p>
                     )}
                   </div>
                 )}
@@ -659,9 +712,9 @@ export default function CreateEventPage() {
 
         {/* Right Column: Dynamic Map Builder */}
         <main className="flex-1 flex border border-slate-200 dark:border-slate-800 rounded-2xl relative shadow-sm overflow-hidden bg-slate-200 dark:bg-[#0f172a]">
-          <MapBuilderWrapper 
-            onGeoJsonChange={setGeoJson} 
-            clearTrigger={clearTrigger} 
+          <MapBuilderWrapper
+            onGeoJsonChange={setGeoJson}
+            clearTrigger={clearTrigger}
             previewGeojson={activeTab === "upload" ? geoJson : null}
           />
 
@@ -676,7 +729,6 @@ export default function CreateEventPage() {
             </button>
           </div>
         </main>
-
       </div>
     </div>
   );

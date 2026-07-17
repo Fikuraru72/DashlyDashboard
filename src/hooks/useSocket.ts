@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useParticipantStore } from "@/store/useParticipantStore";
+import { AUTH_TOKENS_CHANGED_EVENT, getAccessToken } from "@/lib/api";
 
 export function useSocket(eventId: string) {
   const [isConnected, setIsConnected] = useState(false);
@@ -15,16 +16,13 @@ export function useSocket(eventId: string) {
   useEffect(() => {
     if (!eventId) return;
 
-    // Get JWT Token from cookies
-    let token = "";
-    if (typeof window !== "undefined") {
-      const match = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
-      if (match) token = match[2];
-    }
+    const token = getAccessToken();
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined'
-      ? `http://${window.location.hostname}:3000`
-      : "http://localhost:3000");
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL ||
+      (typeof window !== "undefined"
+        ? `http://${window.location.hostname}:3001`
+        : "http://localhost:3001");
 
     const socketInstance = io(backendUrl, {
       auth: {
@@ -54,6 +52,12 @@ export function useSocket(eventId: string) {
       setIsConnected(false);
       setSocketConnected(false);
     });
+
+    const reconnectWithCurrentToken = () => {
+      socketInstance.auth = { token: getAccessToken() };
+      socketInstance.disconnect().connect();
+    };
+    window.addEventListener(AUTH_TOKENS_CHANGED_EVENT, reconnectWithCurrentToken);
 
     // Handle throttled batch position updates (emitted every 2 seconds)
     socketInstance.on("position_batch", (data) => {
@@ -108,7 +112,7 @@ export function useSocket(eventId: string) {
           type: "OFF_ROUTE",
           message: `Participant went off route by ${Math.round(distance)} meters.`,
           timestamp: data.timestamp || new Date().toISOString(),
-          severity: "MEDIUM"
+          severity: "MEDIUM",
         });
         updateParticipant(String(pId), { status: "off-route" });
       }
@@ -126,7 +130,7 @@ export function useSocket(eventId: string) {
           type: "SOS_EMERGENCY",
           message: "Participant triggered manual SOS from mobile app.",
           timestamp: data.timestamp || new Date().toISOString(),
-          severity: "HIGH"
+          severity: "HIGH",
         });
         // Update user status and location
         updateParticipant(String(pId), {
@@ -155,7 +159,7 @@ export function useSocket(eventId: string) {
           type: "STOP",
           message: data.message || `Participant stopped for ${data.durationSec || 0} seconds.`,
           timestamp: data.timestamp || new Date().toISOString(),
-          severity: "MEDIUM"
+          severity: "MEDIUM",
         });
         updateParticipant(String(pId), { status: "stuck" });
       }
@@ -178,6 +182,7 @@ export function useSocket(eventId: string) {
 
     // Cleanup on unmount
     return () => {
+      window.removeEventListener(AUTH_TOKENS_CHANGED_EVENT, reconnectWithCurrentToken);
       socketInstance.disconnect();
     };
   }, [eventId]); // FIX: Only eventId — no store functions that cause reconnect

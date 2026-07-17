@@ -14,10 +14,8 @@ export interface ParticipantData {
 
 export interface Anomaly {
   id: string;
-  eventId?: string;
   participantId?: string;
   userId?: string;
-  name?: string;
   type: string;
   message: string;
   timestamp: string;
@@ -46,7 +44,6 @@ interface ParticipantStore {
   setParticipants: (participants: Record<string, ParticipantData>) => void; // helper for mock data
   setSelectedParticipantId: (id: string | null) => void;
   removeAnomaly: (id: string) => void;
-  removeAnomalyByType: (userId: string, type: string) => void;
 }
 
 export const useParticipantStore = create<ParticipantStore>((set) => ({
@@ -68,12 +65,15 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
         speed: 0,
         battery: 100,
         status: "inactive",
-        pathHistory: []
+        pathHistory: [],
       };
 
       const newLat = data.lat ?? existing.lat;
       const newLng = data.lng ?? existing.lng;
-      const isNewPosition = data.lat !== undefined && data.lng !== undefined && (newLat !== existing.lat || newLng !== existing.lng);
+      const isNewPosition =
+        data.lat !== undefined &&
+        data.lng !== undefined &&
+        (newLat !== existing.lat || newLng !== existing.lng);
 
       let newPathHistory = [...existing.pathHistory];
       if (isNewPosition) {
@@ -85,9 +85,10 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
 
       // FIX: Preserve real name from initial fetch; only override if new data
       // provides a meaningful name (not a generic fallback)
-      const resolvedName = (data.name && !data.name.startsWith('User ') && !data.name.startsWith('Runner '))
-        ? data.name
-        : existing.name;
+      const resolvedName =
+        data.name && !data.name.startsWith("User ") && !data.name.startsWith("Runner ")
+          ? data.name
+          : existing.name;
 
       return {
         participants: {
@@ -96,9 +97,9 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
             ...existing,
             ...data,
             name: resolvedName,
-            pathHistory: newPathHistory
-          }
-        }
+            pathHistory: newPathHistory,
+          },
+        },
       };
     }),
 
@@ -110,14 +111,18 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
 
       // Extract coords WITH timestamp for proper chronological ordering
       const newHistory: { coord: [number, number]; ts: number }[] = points.map((p: any) => ({
-        coord: [parseFloat(p.lat ?? p.latitude), parseFloat(p.lng ?? p.longitude)] as [number, number],
+        coord: [parseFloat(p.lat ?? p.latitude), parseFloat(p.lng ?? p.longitude)] as [
+          number,
+          number,
+        ],
         ts: p.captured_at ? new Date(p.captured_at).getTime() : 0,
       }));
 
       // Wrap existing history (no timestamps, but they're already in order)
       // Assign incrementing pseudo-timestamps to preserve their relative order
       // Existing live points came AFTER offline points chronologically
-      const baseTs = newHistory.length > 0 ? Math.max(...newHistory.map(h => h.ts)) + 1 : Date.now();
+      const baseTs =
+        newHistory.length > 0 ? Math.max(...newHistory.map((h) => h.ts)) + 1 : Date.now();
       const existingWithTs = existing.pathHistory.map((coord, i) => ({
         coord,
         ts: baseTs + i,
@@ -126,8 +131,8 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
       // Merge and sort by timestamp to ensure correct chronological path
       let combined = [...newHistory, ...existingWithTs]
         .sort((a, b) => a.ts - b.ts)
-        .map(h => h.coord);
-      
+        .map((h) => h.coord);
+
       if (combined.length > 1000) {
         combined = combined.slice(-1000);
       }
@@ -137,9 +142,9 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
           ...state.participants,
           [pId]: {
             ...existing,
-            pathHistory: combined
-          }
-        }
+            pathHistory: combined,
+          },
+        },
       };
     }),
 
@@ -151,86 +156,38 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
         participants[pId] = {
           ...participants[pId],
           isAnomaly: true,
-          status: "emergency"
+          status: "emergency",
         };
       }
-      
+
       const newAnomaly = {
         ...anomaly,
-        id: anomaly.id || `anomaly-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+        id: anomaly.id || `anomaly-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       };
 
-      // Deduplicate by userId and type
-      const filteredAnomalies = state.anomalies.filter(
-        (a) => !(a.userId === newAnomaly.userId && a.type === newAnomaly.type)
-      );
-
       return {
-        anomalies: [newAnomaly, ...filteredAnomalies].slice(0, 50), // keep last 50
-        participants
+        anomalies: [newAnomaly, ...state.anomalies].slice(0, 50), // keep last 50
+        participants,
       };
     }),
 
   removeAnomaly: (id) =>
-    set((state) => {
-      const anomalyToRemove = state.anomalies.find(a => a.id === id);
-      const remainingAnomalies = state.anomalies.filter((a) => a.id !== id);
-      
-      const participants = { ...state.participants };
-      
-      if (anomalyToRemove) {
-        const pId = String(anomalyToRemove.userId || anomalyToRemove.participantId);
-        if (pId && participants[pId]) {
-          const hasOtherAnomalies = remainingAnomalies.some(a => String(a.userId) === pId || String(a.participantId) === pId);
-          participants[pId] = {
-            ...participants[pId],
-            isAnomaly: hasOtherAnomalies,
-            status: hasOtherAnomalies ? "emergency" : "active"
-          };
-        }
-      }
-
-      return {
-        anomalies: remainingAnomalies,
-        participants
-      };
-    }),
-
-  removeAnomalyByType: (userId: string, type: string) =>
-    set((state) => {
-      const pId = String(userId);
-      const participants = { ...state.participants };
-      
-      // Also reset anomaly flag on participant if they have no other anomalies
-      const remainingAnomalies = state.anomalies.filter((a) => !(a.userId === pId && a.type === type));
-      const hasOtherAnomalies = remainingAnomalies.some(a => a.userId === pId);
-      
-      if (pId && participants[pId]) {
-        participants[pId] = {
-          ...participants[pId],
-          isAnomaly: hasOtherAnomalies,
-          status: hasOtherAnomalies ? "emergency" : "active"
-        };
-      }
-
-      return {
-        anomalies: remainingAnomalies,
-        participants
-      };
-    }),
+    set((state) => ({
+      anomalies: state.anomalies.filter((a) => a.id !== id),
+    })),
 
   setEventMetadata: (metadata) =>
     set(() => ({
-      eventMetadata: metadata
+      eventMetadata: metadata,
     })),
 
   setParticipants: (participants) =>
     set(() => ({
-      participants
+      participants,
     })),
 
   setSelectedParticipantId: (id) =>
     set(() => ({
-      selectedParticipantId: id
-    }))
+      selectedParticipantId: id,
+    })),
 }));

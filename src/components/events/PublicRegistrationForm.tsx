@@ -5,18 +5,18 @@ import { Download, CheckCircle2, User, Mail, Phone, ShieldCheck, FileText } from
 import { QRCodeCanvas } from "qrcode.react";
 import jsPDF from "jspdf";
 
-export default function PublicRegistrationForm({ 
-  eventId, 
+export default function PublicRegistrationForm({
+  eventId,
   eventStatus,
   eventName,
   eventDate,
-  eventLocation
-}: { 
-  eventId: number, 
-  eventStatus: string,
-  eventName?: string,
-  eventDate?: string,
-  eventLocation?: string
+  eventLocation,
+}: {
+  eventId: number;
+  eventStatus: string;
+  eventName?: string;
+  eventDate?: string;
+  eventLocation?: string;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,21 +24,26 @@ export default function PublicRegistrationForm({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [successData, setSuccessData] = useState<{ bibNumber: string, qrCode?: string, message: string, token?: string } | null>(null);
+  const [successData, setSuccessData] = useState<{
+    bibNumber: string;
+    qrCode?: string;
+    message: string;
+    token?: string;
+  } | null>(null);
 
   const generatePDF = () => {
     const doc = new jsPDF();
-    
+
     // Title
     doc.setFontSize(22);
     doc.setTextColor(30, 41, 59); // slate-800
     doc.text("Event Registration Ticket", 105, 20, { align: "center" });
-    
+
     // Event Details
     doc.setFontSize(16);
     doc.setTextColor(71, 85, 105); // slate-600
     doc.text(eventName || "Dashly Event", 105, 35, { align: "center" });
-    
+
     doc.setFontSize(12);
     if (eventDate) {
       doc.text(`Date: ${new Date(eventDate).toLocaleDateString()}`, 105, 45, { align: "center" });
@@ -46,11 +51,11 @@ export default function PublicRegistrationForm({
     if (eventLocation) {
       doc.text(`Location: ${eventLocation}`, 105, 52, { align: "center" });
     }
-    
+
     // Line separator
     doc.setDrawColor(203, 213, 225); // slate-300
     doc.line(20, 60, 190, 60);
-    
+
     // Participant
     doc.setFontSize(14);
     doc.setTextColor(30, 41, 59);
@@ -59,7 +64,7 @@ export default function PublicRegistrationForm({
     if (phone) {
       doc.text(`Phone: ${phone}`, 20, 91);
     }
-    
+
     // BIB
     doc.setFontSize(14);
     doc.setTextColor(15, 23, 42); // slate-900
@@ -68,24 +73,26 @@ export default function PublicRegistrationForm({
     doc.setFont("helvetica", "bold");
     doc.text(successData?.bibNumber || "", 105, 130, { align: "center" });
     doc.setFont("helvetica", "normal");
-    
+
     // QR Code
     const qrElement = document.getElementById("qr-canvas") as HTMLCanvasElement;
     if (qrElement) {
       const qrDataUrl = qrElement.toDataURL("image/png");
       doc.addImage(qrDataUrl, "PNG", 75, 150, 60, 60);
     }
-    
+
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139); // slate-500
-    doc.text("Scan this QR code in the Dashly app for quick access.", 105, 220, { align: "center" });
-    
+    doc.text("Scan this QR code in the Dashly app for quick access.", 105, 220, {
+      align: "center",
+    });
+
     // Border
     doc.setDrawColor(79, 70, 229); // indigo-600
     doc.setLineWidth(1);
     doc.rect(10, 10, 190, 277);
-    
-    doc.save(`Ticket-${eventName?.replace(/\s+/g, '-') || 'Event'}-${successData?.bibNumber}.pdf`);
+
+    doc.save(`Ticket-${eventName?.replace(/\s+/g, "-") || "Event"}-${successData?.bibNumber}.pdf`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,7 +126,7 @@ export default function PublicRegistrationForm({
   if (normalizedStatus !== "IDLE" && normalizedStatus !== "REGISTRATION_OPEN") {
     return (
       <div className="w-full py-4 bg-slate-800 text-slate-400 rounded-xl font-bold flex items-center justify-center text-center cursor-not-allowed">
-        Registration {normalizedStatus === 'REGISTRATION_CLOSED' ? 'Closed' : 'Unavailable'}
+        Registration {normalizedStatus === "REGISTRATION_CLOSED" ? "Closed" : "Unavailable"}
       </div>
     );
   }
@@ -132,22 +139,26 @@ export default function PublicRegistrationForm({
             <CheckCircle2 className="w-6 h-6 text-emerald-400" />
           </div>
           <h4 className="font-bold text-emerald-400 text-lg">Registration Successful!</h4>
-          <p className="text-sm text-slate-300">
-            {successData.message}
-          </p>
+          <p className="text-sm text-slate-300">{successData.message}</p>
 
           <div className="py-4 border-y border-emerald-500/20 my-4 flex flex-col items-center">
-            <p className="text-xs text-emerald-400/80 font-bold uppercase tracking-widest mb-1">YOUR BIB NUMBER</p>
-            <p className="text-3xl font-black text-white tracking-wider mb-4">{successData.bibNumber}</p>
+            <p className="text-xs text-emerald-400/80 font-bold uppercase tracking-widest mb-1">
+              YOUR BIB NUMBER
+            </p>
+            <p className="text-3xl font-black text-white tracking-wider mb-4">
+              {successData.bibNumber}
+            </p>
             {successData.token && (
               <div className="bg-white p-2 rounded-xl inline-block shadow-sm">
                 <QRCodeCanvas id="qr-canvas" value={successData.token} size={150} />
               </div>
             )}
-            <p className="text-xs text-slate-400 mt-2">Scan this QR in the Dashly app to quickly find this event.</p>
+            <p className="text-xs text-slate-400 mt-2">
+              Scan this QR in the Dashly app to quickly find this event.
+            </p>
           </div>
 
-          <button 
+          <button
             onClick={generatePDF}
             className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-indigo-500/25 mb-4"
           >
@@ -157,14 +168,25 @@ export default function PublicRegistrationForm({
           <div className="pt-2">
             <h5 className="font-bold text-slate-200 mb-3 text-sm">Next Steps:</h5>
             <ol className="text-sm text-slate-400 text-left space-y-2 list-decimal list-inside bg-slate-900/50 p-4 rounded-xl">
-              <li>Download the <b>Dashly App</b> from the store.</li>
-              <li>Login using your email: <b>{email}</b></li>
-              <li>Go to <b>Explore</b> and scan the QR code above.</li>
-              <li>Click <b>Verify BIB</b> and enter <b>{successData.bibNumber}</b>.</li>
+              <li>
+                Download the <b>Dashly App</b> from the store.
+              </li>
+              <li>
+                Login using your email: <b>{email}</b>
+              </li>
+              <li>
+                Go to <b>Explore</b> and scan the QR code above.
+              </li>
+              <li>
+                Click <b>Verify BIB</b> and enter <b>{successData.bibNumber}</b>.
+              </li>
             </ol>
           </div>
 
-          <a href="/#download" className="mt-4 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-emerald-500/25">
+          <a
+            href="/#download"
+            className="mt-4 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-emerald-500/25"
+          >
             <Download className="w-4 h-4" /> Download Dashly App
           </a>
         </div>
@@ -176,7 +198,9 @@ export default function PublicRegistrationForm({
     <div className="space-y-4">
       <div className="p-5 bg-slate-800/50 border border-slate-700/50 rounded-2xl">
         <h4 className="font-bold text-white mb-1">Register Now</h4>
-        <p className="text-sm text-slate-400 mb-6">Enter your details to secure your spot and get your BIB number.</p>
+        <p className="text-sm text-slate-400 mb-6">
+          Enter your details to secure your spot and get your BIB number.
+        </p>
 
         {error && (
           <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-lg">

@@ -1,4 +1,9 @@
-import { getRouteCoordinates, getRouteLatLngs, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
+import { describe, expect, it } from "vitest";
+import {
+  getRouteCoordinates,
+  getRouteLatLngs,
+  toRouteFeatureCollection,
+} from "@/lib/utils/route-normalizer";
 
 const coords: [number, number][] = [
   [106.1, -6.1],

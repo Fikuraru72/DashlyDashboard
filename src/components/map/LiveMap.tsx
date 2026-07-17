@@ -60,13 +60,14 @@ function MapBoundsUpdater({ routeGeojson }: { routeGeojson: any }) {
 
 export default function LiveMap({ routeGeojson, livePositions = {} }: LiveMapProps) {
   const routeCoordinates = getRouteLatLngs(routeGeojson);
-  const defaultCenter: [number, number] = routeCoordinates.length > 0 ? routeCoordinates[0] : [-6.200000, 106.816666];
+  const defaultCenter: [number, number] =
+    routeCoordinates.length > 0 ? routeCoordinates[0] : [-6.2, 106.816666];
 
   return (
     <div className="w-full h-full relative rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800">
-      <MapContainer 
-        center={defaultCenter} 
-        zoom={13} 
+      <MapContainer
+        center={defaultCenter}
+        zoom={13}
         style={{ height: "100%", width: "100%" }}
         zoomControl={false}
       >
@@ -87,11 +88,7 @@ export default function LiveMap({ routeGeojson, livePositions = {} }: LiveMapPro
             const markerState = pos.state ?? pos.status;
             const markerId = pos.userId ?? pos.id;
             return (
-              <Marker
-                key={markerId}
-                position={[pos.lat, pos.lng]}
-                icon={customIcon(markerState)}
-              >
+              <Marker key={markerId} position={[pos.lat, pos.lng]} icon={customIcon(markerState)}>
                 <Popup>
                   <div className="text-sm">
                     <p className="font-bold">{pos.name || `Runner ${markerId}`}</p>

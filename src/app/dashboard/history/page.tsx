@@ -1,55 +1,46 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { apiFetch, API_URL } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import React from "react";
 import Link from "next/link";
-import { History, Eye, CheckCircle2, Clock, ShieldAlert, Calendar } from "lucide-react";
+import { History, Eye, CheckCircle2, ShieldAlert, Calendar } from "lucide-react";
+
+interface EventSummary {
+  id: number;
+  name: string;
+  status: string;
+  dateEvent?: string;
+  createdAt: string;
+  currentCount?: number;
+  maxParticipants?: number;
+}
 
 export default function HistoryPage() {
-  const [events, setEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const {
+    data: events = [],
+    isPending: loading,
+    error,
+  } = useQuery({
+    queryKey: ["events"],
+    queryFn: async () => (await apiFetch<{ data: EventSummary[] }>(`${API_URL}/events`)).data || [],
+  });
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; auth_token=`);
-        const token = parts.length === 2 ? parts.pop()?.split(';').shift() : null;
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-        const res = await fetch(`${apiUrl}/events`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
-
-        if (!res.ok) {
-          throw new Error("Failed to fetch historical data");
-        }
-        
-        const json = await res.json();
-        setEvents(json.data || []);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchEvents();
-  }, []);
-
-  const completedEvents = events.filter(e => e.status === 'FINISHED' || e.status === 'COMPLETED');
+  const completedEvents = events.filter((e) => e.status === "FINISHED" || e.status === "COMPLETED");
 
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/50 dark:bg-[#0f172a] font-sans h-full">
       <div className="mb-8 max-w-7xl mx-auto flex items-center gap-4">
         <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center shadow-inner">
-            <History className="h-6 w-6 text-indigo-600 dark:text-cyan-400" />
+          <History className="h-6 w-6 text-indigo-600 dark:text-cyan-400" />
         </div>
         <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Race Archives</h1>
-            <p className="text-slate-500 text-sm mt-1 font-medium">Review and analyze past racing events and their telemetry.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+            Race Archives
+          </h1>
+          <p className="text-slate-500 text-sm mt-1 font-medium">
+            Review and analyze past racing events and their telemetry.
+          </p>
         </div>
       </div>
 
@@ -62,7 +53,7 @@ export default function HistoryPage() {
       {error && (
         <div className="max-w-7xl mx-auto p-6 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 rounded-2xl font-bold flex items-center gap-3">
           <ShieldAlert className="w-6 h-6" />
-          {error}
+          {error.message}
         </div>
       )}
 
@@ -71,8 +62,13 @@ export default function HistoryPage() {
           <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
             <CheckCircle2 className="w-8 h-8 text-slate-400" />
           </div>
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-300 tracking-tight">No Events Completed Yet</h3>
-          <p className="text-slate-500 font-medium mt-2">When an active race concludes and is marked as "FINISHED", it will be permanently archived here.</p>
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-300 tracking-tight">
+            No Events Completed Yet
+          </h3>
+          <p className="text-slate-500 font-medium mt-2">
+            When an active race concludes and is marked as "FINISHED", it will be permanently
+            archived here.
+          </p>
         </div>
       )}
 
@@ -86,10 +82,16 @@ export default function HistoryPage() {
               <div className="flex justify-between items-start mb-6">
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Calendar size={12}/>
-                    {new Date(evt.dateEvent || evt.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    <Calendar size={12} />
+                    {new Date(evt.dateEvent || evt.createdAt).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </span>
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight leading-snug pr-2 grayscale opacity-90">{evt.name}</h3>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight leading-snug pr-2 grayscale opacity-90">
+                    {evt.name}
+                  </h3>
                 </div>
 
                 <div className="flex-shrink-0 px-2.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700">
@@ -100,13 +102,22 @@ export default function HistoryPage() {
 
               <div className="flex items-center justify-between mb-8 text-sm text-slate-500 dark:text-slate-400 font-medium bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800/60">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Final Load</span>
-                  <span className="text-slate-700 dark:text-slate-300 text-lg font-black">{evt.currentCount} <span className="text-xs opacity-50">/ {evt.maxParticipants}</span></span>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">
+                    Final Load
+                  </span>
+                  <span className="text-slate-700 dark:text-slate-300 text-lg font-black">
+                    {evt.currentCount}{" "}
+                    <span className="text-xs opacity-50">/ {evt.maxParticipants}</span>
+                  </span>
                 </div>
                 <div className="w-px h-8 bg-slate-200 dark:bg-slate-800"></div>
                 <div className="flex flex-col gap-1 text-right">
-                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Archive ID</span>
-                  <span className="text-slate-600 dark:text-slate-400 font-mono text-sm tracking-tight">{evt.id}</span>
+                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">
+                    Archive ID
+                  </span>
+                  <span className="text-slate-600 dark:text-slate-400 font-mono text-sm tracking-tight">
+                    {evt.id}
+                  </span>
                 </div>
               </div>
 

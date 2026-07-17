@@ -7,18 +7,18 @@ import { DOMParser } from "xmldom";
  * @param type 'gpx' | 'kml'
  * @returns FeatureCollection GeoJSON
  */
-export const convertFileToGeoJSON = (content: string, type: 'gpx' | 'kml'): any => {
+export const convertFileToGeoJSON = (content: string, type: "gpx" | "kml"): any => {
   try {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(content, "text/xml");
-    
+
     let geojson: any;
-    if (type === 'gpx') {
+    if (type === "gpx") {
       geojson = togeojson.gpx(xmlDoc);
     } else {
       geojson = togeojson.kml(xmlDoc);
     }
-    
+
     return geojson;
   } catch (error) {
     console.error(`Error converting ${type.toUpperCase()}:`, error);
@@ -32,16 +32,16 @@ export const convertFileToGeoJSON = (content: string, type: 'gpx' | 'kml'): any 
  */
 export const extractMainRoute = (geojson: any): any => {
   if (!geojson || !geojson.features) return null;
-  
+
   // Filter for LineString or MultiLineString
-  const routeFeatures = geojson.features.filter((f: any) => 
-    f.geometry?.type === 'LineString' || f.geometry?.type === 'MultiLineString'
+  const routeFeatures = geojson.features.filter(
+    (f: any) => f.geometry?.type === "LineString" || f.geometry?.type === "MultiLineString",
   );
-  
+
   if (routeFeatures.length === 0) {
     throw new Error("No valid LineString or route found in the file.");
   }
-  
+
   // If multiple, pick the one with most coordinates (longest)
   return routeFeatures.sort((a: any, b: any) => {
     const aLen = a.geometry.coordinates?.length || 0;

@@ -37,8 +37,7 @@ const collectLines = (geojson: unknown): Line[] => {
   return [];
 };
 
-export const getRouteCoordinates = (geojson: unknown): Line =>
-  collectLines(geojson)[0] ?? [];
+export const getRouteCoordinates = (geojson: unknown): Line => collectLines(geojson)[0] ?? [];
 
 export const getRouteLatLngs = (geojson: unknown): [number, number][] =>
   getRouteCoordinates(geojson).map((coord) => [coord[1], coord[0]]);

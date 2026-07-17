@@ -1,5 +1,8 @@
-import { create } from 'zustand';
-import { io, Socket } from 'socket.io-client';
+import { create } from "zustand";
+import { io, Socket } from "socket.io-client";
+import { AUTH_TOKENS_CHANGED_EVENT, getAccessToken } from "@/lib/api";
+
+let tokenChangeHandler: (() => void) | null = null;
 
 interface Position {
   userId: number;
@@ -10,9 +13,6 @@ interface Position {
   name?: string;
   bibNumber?: string;
   isOffline?: boolean;
-  timestamp?: string | Date | number;
-  capturedAt?: string | Date | number;
-  captured_at?: string | Date | number;
 }
 
 interface LeaderboardEntry {
@@ -54,154 +54,149 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     const currentSocket = get().socket;
     if (currentSocket) return;
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    
-    // Attempt to extract token from cookies if not provided
-    if (!token && typeof document !== 'undefined') {
-      const match = document.cookie.match(new RegExp('(^| )auth_token=([^;]+)'));
-      if (match) token = match[2];
-    }
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+    token ||= getAccessToken() || undefined;
 
     const socket = io(apiUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ["websocket", "polling"],
       auth: token ? { token } : undefined,
       reconnectionAttempts: 5,
     });
 
-    socket.on('connect', () => {
+    socket.io.on("reconnect_attempt", () => {
+      socket.auth = { token: getAccessToken() };
+    });
+    tokenChangeHandler = () => {
+      socket.auth = { token: getAccessToken() };
+      socket.disconnect().connect();
+    };
+    window.addEventListener(AUTH_TOKENS_CHANGED_EVENT, tokenChangeHandler);
+
+    socket.on("connect", () => {
       set({ isConnected: true });
       const { activeEventId } = get();
       if (activeEventId) {
-        socket.emit('joinEventRoom', { eventId: parseInt(activeEventId) });
+        socket.emit("joinEventRoom", { eventId: parseInt(activeEventId) });
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on("disconnect", () => {
       set({ isConnected: false });
     });
 
     // Handle incoming position batch
-    socket.on('position_batch', (data: { eventId: number; positions: Position[] }) => {
+    socket.on("position_batch", (data: { eventId: number; positions: Position[] }) => {
       if (data.eventId.toString() !== get().activeEventId) return;
 
       set((state) => {
         const newPositions = { ...state.livePositions };
-        data.positions.forEach(p => {
+        data.positions.forEach((p) => {
           // Merge with existing to preserve name/bib if not sent in every tick
           newPositions[p.userId] = {
             ...newPositions[p.userId],
             ...p,
           };
-
-          // ==========================================
-          // KODE PENGUJIAN LATENSI UNTUK SKRIPSI
-          // ==========================================
-          const rawTime = p.timestamp || p.capturedAt || p.captured_at;
-          
-          if (rawTime) {
-            const timeSentFromMobile = new Date(rawTime);
-            const timeReceivedAtDashboard = new Date();
-            
-            const latencyMs = timeReceivedAtDashboard.getTime() - timeSentFromMobile.getTime();
-            
-            const formatTime = (date: Date) => {
-              return `${date.getHours().toString().padStart(2, '0')}:` +
-                     `${date.getMinutes().toString().padStart(2, '0')}:` +
-                     `${date.getSeconds().toString().padStart(2, '0')}.` +
-                     `${date.getMilliseconds().toString().padStart(3, '0')}`;
-            };
-
-            console.log(
-              `[LATENCY TEST] Peserta ID: ${p.userId} \n` +
-              `  ├─ Dikirim dari Mobile : ${formatTime(timeSentFromMobile)} \n` +
-              `  ├─ Diterima di Dasbor  : ${formatTime(timeReceivedAtDashboard)} \n` +
-              `  └─ Total Latensi       : ${latencyMs} ms`
-            );
-          } else {
-            console.warn(`[DEBUG] Tidak ada variabel waktu pada peserta ${p.userId}. Isi data:`, p);
-          }
-          // ==========================================
         });
         return { livePositions: newPositions };
       });
     });
 
     // Handle Leaderboard Updates
-    socket.on('ranking_update', (data: { eventId: number; rankings: LeaderboardEntry[] }) => {
-      if (data.eventId.toString() !== get().activeEventId) return;
-      set({ leaderboard: data.rankings });
-    });
+    socket.on(
+      "ranking_update",
+      (data: { participantId: number; intelligence: Omit<LeaderboardEntry, "userId"> }) => {
+        set((state) => {
+          const entry = { ...data.intelligence, userId: data.participantId };
+          const leaderboard = state.leaderboard.filter(
+            ({ userId }) => userId !== data.participantId,
+          );
+          leaderboard.push(entry);
+          leaderboard.sort((a, b) => a.rank - b.rank);
+          return { leaderboard };
+        });
+      },
+    );
 
     // Handle SOS
-    socket.on('sos_triggered', (data: any) => {
+    socket.on("sos_triggered", (data: any) => {
       set((state) => {
         const uid = data.userId || data.participantId;
         const newPositions = { ...state.livePositions };
         if (uid && newPositions[uid]) {
-          newPositions[uid] = { ...newPositions[uid], state: 'FROZEN' };
+          newPositions[uid] = { ...newPositions[uid], state: "FROZEN" };
         }
         return {
           livePositions: newPositions,
-          sosAlerts: [{ ...data, type: 'SOS_EMERGENCY', id: Date.now(), read: false }, ...state.sosAlerts].slice(0, 50)
+          sosAlerts: [
+            { ...data, type: "SOS_EMERGENCY", id: Date.now(), read: false },
+            ...state.sosAlerts,
+          ].slice(0, 50),
         };
       });
     });
 
-    socket.on('anomaly_detected', (data: any) => {
-      if (data.type === 'SOS_ALERT' || data.type === 'SOS_EMERGENCY') {
+    socket.on("anomaly_detected", (data: any) => {
+      if (data.type === "SOS_ALERT" || data.type === "SOS_EMERGENCY") {
         set((state) => {
           const uid = data.userId || data.participantId;
           const newPositions = { ...state.livePositions };
           if (uid && newPositions[uid]) {
-            newPositions[uid] = { ...newPositions[uid], state: 'FROZEN' };
+            newPositions[uid] = { ...newPositions[uid], state: "FROZEN" };
           }
           return {
             livePositions: newPositions,
-            sosAlerts: [{ ...data, id: Date.now(), read: false }, ...state.sosAlerts].slice(0, 50)
+            sosAlerts: [{ ...data, id: Date.now(), read: false }, ...state.sosAlerts].slice(0, 50),
           };
         });
       }
     });
 
     // Handle Off Route
-    socket.on('off_route_alert', (data: any) => {
+    socket.on("off_route_alert", (data: any) => {
       set((state) => {
         const uid = data.userId || data.participantId;
         const distance = data.distance ?? data.offRouteDistance ?? 0;
         const newPositions = { ...state.livePositions };
         if (uid && newPositions[uid]) {
-          newPositions[uid] = { ...newPositions[uid], state: 'OFF_ROUTE' };
+          newPositions[uid] = { ...newPositions[uid], state: "OFF_ROUTE" };
         }
         return {
           livePositions: newPositions,
-          offRouteAlerts: [{ ...data, distance, id: Date.now(), read: false }, ...state.offRouteAlerts].slice(0, 50)
+          offRouteAlerts: [
+            { ...data, distance, id: Date.now(), read: false },
+            ...state.offRouteAlerts,
+          ].slice(0, 50),
         };
       });
     });
 
-    socket.on('sos_recovered', (data: any) => {
+    socket.on("sos_recovered", (data: any) => {
       set((state) => {
         const uid = data.userId || data.participantId || data.id;
         const newPositions = { ...state.livePositions };
         if (uid && newPositions[uid]) {
-          newPositions[uid] = { ...newPositions[uid], state: 'TRACKING' };
+          newPositions[uid] = { ...newPositions[uid], state: "TRACKING" };
         }
         return { livePositions: newPositions };
       });
     });
 
-    socket.on('user_stopped', (data: any) => {
+    socket.on("user_stopped", (data: any) => {
       set((state) => ({
-        offRouteAlerts: [{ ...data, type: 'STOP', id: Date.now(), read: false }, ...state.offRouteAlerts].slice(0, 50)
+        offRouteAlerts: [
+          { ...data, type: "STOP", id: Date.now(), read: false },
+          ...state.offRouteAlerts,
+        ].slice(0, 50),
       }));
     });
 
-    socket.on('participant_finished', (data: any) => {
+    socket.on("participant_finished", (data: any) => {
       set((state) => {
         const uid = data.userId || data.participantId || data.id;
         const newPositions = { ...state.livePositions };
         if (uid && newPositions[uid]) {
-          newPositions[uid] = { ...newPositions[uid], state: 'FINISHED' };
+          newPositions[uid] = { ...newPositions[uid], state: "FINISHED" };
         }
         return { livePositions: newPositions };
       });
@@ -213,39 +208,49 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   disconnect: () => {
     const { socket } = get();
     if (socket) {
+      if (tokenChangeHandler) {
+        window.removeEventListener(AUTH_TOKENS_CHANGED_EVENT, tokenChangeHandler);
+        tokenChangeHandler = null;
+      }
       socket.disconnect();
-      set({ socket: null, isConnected: false, activeEventId: null, livePositions: {}, leaderboard: [] });
+      set({
+        socket: null,
+        isConnected: false,
+        activeEventId: null,
+        livePositions: {},
+        leaderboard: [],
+      });
     }
   },
 
   joinEvent: (eventId: string) => {
     const { socket, activeEventId } = get();
-    
+
     if (activeEventId === eventId) return;
 
     if (socket && socket.connected) {
       if (activeEventId) {
-        socket.emit('leaveEventRoom', { eventId: parseInt(activeEventId) });
+        socket.emit("leaveEventRoom", { eventId: parseInt(activeEventId) });
       }
-      socket.emit('joinEventRoom', { eventId: parseInt(eventId) });
+      socket.emit("joinEventRoom", { eventId: parseInt(eventId) });
     }
-    
+
     set({ activeEventId: eventId, livePositions: {}, leaderboard: [] });
   },
 
   leaveEvent: (eventId: string) => {
     const { socket, activeEventId } = get();
     if (socket && socket.connected && activeEventId === eventId) {
-      socket.emit('leaveEventRoom', { eventId: parseInt(eventId) });
+      socket.emit("leaveEventRoom", { eventId: parseInt(eventId) });
       set({ activeEventId: null, livePositions: {}, leaderboard: [] });
     }
   },
 
   setInitialPositions: (positions: Position[]) => {
     const positionsMap: Record<number, Position> = {};
-    positions.forEach(p => {
+    positions.forEach((p) => {
       positionsMap[p.userId] = p;
     });
     set({ livePositions: positionsMap });
-  }
+  },
 }));

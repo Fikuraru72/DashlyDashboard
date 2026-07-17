@@ -1,32 +1,48 @@
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import LiveMap from "@/components/map/LiveMap";
 
-jest.mock("react-leaflet", () => ({
-  MapContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="map">{children}</div>,
+vi.mock("react-leaflet", () => ({
+  MapContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="map">{children}</div>
+  ),
   TileLayer: () => <div data-testid="tile-layer" />,
-  Polyline: ({ positions }: { positions: unknown[] }) => <div data-testid="route-line">{positions.length}</div>,
+  Polyline: ({ positions }: { positions: unknown[] }) => (
+    <div data-testid="route-line">{positions.length}</div>
+  ),
   Marker: ({ children, position }: { children: React.ReactNode; position: unknown }) => (
-    <div data-testid="participant-marker" data-position={JSON.stringify(position)}>{children}</div>
+    <div data-testid="participant-marker" data-position={JSON.stringify(position)}>
+      {children}
+    </div>
   ),
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  useMap: () => ({ fitBounds: jest.fn() }),
+  useMap: () => ({ fitBounds: vi.fn() }),
 }));
 
-jest.mock("leaflet", () => ({
-  Icon: {
-    Default: {
-      prototype: {},
-      mergeOptions: jest.fn(),
+vi.mock("leaflet", () => {
+  const leaflet = {
+    Icon: {
+      Default: {
+        prototype: {},
+        mergeOptions: vi.fn(),
+      },
     },
-  },
-  divIcon: jest.fn(() => ({})),
-}));
+    divIcon: vi.fn(() => ({})),
+  };
+  return { ...leaflet, default: leaflet };
+});
 
 describe("LiveMap", () => {
   it("renders moving participant markers from dashboard store status", () => {
     render(
       <LiveMap
-        routeGeojson={{ type: "LineString", coordinates: [[106.1, -6.1], [106.2, -6.2]] }}
+        routeGeojson={{
+          type: "LineString",
+          coordinates: [
+            [106.1, -6.1],
+            [106.2, -6.2],
+          ],
+        }}
         livePositions={{
           7: {
             userId: 7,

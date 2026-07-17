@@ -3,13 +3,12 @@
 import React, { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSocketStore } from "@/store/useSocketStore";
-import { ChevronLeft, Trophy, Clock, Target, Flag } from "lucide-react";
-import Link from "next/link";
+import { ChevronLeft, Trophy } from "lucide-react";
 
 export default function LeaderboardPage() {
   const { eventId } = useParams();
   const router = useRouter();
-  
+
   const connect = useSocketStore((state) => state.connect);
   const joinEvent = useSocketStore((state) => state.joinEvent);
   const leaveEvent = useSocketStore((state) => state.leaveEvent);
@@ -30,7 +29,7 @@ export default function LeaderboardPage() {
     <div className="flex flex-col h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors">
       {/* Header */}
       <header className="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 flex items-center gap-4 shadow-sm z-10">
-        <button 
+        <button
           onClick={() => router.back()}
           className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
         >
@@ -42,7 +41,11 @@ export default function LeaderboardPage() {
             Live Leaderboard
           </h1>
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-            {isConnected ? <span className="text-emerald-500">● Live Updates</span> : <span className="text-amber-500">● Connecting...</span>}
+            {isConnected ? (
+              <span className="text-emerald-500">● Live Updates</span>
+            ) : (
+              <span className="text-amber-500">● Connecting...</span>
+            )}
           </p>
         </div>
       </header>
@@ -55,12 +58,24 @@ export default function LeaderboardPage() {
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">Rank</th>
-                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">Participant</th>
-                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">Progress</th>
-                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">Distance</th>
-                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">Speed</th>
-                    <th scope="col" className="px-6 py-4 font-bold tracking-wider text-right">Est. Finish</th>
+                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">
+                      Rank
+                    </th>
+                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">
+                      Participant
+                    </th>
+                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">
+                      Progress
+                    </th>
+                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">
+                      Distance
+                    </th>
+                    <th scope="col" className="px-6 py-4 font-bold tracking-wider">
+                      Speed
+                    </th>
+                    <th scope="col" className="px-6 py-4 font-bold tracking-wider text-right">
+                      Est. Finish
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -72,20 +87,26 @@ export default function LeaderboardPage() {
                     </tr>
                   ) : (
                     leaderboard.map((entry, index) => (
-                      <tr 
-                        key={entry.userId} 
+                      <tr
+                        key={entry.userId}
                         className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors
-                          ${index < 3 ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}
+                          ${index < 3 ? "bg-indigo-50/30 dark:bg-indigo-900/10" : ""}
                         `}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm
-                            ${index === 0 ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' :
-                              index === 1 ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' :
-                              index === 2 ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
-                              'text-slate-400 font-bold'
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm
+                            ${
+                              index === 0
+                                ? "bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
+                                : index === 1
+                                  ? "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                                  : index === 2
+                                    ? "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                                    : "text-slate-400 font-bold"
                             }
-                          `}>
+                          `}
+                          >
                             {entry.rank}
                           </div>
                         </td>
@@ -94,11 +115,15 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <span className="font-bold w-12">{entry.progressPercentage.toFixed(1)}%</span>
+                            <span className="font-bold w-12">
+                              {entry.progressPercentage.toFixed(1)}%
+                            </span>
                             <div className="w-24 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-indigo-500 rounded-full" 
-                                style={{ width: `${Math.min(100, Math.max(0, entry.progressPercentage))}%` }}
+                              <div
+                                className="h-full bg-indigo-500 rounded-full"
+                                style={{
+                                  width: `${Math.min(100, Math.max(0, entry.progressPercentage))}%`,
+                                }}
                               />
                             </div>
                           </div>
@@ -112,7 +137,9 @@ export default function LeaderboardPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-mono text-slate-600 dark:text-slate-300">
-                          {entry.estimatedFinishTime ? new Date(entry.estimatedFinishTime).toLocaleTimeString() : '--:--:--'}
+                          {entry.estimatedFinishTime
+                            ? new Date(entry.estimatedFinishTime).toLocaleTimeString()
+                            : "--:--:--"}
                         </td>
                       </tr>
                     ))

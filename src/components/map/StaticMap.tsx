@@ -36,7 +36,11 @@ export default function StaticMap({ geoJson }: StaticMapProps) {
   const defaultCenter: [number, number] = [-6.1754, 106.8272];
 
   if (!geoJson) {
-    return <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold tracking-widest uppercase text-xs rounded-xl">No Route Data</div>;
+    return (
+      <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold tracking-widest uppercase text-xs rounded-xl">
+        No Route Data
+      </div>
+    );
   }
 
   const geoJsonStyle = {

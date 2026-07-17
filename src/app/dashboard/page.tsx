@@ -1,32 +1,24 @@
-import React from 'react';
-import { Activity, Users, Map, AlertTriangle, CheckCircle, Navigation } from 'lucide-react';
-import { cookies } from 'next/headers';
+"use client";
 
-async function getDashboardStats() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Activity, AlertTriangle, CheckCircle, Navigation } from "lucide-react";
+import { apiFetch, API_URL } from "@/lib/api";
 
-  if (!token) return null;
-
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/admin/stats`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
-      next: { revalidate: 10 } // Revalidate every 10s
-    });
-
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data;
-  } catch (error) {
-    console.error('Failed to fetch dashboard stats', error);
-    return null;
-  }
+interface DashboardStats {
+  totalActiveEvents: number;
+  activeRunners: number;
+  finishedRunners: number;
+  sosAlerts: number;
+  offRouteParticipants: number;
 }
 
-export default async function DashboardOverview() {
-  const stats = await getDashboardStats();
+export default function DashboardOverview() {
+  const { data: stats } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => (await apiFetch<{ data: DashboardStats }>(`${API_URL}/admin/stats`)).data,
+    refetchInterval: 10_000,
+  });
 
   if (!stats) {
     return (
@@ -39,12 +31,13 @@ export default async function DashboardOverview() {
   return (
     <div className="p-6 md:p-8 h-full overflow-y-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Dashboard Overview</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Dashboard Overview
+        </h1>
         <p className="text-slate-500 mt-1">Live operational statistics for Dashly events.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-        
         {/* Active Events */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4">
@@ -91,11 +84,15 @@ export default async function DashboardOverview() {
           )}
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-600 dark:text-slate-400">SOS Alerts</h3>
-            <div className={`p-2 rounded-lg ${stats.sosAlerts > 0 ? 'bg-rose-100 text-rose-600 animate-pulse' : 'bg-slate-100 text-slate-500'}`}>
+            <div
+              className={`p-2 rounded-lg ${stats.sosAlerts > 0 ? "bg-rose-100 text-rose-600 animate-pulse" : "bg-slate-100 text-slate-500"}`}
+            >
               <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
-          <div className={`text-3xl font-black ${stats.sosAlerts > 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>
+          <div
+            className={`text-3xl font-black ${stats.sosAlerts > 0 ? "text-rose-600" : "text-slate-900 dark:text-white"}`}
+          >
             {stats.sosAlerts}
           </div>
         </div>
@@ -113,7 +110,6 @@ export default async function DashboardOverview() {
           </div>
         </div>
       </div>
-      
     </div>
   );
 }

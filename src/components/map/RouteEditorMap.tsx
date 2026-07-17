@@ -8,7 +8,13 @@ import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 import L from "leaflet";
 import { useTheme } from "next-themes";
 
-function GeomanEditController({ initialGeoJSON, onUpdate }: { initialGeoJSON?: any; onUpdate: (geojson: any) => void }) {
+function GeomanEditController({
+  initialGeoJSON,
+  onUpdate,
+}: {
+  initialGeoJSON?: any;
+  onUpdate: (geojson: any) => void;
+}) {
   const map = useMap();
   const hasLoadedRef = useRef(false);
 
@@ -53,8 +59,17 @@ function GeomanEditController({ initialGeoJSON, onUpdate }: { initialGeoJSON?: a
     const gatherGeoJSON = () => {
       const features: any[] = [];
       map.eachLayer((layer: any) => {
-        if ((layer instanceof L.Polyline || layer instanceof L.Marker || layer instanceof L.Polygon) && !(layer instanceof L.TileLayer)) {
-          try { features.push(layer.toGeoJSON()); } catch (e) { /* skip */ }
+        if (
+          (layer instanceof L.Polyline ||
+            layer instanceof L.Marker ||
+            layer instanceof L.Polygon) &&
+          !(layer instanceof L.TileLayer)
+        ) {
+          try {
+            features.push(layer.toGeoJSON());
+          } catch {
+            /* skip */
+          }
         }
       });
       onUpdate({ type: "FeatureCollection", features });
@@ -79,7 +94,13 @@ function GeomanEditController({ initialGeoJSON, onUpdate }: { initialGeoJSON?: a
   return null;
 }
 
-export default function RouteEditorMap({ initialGeoJSON, onGeoJsonChange }: { initialGeoJSON?: any; onGeoJsonChange: (geojson: any) => void }) {
+export default function RouteEditorMap({
+  initialGeoJSON,
+  onGeoJsonChange,
+}: {
+  initialGeoJSON?: any;
+  onGeoJsonChange: (geojson: any) => void;
+}) {
   const { theme, systemTheme } = useTheme();
   const isDark = (theme === "system" ? systemTheme : theme) === "dark";
 
@@ -89,7 +110,12 @@ export default function RouteEditorMap({ initialGeoJSON, onGeoJsonChange }: { in
 
   return (
     <div className="w-full h-full rounded-xl overflow-hidden shadow-inner relative z-0 border border-slate-200 dark:border-slate-800">
-      <MapContainer center={[-6.1754, 106.8272]} zoom={14} scrollWheelZoom={true} className="w-full h-full">
+      <MapContainer
+        center={[-6.1754, 106.8272]}
+        zoom={14}
+        scrollWheelZoom={true}
+        className="w-full h-full"
+      >
         <TileLayer url={tileUrl} attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
         <GeomanEditController initialGeoJSON={initialGeoJSON} onUpdate={onGeoJsonChange} />
       </MapContainer>

@@ -1,6 +1,6 @@
-import dynamic from 'next/dynamic';
+import dynamic from "next/dynamic";
 
-const DynamicLiveMap = dynamic(() => import('./LiveMap'), {
+const DynamicLiveMap = dynamic(() => import("./LiveMap"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -9,7 +9,7 @@ const DynamicLiveMap = dynamic(() => import('./LiveMap'), {
         <p className="text-sm font-medium text-slate-500">Loading Map...</p>
       </div>
     </div>
-  )
+  ),
 });
 
 export default DynamicLiveMap;

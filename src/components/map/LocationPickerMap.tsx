@@ -8,7 +8,7 @@ import { useTheme } from "next-themes";
 import "leaflet-defaulticon-compatibility";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 
-function ClickHandler({ setPos }: { setPos: (latlng: { lat: number, lng: number }) => void }) {
+function ClickHandler({ setPos }: { setPos: (latlng: { lat: number; lng: number }) => void }) {
   useMapEvents({
     click(e) {
       setPos(e.latlng);
@@ -33,7 +33,11 @@ export interface LocationPickerMapProps {
   onChange: (lat: number, lng: number) => void;
 }
 
-export default function LocationPickerMap({ latitude, longitude, onChange }: LocationPickerMapProps) {
+export default function LocationPickerMap({
+  latitude,
+  longitude,
+  onChange,
+}: LocationPickerMapProps) {
   const { theme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
   const isDark = currentTheme === "dark";
@@ -48,7 +52,7 @@ export default function LocationPickerMap({ latitude, longitude, onChange }: Loc
     }
   }, [latitude, longitude]);
 
-  const handleSetPos = (latlng: { lat: number, lng: number }) => {
+  const handleSetPos = (latlng: { lat: number; lng: number }) => {
     setPosition(L.latLng(latlng.lat, latlng.lng));
     onChange(latlng.lat, latlng.lng);
   };
@@ -59,10 +63,11 @@ export default function LocationPickerMap({ latitude, longitude, onChange }: Loc
 
   const attribution = '&copy; <a href="https://carto.com/">CARTO</a>';
   const defaultCenter: [number, number] = [-6.1754, 106.8272]; // Jakarta/Monas
-  
-  const initialCenter = typeof latitude === "number" && typeof longitude === "number" 
-    ? [latitude, longitude] as [number, number] 
-    : defaultCenter;
+
+  const initialCenter =
+    typeof latitude === "number" && typeof longitude === "number"
+      ? ([latitude, longitude] as [number, number])
+      : defaultCenter;
 
   return (
     <div className="w-full h-full rounded-xl overflow-hidden relative z-0">

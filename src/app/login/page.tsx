@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, Lock, Mail, ArrowRight, Zap, AlertCircle } from "lucide-react";
+import { setAccessToken } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,8 +18,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-      const res = await fetch(`${apiUrl}/auth/login`, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -30,7 +30,6 @@ export default function LoginPage() {
       }
 
       const data = await res.json();
-      const token = data.accessToken;
 
       // ── RBAC Check: Only SUPER_ADMIN or STAFF can access the Dashboard ──
       const role = data.user?.role;
@@ -38,8 +37,7 @@ export default function LoginPage() {
         throw new Error("Access Denied: Only administrators or staff can access this dashboard.");
       }
 
-      // Set cookie for middleware access
-      document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+      setAccessToken(data);
 
       // Redirect
       router.push("/dashboard/events");
@@ -52,16 +50,18 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen w-full flex bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-slate-50 font-sans selection:bg-indigo-500/30">
-      
       {/* Left Panel: Branding / Visuals */}
       <div className="hidden lg:flex flex-col flex-1 relative bg-indigo-600 dark:bg-slate-900 overflow-hidden">
         {/* Abstract Background Patterns */}
         <div className="absolute inset-0 bg-[url('https://carto.com/help/images/tutorials/carto-js/carto-js-step1.png')] bg-cover bg-center opacity-10 mix-blend-overlay"></div>
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/90 to-blue-800/90 dark:from-indigo-900/90 dark:to-[#0f172a]/95"></div>
-        
+
         {/* Dynamic Glowing Orbs */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-400/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div
+          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse"
+          style={{ animationDelay: "1s" }}
+        ></div>
 
         <div className="relative z-10 flex flex-col justify-center h-full p-16 xl:p-24">
           <div className="flex items-center gap-3 mb-8">
@@ -72,22 +72,29 @@ export default function LoginPage() {
           </div>
           <h2 className="text-5xl lg:text-6xl font-black text-white leading-[1.1] tracking-tight mb-6">
             Real-time <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300">Race Monitoring</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-300">
+              Race Monitoring
+            </span>
           </h2>
           <p className="text-lg text-indigo-100 dark:text-slate-300 max-w-md leading-relaxed font-medium">
-            Track participants, detect anomalies instantly, and command the race from anywhere with military precision.
+            Track participants, detect anomalies instantly, and command the race from anywhere with
+            military precision.
           </p>
-          
+
           {/* Aesthetic Stats */}
           <div className="mt-16 flex items-center gap-8">
             <div>
               <div className="text-3xl font-black text-white">0s</div>
-              <div className="text-xs font-bold uppercase tracking-wider text-indigo-300 mt-1">Latency</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-indigo-300 mt-1">
+                Latency
+              </div>
             </div>
             <div className="w-px h-10 bg-white/20"></div>
             <div>
               <div className="text-3xl font-black text-white">100%</div>
-              <div className="text-xs font-bold uppercase tracking-wider text-indigo-300 mt-1">Uptime</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-indigo-300 mt-1">
+                Uptime
+              </div>
             </div>
           </div>
         </div>
@@ -101,12 +108,18 @@ export default function LoginPage() {
             <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl text-indigo-600 dark:text-cyan-400">
               <Activity className="h-6 w-6" />
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Dashly</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Dashly
+            </h1>
           </div>
 
           <div className="mb-10 text-center lg:text-left">
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Welcome Back</h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Please enter your details to access the dashboard.</p>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+              Welcome Back
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              Please enter your details to access the dashboard.
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
@@ -180,11 +193,14 @@ export default function LoginPage() {
               </span>
             </button>
           </form>
-          
+
           <div className="mt-8 text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Prototype Credentials: <br/> 
-              <span className="text-indigo-600 dark:text-cyan-400 font-bold">admin@dashly.com</span> / <span className="text-indigo-600 dark:text-cyan-400 font-bold">password123</span>
+              Prototype Credentials: <br />
+              <span className="text-indigo-600 dark:text-cyan-400 font-bold">
+                admin@dashly.com
+              </span>{" "}
+              / <span className="text-indigo-600 dark:text-cyan-400 font-bold">password123</span>
             </p>
           </div>
         </div>

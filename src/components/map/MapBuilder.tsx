@@ -48,7 +48,7 @@ function GeomanController({ onUpdate }: { onUpdate: (geojson: any) => void }) {
     map.on("pm:create", gatherGeoJSON);
     map.on("pm:remove", gatherGeoJSON);
     // map.on('pm:edit', gatherGeoJSON); // Geoman triggers this per layer
-    
+
     // Listen to drag/edit stops
     map.on("layeradd", (e: any) => {
       if (e.layer && e.layer.pm) {
@@ -73,7 +73,11 @@ interface MapBuilderProps {
   previewGeojson?: any; // external GeoJSON to render (e.g. from upload)
 }
 
-export default function MapBuilder({ onGeoJsonChange, clearTrigger, previewGeojson }: MapBuilderProps) {
+export default function MapBuilder({
+  onGeoJsonChange,
+  clearTrigger,
+  previewGeojson,
+}: MapBuilderProps) {
   const { theme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
   const isDark = currentTheme === "dark";
@@ -91,10 +95,10 @@ export default function MapBuilder({ onGeoJsonChange, clearTrigger, previewGeojs
 
         // Remove existing preview layers if any (we should track them)
         map.eachLayer((layer: any) => {
-          if (layer.options && layer.options.pane === 'overlayPane' && layer.toGeoJSON) {
-             // This is a bit broad, but helps clear previous previews
-             // In a real app we'd track the specific preview layer ref
-             if (!layer._url) map.removeLayer(layer); 
+          if (layer.options && layer.options.pane === "overlayPane" && layer.toGeoJSON) {
+            // This is a bit broad, but helps clear previous previews
+            // In a real app we'd track the specific preview layer ref
+            if (!layer._url) map.removeLayer(layer);
           }
         });
 
@@ -115,7 +119,7 @@ export default function MapBuilder({ onGeoJsonChange, clearTrigger, previewGeojs
           weight: 6,
           lineCap: "round",
           lineJoin: "round",
-        }
+        },
       }).addTo(map);
 
       // Fit bounds to show the whole route
