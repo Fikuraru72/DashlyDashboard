@@ -1535,32 +1535,55 @@ export default function PublicEventMonitoringPage() {
       {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
-      {/* Altitude Chart (Floating Bottom) */}
+      {/* ── ELEVATION PROFILE CHART (Bottom, Responsive) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[800px] h-[200px] z-40 bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-4 transition-all duration-500 ease-in-out">
-          <AltitudeChart 
-            data={event.altitudeProfile} 
-            hoveredDistance={hoveredDistance} 
-            onHover={(pt) => {
-              setHoveredDistance(pt?.distance ?? null);
-              if (pt) {
-                if (!chartMarkerInstance.current) {
-                  const el = document.createElement("div");
-                  el.className = "w-4 h-4 bg-fuchsia-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(217,70,239,0.8)]";
-                  chartMarkerInstance.current = new maplibregl.Marker({ element: el })
-                    .setLngLat([pt.lng, pt.lat])
-                    .addTo(mapInstance.current!);
+        <div className="absolute bottom-0 left-0 right-0 z-30 h-32 sm:h-40 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 flex flex-col transition-all duration-300">
+          {/* Header bar */}
+          <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 shrink-0">
+            <div className="flex items-center gap-2">
+              <Mountain size={12} className="text-fuchsia-400" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+                Elevation Profile
+              </span>
+              {event.totalElevationMeters != null && (
+                <span className="text-[10px] text-fuchsia-400 font-bold ml-2">
+                  +{Math.round(event.totalElevationMeters)}m gain
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowAltitudeChart(false)}
+              className="p-1 hover:bg-white/10 rounded-lg text-slate-400 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          </div>
+          {/* Chart area */}
+          <div className="flex-1 min-h-0 px-2 py-1">
+            <AltitudeChart 
+              data={event.altitudeProfile} 
+              hoveredDistance={hoveredDistance} 
+              onHover={(pt) => {
+                setHoveredDistance(pt?.distance ?? null);
+                if (pt) {
+                  if (!chartMarkerInstance.current) {
+                    const el = document.createElement("div");
+                    el.className = "w-4 h-4 bg-fuchsia-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(217,70,239,0.8)]";
+                    chartMarkerInstance.current = new maplibregl.Marker({ element: el })
+                      .setLngLat([pt.lng, pt.lat])
+                      .addTo(mapInstance.current!);
+                  } else {
+                    chartMarkerInstance.current.setLngLat([pt.lng, pt.lat]);
+                  }
                 } else {
-                  chartMarkerInstance.current.setLngLat([pt.lng, pt.lat]);
+                  if (chartMarkerInstance.current) {
+                    chartMarkerInstance.current.remove();
+                    chartMarkerInstance.current = null;
+                  }
                 }
-              } else {
-                if (chartMarkerInstance.current) {
-                  chartMarkerInstance.current.remove();
-                  chartMarkerInstance.current = null;
-                }
-              }
-            }} 
-          />
+              }} 
+            />
+          </div>
         </div>
       )}
 
@@ -1643,14 +1666,15 @@ export default function PublicEventMonitoringPage() {
             <Navigation size={20} />
           </button>
 
-          <button
-            onClick={() => setShowAltitudeChart(!showAltitudeChart)}
-            className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-fuchsia-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
-            title="Toggle Altitude Chart"
-          >
-            <Mountain size={20} />
-          </button>
-
+          {event?.altitudeProfile && (
+            <button
+              onClick={() => setShowAltitudeChart(!showAltitudeChart)}
+              className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-fuchsia-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
+              title="Toggle Altitude Chart"
+            >
+              <Mountain size={20} />
+            </button>
+          )}
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
             <div className="flex items-center gap-2">
               <div
