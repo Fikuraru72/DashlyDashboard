@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
@@ -56,7 +56,59 @@ export default function CreateEventPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  const handleClearMap = () => {
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [locationResults, setLocationResults] = useState<any[]>([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const locationSearchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const searchLocation = async (query: string) => {
+    if (!query || query.length < 3) {
+      setLocationResults([]);
+      setShowLocationDropdown(false);
+      return;
+    }
+    setIsSearchingLocation(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&addressdetails=1`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setLocationResults(data);
+        setShowLocationDropdown(true);
+      }
+    } catch (err) {
+      console.error("Location search failed", err);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  const handleLocationNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocationName(val);
+    
+    if (locationSearchTimeout.current) {
+      clearTimeout(locationSearchTimeout.current);
+    }
+    locationSearchTimeout.current = setTimeout(() => {
+      searchLocation(val);
+    }, 500);
+  };
+
+  const selectLocation = (result: any) => {
+    setLocationName(result.name || result.display_name.split(",")[0]);
+    setLatitude(Number(result.lat));
+    setLongitude(Number(result.lon));
+    
+    const address = result.address || {};
+    setCity(address.city || address.town || address.village || address.county || "");
+    setProvince(address.state || address.region || "");
+    
+    setShowLocationDropdown(false);
+  };  const handleClearMap = () => {
     setGeoJson(null);
     setClearTrigger((prev) => prev + 1);
     setUploadError("");
@@ -448,17 +500,58 @@ export default function CreateEventPage() {
                   Location
                 </h3>
 
-                <div>
+                <div className="relative">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
                     Location Name (e.g. Venue)
                   </label>
-                  <input
-                    type="text"
-                    value={locationName}
-                    onChange={(e) => setLocationName(e.target.value)}
-                    className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:ring-cyan-500/20 dark:focus:border-cyan-500 transition-all outline-none"
-                    placeholder="Gelora Bung Karno"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={locationName}
+                      onChange={handleLocationNameChange}
+                      onFocus={() => {
+                        if (locationResults.length > 0) setShowLocationDropdown(true);
+                      }}
+                      className="block w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:ring-cyan-500/20 dark:focus:border-cyan-500 transition-all outline-none"
+                      placeholder="Search venue (e.g. Gelora Bung Karno)..."
+                    />
+                    {isSearchingLocation && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Dropdown Results */}
+                  {showLocationDropdown && locationResults.length > 0 && (
+                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                      <div className="flex justify-between items-center p-2 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-xs font-bold text-slate-500 px-2">Search Results</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowLocationDropdown(false)}
+                          className="text-slate-400 hover:text-slate-600 p-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {locationResults.map((result, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => selectLocation(result)}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800/50 last:border-0 transition-colors"
+                        >
+                          <div className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                            {result.name || result.display_name.split(",")[0]}
+                          </div>
+                          <div className="text-xs text-slate-500 truncate mt-0.5">
+                            {result.display_name}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
