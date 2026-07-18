@@ -427,10 +427,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       <button
                         onClick={async () => {
                           try {
-                            const token = getCookie("auth_token");
-                            const res = await fetch(`${apiUrl}/events/${eventId}/telemetry-report`, {
-                              headers: { Authorization: `Bearer ${token}` }
-                            });
+                            const res = await authenticatedFetch(`${apiUrl}/events/${eventId}/telemetry-report`);
                             if (!res.ok) throw new Error("Failed to download report");
                             const blob = await res.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -441,8 +438,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                             a.click();
                             window.URL.revokeObjectURL(url);
                             document.body.removeChild(a);
-                          } catch (err) {
-                            alert("Failed to download telemetry report. Ensure you are authorized.");
+                          } catch (err: any) {
+                            alert("Failed to download telemetry report: " + err.message);
                           }
                         }}
                         className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all shadow-md hover:-translate-y-0.5 border border-slate-700"
