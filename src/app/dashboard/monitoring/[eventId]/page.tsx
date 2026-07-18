@@ -142,7 +142,7 @@ const createPulseMarker = (
   userColor?: string,
 ) => {
   const el = document.createElement("div");
-  // PILLAR 3: Inline styles + z-index force
+  // Fixed-size marker centered precisely on its map coordinate.
   el.style.cssText = `
     position: relative;
     display: flex;
@@ -150,7 +150,6 @@ const createPulseMarker = (
     justify-content: center;
     width: 24px;
     height: 24px;
-    z-index: 9999 !important;
     border-radius: 50%;
     cursor: pointer;
   `;
@@ -301,7 +300,7 @@ export default function PublicEventMonitoringPage() {
   useEffect(() => {
     superclusterRef.current = new Supercluster({
       radius: 40,
-      maxZoom: 16,
+      maxZoom: 20,
     });
   }, []);
 
@@ -1042,7 +1041,11 @@ export default function PublicEventMonitoringPage() {
               data.isAnomaly,
               data.color,
             );
-            marker = new maplibregl.Marker({ element: el })
+            marker = new maplibregl.Marker({
+              element: el,
+              anchor: "center",
+              subpixelPositioning: true,
+            })
               .setLngLat([lng, lat])
               .addTo(mapInstance.current!);
             markers.current.set(userId, marker);
@@ -1448,7 +1451,11 @@ export default function PublicEventMonitoringPage() {
           data.isAnomaly,
           data.color,
         );
-        marker = new maplibregl.Marker({ element: el, anchor: "center" })
+        marker = new maplibregl.Marker({
+          element: el,
+          anchor: "center",
+          subpixelPositioning: true,
+        })
           .setLngLat([data.lng, data.lat])
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
