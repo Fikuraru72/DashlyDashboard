@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
-import { AUTH_TOKENS_CHANGED_EVENT, authenticatedFetch, getAccessToken } from "@/lib/api";
+import { authenticatedFetch, refreshAccessToken } from "@/lib/api";
 import { getPositionTimestamp } from "@/lib/realtime-position";
 
 const getCookie = (name: string) => {
@@ -881,25 +881,47 @@ export default function PublicEventMonitoringPage() {
 
   useEffect(() => {
     const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", {
+      autoConnect: false,
       transports: ["polling", "websocket"],
       reconnectionDelay: 2000,
-      auth: { token: getAccessToken() },
       withCredentials: true,
     });
+    let cancelled = false;
+    let refreshing = false;
+
+    const connect = async () => {
+      const token = await refreshAccessToken();
+      if (cancelled || !token) return;
+      socket.auth = { token };
+      socket.connect();
+    };
 
     socket.on("connect", () => {
       console.log("🔌 Socket CONNECTED. SID:", socket.id);
-      console.log("🔌 Socket joined room: event_" + eventId);
-      socket.emit("joinEventRoom", { eventId: Number(eventId) });
+      socket.emit("joinEventRoom", { eventId: Number(eventId) }, (response: any) => {
+        if (response?.event === "joinError") console.error("🔌 Socket JOIN ERROR:", response.data);
+      });
     });
 
     socket.on("disconnect", (reason: string) => {
       console.warn("🔌 Socket DISCONNECTED. Reason:", reason);
     });
 
-    socket.on("connect_error", (err: any) => {
+    socket.on("connect_error", (err: Error) => {
       console.error("🔌 Socket CONNECT ERROR:", err.message);
     });
+
+    socket.on("auth_error", async () => {
+      if (refreshing) return;
+      refreshing = true;
+      const token = await refreshAccessToken();
+      refreshing = false;
+      if (cancelled || !token) return;
+      socket.auth = { token };
+      socket.disconnect().connect();
+    });
+
+    void connect();
 
     // ── EMERGENCY DEBUG: Catch-ALL listener ──────────────────
     // This fires for EVERY event the server sends, regardless of name.
@@ -1391,6 +1413,7 @@ export default function PublicEventMonitoringPage() {
 
     mqttClient.current = socket as any;
     return () => {
+      cancelled = true;
       // console.log("Socket: Cleanup - Disconnecting...");
       socket.emit("leaveEventRoom", { eventId: Number(eventId) });
       socket.disconnect();

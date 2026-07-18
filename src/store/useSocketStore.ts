@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
-import { AUTH_TOKENS_CHANGED_EVENT, getAccessToken } from "@/lib/api";
+import { AUTH_TOKENS_CHANGED_EVENT, getAccessToken, refreshAccessToken } from "@/lib/api";
 import { isStalePosition } from "@/lib/realtime-position";
 
 let tokenChangeHandler: (() => void) | null = null;
@@ -63,10 +63,18 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     token ||= getAccessToken() || undefined;
 
     const socket = io(apiUrl, {
+      autoConnect: false,
       transports: ["polling", "websocket"],
       auth: token ? { token } : undefined,
       reconnectionAttempts: 5,
       withCredentials: true,
+    });
+    let refreshing = false;
+
+    void refreshAccessToken().then((freshToken) => {
+      if (!freshToken || get().socket !== socket) return;
+      socket.auth = { token: freshToken };
+      socket.connect();
     });
 
     socket.io.on("reconnect_attempt", () => {
@@ -74,7 +82,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     });
     tokenChangeHandler = () => {
       socket.auth = { token: getAccessToken() };
-      socket.disconnect().connect();
+      if (socket.connected) socket.disconnect().connect();
     };
     window.addEventListener(AUTH_TOKENS_CHANGED_EVENT, tokenChangeHandler);
 
@@ -88,6 +96,16 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     socket.on("disconnect", () => {
       set({ isConnected: false });
+    });
+
+    socket.on("auth_error", async () => {
+      if (refreshing) return;
+      refreshing = true;
+      const freshToken = await refreshAccessToken();
+      refreshing = false;
+      if (!freshToken || get().socket !== socket) return;
+      socket.auth = { token: freshToken };
+      socket.connect();
     });
 
     // Handle incoming position batch

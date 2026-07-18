@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useParticipantStore } from "@/store/useParticipantStore";
-import { AUTH_TOKENS_CHANGED_EVENT, getAccessToken } from "@/lib/api";
+import { AUTH_TOKENS_CHANGED_EVENT, getAccessToken, refreshAccessToken } from "@/lib/api";
 
 export function useSocket(eventId: string) {
   const [isConnected, setIsConnected] = useState(false);
@@ -16,8 +16,6 @@ export function useSocket(eventId: string) {
   useEffect(() => {
     if (!eventId) return;
 
-    const token = getAccessToken();
-
     const backendUrl =
       process.env.NEXT_PUBLIC_API_URL ||
       (typeof window !== "undefined"
@@ -25,12 +23,20 @@ export function useSocket(eventId: string) {
         : "http://localhost:3001");
 
     const socketInstance = io(backendUrl, {
-      auth: { token },
+      autoConnect: false,
       transports: ["polling", "websocket"],
       withCredentials: true,
     });
+    let cancelled = false;
+    let refreshing = false;
 
     setSocket(socketInstance);
+
+    void refreshAccessToken().then((token) => {
+      if (cancelled || !token) return;
+      socketInstance.auth = { token };
+      socketInstance.connect();
+    });
 
     socketInstance.on("connect", () => {
       console.log(`[Socket] Connected: ${socketInstance.id}`);
@@ -53,9 +59,19 @@ export function useSocket(eventId: string) {
       setSocketConnected(false);
     });
 
+    socketInstance.on("auth_error", async () => {
+      if (refreshing) return;
+      refreshing = true;
+      const token = await refreshAccessToken();
+      refreshing = false;
+      if (cancelled || !token) return;
+      socketInstance.auth = { token };
+      socketInstance.connect();
+    });
+
     const reconnectWithCurrentToken = () => {
       socketInstance.auth = { token: getAccessToken() };
-      socketInstance.disconnect().connect();
+      if (socketInstance.connected) socketInstance.disconnect().connect();
     };
     window.addEventListener(AUTH_TOKENS_CHANGED_EVENT, reconnectWithCurrentToken);
 
@@ -220,6 +236,7 @@ export function useSocket(eventId: string) {
 
     // Cleanup on unmount
     return () => {
+      cancelled = true;
       window.removeEventListener(AUTH_TOKENS_CHANGED_EVENT, reconnectWithCurrentToken);
       socketInstance.disconnect();
     };
