@@ -1457,7 +1457,7 @@ export default function PublicEventMonitoringPage() {
     : null;
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-[#0a0f1d] font-sans">
+    <div className="relative flex h-full w-full overflow-hidden bg-[#0a0f1d] font-sans">
       {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
