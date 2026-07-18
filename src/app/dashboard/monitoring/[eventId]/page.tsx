@@ -19,7 +19,6 @@ import {
   Activity,
   Play,
   Square,
-  CheckCircle2,
   Loader2,
   ShieldAlert,
   Navigation,
@@ -41,7 +40,14 @@ import {
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
 import { AUTH_TOKENS_CHANGED_EVENT, authenticatedFetch, getAccessToken } from "@/lib/api";
-import { getCookie } from "cookies-next";
+
+const getCookie = (name: string) => {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
