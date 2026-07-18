@@ -555,6 +555,7 @@ export default function PublicEventMonitoringPage() {
                   healthInfo: p.healthInfo,
                   email: p.email,
                   phone: p.phone,
+                  color: generateRandomColor(),
                 });
               });
               console.log("[INIT] 👥 Loaded participants mapping:", participantsInfo.current.size);
@@ -598,6 +599,7 @@ export default function PublicEventMonitoringPage() {
                     bibNumber: pInfo?.bibNumber || p.bibNumber || "-",
                     lat: parseFloat(p.lat),
                     lng: parseFloat(p.lng),
+                    color: pInfo?.color,
                     speed: parseFloat(p.speed) || 0,
                     battery: p.battery != null && !isNaN(parseInt(p.battery)) ? parseInt(p.battery) : undefined,
                     status: isOfflineNormalized ? "inactive" : "active",
