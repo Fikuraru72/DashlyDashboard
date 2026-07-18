@@ -12,35 +12,66 @@ const isParticipantOffline = (val: any): boolean => {
 };
 
 import "maplibre-gl/dist/maplibre-gl.css";
+import Supercluster from "supercluster";
 import { io } from "socket.io-client";
+import AltitudeChart, { AltitudePoint } from "@/components/map/AltitudeChart";
 import { useTheme } from "next-themes";
 import {
   Activity,
+  Play,
+  Square,
+  Loader2,
   ShieldAlert,
+  Navigation,
   ChevronLeft,
+  Mountain,
   Zap,
   AlertTriangle,
   Trophy,
   Radio,
   Signal,
+  LayoutTemplate,
   PanelLeft,
   PanelRight,
   X,
-  Play,
-  Square,
   Timer,
-  Loader2,
   CheckCircle2,
-  Hourglass,
   Bike,
   Footprints,
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
-import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 import { AUTH_TOKENS_CHANGED_EVENT, authenticatedFetch, getAccessToken } from "@/lib/api";
 
+const getCookie = (name: string) => {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
+
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
+// Helper to generate a random hex color from a predefined aesthetic palette
+const generateRandomColor = () => {
+  const colors = [
+    "#f87171", // red
+    "#fb923c", // orange
+    "#fbbf24", // yellow
+    "#a3e635", // lime
+    "#2dd4bf", // teal
+    "#38bdf8", // sky
+    "#60a5fa", // blue
+    "#818cf8", // indigo
+    "#a78bfa", // violet
+    "#c084fc", // fuchsia
+    "#e879f9", // pink
+    "#f472b6", // rose
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
+
 // Helper to inject HTML into an existing DOM element so we can update colors dynamically
 const updateMarkerElement = (
   el: HTMLElement,
@@ -48,6 +79,7 @@ const updateMarkerElement = (
   status: string = "moving",
   isStale: boolean = false,
   isAnomaly: boolean = false,
+  userColor?: string,
 ) => {
   let coreColor = isAnomaly
     ? "#e11d48" // Bright RED — Stationary Incident
@@ -59,32 +91,38 @@ const updateMarkerElement = (
           ? "#f43f5e" // Rose — Emergency
           : status === "stopped"
             ? "#f59e0b" // Amber — Stopped
-            : "#10b981"; // Emerald — Moving
+            : userColor || "#10b981"; // Custom User Color or Emerald — Moving
 
   el.innerHTML = `
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+      <div style="
+        width: 20px; height: 20px;
+        border-radius: 50%;
+        background: ${coreColor}30;
+        animation: ${!isStale && status !== "inactive" ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
+      "></div>
+    </div>
     <div style="
       position: absolute;
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: ${coreColor}30;
-      animation: ${!isStale && status !== "inactive" ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
-    "></div>
-    <div style="
-      position: absolute;
-      width: 20px; height: 20px;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 12px; height: 12px;
       border-radius: 50%;
       background: ${coreColor};
-      border: 3px solid white;
-      box-shadow: 0 0 15px ${coreColor}80;
+      border: 2px solid white;
+      box-shadow: 0 0 10px ${coreColor}80;
     "></div>
-    <div style="
+    <div class="marker-label" style="
       position: absolute;
-      top: -22px;
-      background: rgba(15,23,42,0.9);
+      bottom: 100%;
+      margin-bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15,23,42,0.85);
       color: white;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 10px;
+      padding: 1.5px 6px;
+      border-radius: 3px;
+      font-size: 8.5px;
       font-weight: bold;
       white-space: nowrap;
       border: 1px solid rgba(255,255,255,0.1);
@@ -100,6 +138,7 @@ const createPulseMarker = (
   status: string = "moving",
   isStale: boolean = false,
   isAnomaly: boolean = false,
+  userColor?: string,
 ) => {
   const el = document.createElement("div");
   // PILLAR 3: Inline styles + z-index force
@@ -108,33 +147,65 @@ const createPulseMarker = (
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 24px;
+    height: 24px;
     z-index: 9999 !important;
     border-radius: 50%;
     cursor: pointer;
   `;
-  updateMarkerElement(el, name, status, isStale, isAnomaly);
+  updateMarkerElement(el, name, status, isStale, isAnomaly, userColor);
   return el;
 };
 
 // ── Status Config ────────────────────────────────────────────
 const STATUS_CONFIG = {
-  WAITING_FOR_WINDOW: {
-    label: "Waiting for Window",
+  DRAFT: {
+    label: "Draft",
     color: "text-slate-400",
     bgColor: "bg-slate-500/10 border-slate-500/20",
     dotColor: "bg-slate-400",
-    icon: Hourglass,
-    description: "Monitoring window has not opened yet",
+    icon: LayoutTemplate,
+    description: "Event is in draft state",
   },
-  READY_TO_START: {
-    label: "Ready to Start",
+  IDLE: {
+    label: "Idle",
+    color: "text-slate-400",
+    bgColor: "bg-slate-500/10 border-slate-500/20",
+    dotColor: "bg-slate-400",
+    icon: LayoutTemplate,
+    description: "Event is idle",
+  },
+  REGISTRATION_OPEN: {
+    label: "Reg Open",
+    color: "text-blue-400",
+    bgColor: "bg-blue-500/10 border-blue-500/20",
+    dotColor: "bg-blue-400",
+    icon: LayoutTemplate,
+    description: "Registration is currently open",
+  },
+  REGISTRATION_CLOSED: {
+    label: "Reg Closed",
+    color: "text-slate-400",
+    bgColor: "bg-slate-500/10 border-slate-500/20",
+    dotColor: "bg-slate-400",
+    icon: LayoutTemplate,
+    description: "Registration is closed",
+  },
+  READY: {
+    label: "Ready",
     color: "text-amber-400",
     bgColor: "bg-amber-500/10 border-amber-500/20",
     dotColor: "bg-amber-400",
     icon: Timer,
-    description: "Window is open — click START to begin the race",
+    description: "Event is ready to start",
+  },
+  START: {
+    label: "Live (Starting)",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/10 border-emerald-500/20",
+    dotColor: "bg-emerald-500",
+    icon: Activity,
+    description: "Race is starting",
   },
   LIVE: {
     label: "Live",
@@ -152,27 +223,18 @@ const STATUS_CONFIG = {
     icon: CheckCircle2,
     description: "Race has concluded",
   },
+  CANCELLED: {
+    label: "Cancelled",
+    color: "text-rose-400",
+    bgColor: "bg-rose-500/10 border-rose-500/20",
+    dotColor: "bg-rose-400",
+    icon: X,
+    description: "Event has been cancelled",
+  },
 };
 
-interface ParticipantDetail {
-  id: string | number;
-  name?: string;
-  bibNumber?: string;
-  user?: {
-    healthInfo?: {
-      bloodType?: string;
-      medicalConditions?: string[];
-      emergencyContactName?: string;
-      emergencyContactPhone?: string;
-    };
-    phone?: string;
-    email?: string;
-  };
-}
-
-export default function EventMonitoringPage() {
-  const { eventId: eventIdParam } = useParams();
-  const eventId = String(eventIdParam);
+export default function PublicEventMonitoringPage() {
+  const eventId = String(useParams().eventId);
 
   // ── States ──────────────────────────────────────────────────
   const [event, setEvent] = useState<any>(null);
@@ -181,17 +243,20 @@ export default function EventMonitoringPage() {
   const removeAnomaly = useParticipantStore((state) => state.removeAnomaly);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const isFlashing = false;
+  const [isFlashing] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
-  const [statusError, setStatusError] = useState("");
-  const [participantDetailModal, setParticipantDetailModal] = useState<ParticipantDetail | null>(
-    null,
-  );
+  const [statusError] = useState("");
+  const [participantDetailModal, setParticipantDetailModal] = useState<any>(null);
 
   // HUD Visibility
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showAlerts, setShowAlerts] = useState(true);
+  const [showPolylines, setShowPolylines] = useState(false);
+  const [showAltitudeChart, setShowAltitudeChart] = useState(false);
+
+  // Altitude Chart Interactivity
+  const [hoveredDistance, setHoveredDistance] = useState<number | null>(null);
+  const chartMarkerInstance = useRef<maplibregl.Marker | null>(null);
 
   // Timer for monitoring window countdown
   const [now, setNow] = useState(new Date());
@@ -219,6 +284,7 @@ export default function EventMonitoringPage() {
         healthInfo?: any;
         email?: string;
         phone?: string;
+        color?: string;
       }
     >
   >(new Map());
@@ -227,6 +293,132 @@ export default function EventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const clusterMarkers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const superclusterRef = useRef<Supercluster | null>(null);
+
+  useEffect(() => {
+    superclusterRef.current = new Supercluster({
+      radius: 40,
+      maxZoom: 16,
+    });
+  }, []);
+
+  const updateClusters = useCallback(() => {
+    if (!mapInstance.current || !superclusterRef.current || !mapIsReadyRef.current) return;
+    const map = mapInstance.current;
+
+    const features: any[] = Array.from(participants.values())
+      .filter(
+        (p) =>
+          typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng),
+      )
+      .map((p) => ({
+        type: "Feature",
+        properties: { cluster: false, userId: String(p.id) },
+        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+      }));
+
+    superclusterRef.current.load(features);
+
+    const zoom = Math.round(map.getZoom());
+    const clusters = superclusterRef.current.getClusters([-180, -85, 180, 85], zoom);
+
+    const nextKeys = new Set<string>();
+
+    clusters.forEach((cluster: any) => {
+      const [lng, lat] = cluster.geometry.coordinates;
+      const isCluster = cluster.properties.cluster;
+
+      if (isCluster) {
+        const clusterId = cluster.properties.cluster_id;
+        const pointCount = cluster.properties.point_count;
+        const key = `cluster-${clusterId}`;
+        nextKeys.add(key);
+
+        let marker = clusterMarkers.current.get(key);
+        if (!marker) {
+          const wrapper = document.createElement("div");
+
+          const el = document.createElement("div");
+          el.className = "dashly-cluster";
+          el.style.cssText = `
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: rgba(79, 70, 229, 0.9);
+            border: 3px solid white;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 0 15px rgba(79,70,229,0.5);
+            cursor: pointer;
+            z-index: 10000;
+            transition: transform 0.2s;
+          `;
+          el.innerText = String(pointCount);
+          wrapper.appendChild(el);
+
+          wrapper.addEventListener("click", () => {
+            const expansionZoom = superclusterRef.current!.getClusterExpansionZoom(clusterId);
+            map.flyTo({ center: [lng, lat], zoom: expansionZoom });
+          });
+          wrapper.addEventListener("mouseenter", () => (el.style.transform = "scale(1.15)"));
+          wrapper.addEventListener("mouseleave", () => (el.style.transform = "scale(1)"));
+
+          marker = new maplibregl.Marker({
+            element: wrapper,
+            anchor: "center",
+            pitchAlignment: "viewport",
+          })
+            .setLngLat([lng, lat])
+            .addTo(map);
+          clusterMarkers.current.set(key, marker);
+        } else {
+          marker.setLngLat([lng, lat]);
+          (marker.getElement().firstChild as HTMLDivElement).innerText = String(pointCount);
+          marker.getElement().style.display = "block";
+        }
+      } else {
+        const userId = cluster.properties.userId;
+        const key = `user-${userId}`;
+        nextKeys.add(key);
+
+        const marker = markers.current.get(userId);
+        if (marker) {
+          marker.getElement().style.display = "flex";
+        }
+      }
+    });
+
+    clusterMarkers.current.forEach((marker, key) => {
+      if (!nextKeys.has(key)) {
+        marker.getElement().style.display = "none";
+      }
+    });
+
+    markers.current.forEach((marker, userId) => {
+      if (!nextKeys.has(`user-${userId}`)) {
+        marker.getElement().style.display = "none";
+      }
+    });
+  }, [participants]);
+
+  useEffect(() => {
+    updateClusters();
+  }, [updateClusters]);
+
+  useEffect(() => {
+    if (!mapIsReady) return;
+    const map = mapInstance.current;
+    if (map) {
+      map.on("zoom", updateClusters);
+      return () => {
+        map.off("zoom", updateClusters);
+      };
+    }
+  }, [mapIsReady, updateClusters]);
 
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
@@ -239,24 +431,8 @@ export default function EventMonitoringPage() {
 
   // Compute monitoring status
   const monitoringStatus = useMemo(() => {
-    if (!event) return null;
-
-    // If server provided monitoringWindow, use it
-    if (event.monitoringWindow) {
-      // Re-evaluate status using current client time
-      const actualStart = new Date(event.monitoringWindow.actualStart);
-
-      if (event.status === "FINISHED") return "FINISHED";
-      if (event.status === "LIVE") return "LIVE";
-      if (now >= actualStart) return "READY_TO_START";
-      return "WAITING_FOR_WINDOW";
-    }
-
-    // Fallback if no monitoring window data
-    if (event.status === "FINISHED") return "FINISHED";
-    if (event.status === "LIVE") return "LIVE";
-    return "WAITING_FOR_WINDOW";
-  }, [event, now]);
+    return event?.status || null;
+  }, [event]);
 
   // Countdown to actualStart
   const countdown = useMemo(() => {
@@ -270,13 +446,6 @@ export default function EventMonitoringPage() {
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }, [event, now]);
-
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift();
-    return null;
-  };
 
   // ── Timer tick (update `now` every second) ──────────────────
   useEffect(() => {
@@ -320,90 +489,74 @@ export default function EventMonitoringPage() {
     }
   }, [mapIsReady]);
 
-  // ── Status Change Handler ──────────────────────────────────
-  const handleStatusChange = useCallback(
-    async (newStatus: string) => {
-      if (isStatusUpdating) return;
-      setIsStatusUpdating(true);
-      setStatusError("");
-      try {
-        const token = getCookie("auth_token");
-        const res = await authenticatedFetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/events/${eventId}/status`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ status: newStatus }),
-          },
-        );
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || "Failed to change status");
-        }
-        const response = await res.json();
-        const updated = response.success ? response.data : response;
-        setEvent(updated);
-      } catch (err: any) {
-        setStatusError(err.message);
-        setTimeout(() => setStatusError(""), 5000);
-      } finally {
-        setIsStatusUpdating(false);
-      }
-    },
-    [eventId, isStatusUpdating],
-  );
 
-  const handleUpdateParticipantState = async (
-    userIdStr: string,
-    newState: string,
-    alertId?: string,
-  ) => {
+  const handleUpdateParticipantState = async (userId: string, newState: string, alertId?: string) => {
     try {
       const token = getCookie("auth_token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-      const res = await authenticatedFetch(
-        `${apiUrl}/events/${eventId}/participants/${userIdStr}/state`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ state: newState }),
+      const res = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants/${userId}/state`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || "Failed to update participant state");
-      }
-
-      // Local state update
+        body: JSON.stringify({ state: newState }),
+      });
+      if (!res.ok) throw new Error("Failed to update participant state");
+      
       setParticipants((prev) => {
         const next = new Map(prev);
-        const current = next.get(userIdStr);
-        if (current) {
-          next.set(userIdStr, { ...current, status: "active", isAnomaly: false, hasAlert: false });
+        const p = next.get(userId);
+        if (p) {
+          next.set(userId, { ...p, participantState: newState, isAnomaly: false });
+          
+          // Force reset marker visually immediately
+          const marker = markers.current.get(userId);
+          if (marker) {
+            updateMarkerElement(
+              marker.getElement(),
+              p.name || `User ${userId.substring(0, 4)}`,
+              p.status || "active",
+              false,
+              false, // isAnomaly = false
+              participantsInfo.current.get(userId)?.color || p.color
+            );
+          }
         }
         return next;
       });
 
-      // Reset marker appearance
-      let marker = markers.current.get(userIdStr);
-      if (marker) {
-        const pInfo = participantsInfo.current.get(userIdStr);
-        updateMarkerElement(
-          marker.getElement(),
-          pInfo?.formattedName || `User ${userIdStr.substring(0, 4)}`,
-          "active",
-          false,
-          false,
-        );
-      }
-
       if (alertId) {
         removeAnomaly(alertId);
       }
+    } catch (e) {
+      console.error("Error updating participant state:", e);
+      alert("Gagal mengupdate state partisipan.");
+    }
+  };
 
-      alert(`User has been unfrozen.`);
-    } catch (err: any) {
-      alert(err.message);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const handleUpdateStatus = async (newStatus: string) => {
+    try {
+      setStatusLoading(true);
+      const token = getCookie("auth_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const res = await authenticatedFetch(`${apiUrl}/events/${eventId}/status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      // Assuming eventMetadata is part of your store or state, you'd update it here if necessary.
+      // For now, the dashboard will rely on socket updates or next polling.
+    } catch (e) {
+      console.error("Error updating status:", e);
+      alert("Gagal mengupdate status acara.");
+    } finally {
+      setStatusLoading(false);
     }
   };
 
@@ -411,12 +564,9 @@ export default function EventMonitoringPage() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const token = getCookie("auth_token");
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
         const startTime = performance.now();
-        const res = await authenticatedFetch(`${apiUrl}/events/${eventId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await authenticatedFetch(`${apiUrl}/events/${eventId}`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
 
         if (!res.ok) throw new Error(`Failed to fetch event data: ${res.status}`);
 
@@ -439,9 +589,7 @@ export default function EventMonitoringPage() {
 
         // Fetch participants for mapping
         try {
-          const partsRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const partsRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
           if (partsRes.ok) {
             const partsData = await partsRes.json();
             if (partsData.success && partsData.data) {
@@ -456,6 +604,7 @@ export default function EventMonitoringPage() {
                   healthInfo: p.healthInfo,
                   email: p.email,
                   phone: p.phone,
+                  color: generateRandomColor(),
                 });
               });
               console.log("[INIT] 👥 Loaded participants mapping:", participantsInfo.current.size);
@@ -474,9 +623,7 @@ export default function EventMonitoringPage() {
         // Fetch live positions AFTER loading gate is removed.
         // Wrapped in its own try-catch so failures don't break the map.
         try {
-          const posRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/live`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const posRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/live`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
 
           if (posRes.ok) {
             const livePositions = await posRes.json();
@@ -501,8 +648,9 @@ export default function EventMonitoringPage() {
                     bibNumber: pInfo?.bibNumber || p.bibNumber || "-",
                     lat: parseFloat(p.lat),
                     lng: parseFloat(p.lng),
+                    color: pInfo?.color,
                     speed: parseFloat(p.speed) || 0,
-                    battery: parseInt(p.battery) || 100,
+                    battery: p.battery != null && !isNaN(parseInt(p.battery)) ? parseInt(p.battery) : undefined,
                     status: isOfflineNormalized ? "inactive" : "active",
                     isOffline: isOfflineNormalized,
                     lastUpdate: Date.now(),
@@ -516,6 +664,35 @@ export default function EventMonitoringPage() {
           }
         } catch (posErr) {
           console.warn("[INIT] ⚠️ Live positions fetch error (non-fatal):", posErr);
+        }
+
+        // Fetch historical path data so polylines persist on refresh
+        try {
+          const pathRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/path-history`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
+          if (pathRes.ok) {
+            const historyMap = await pathRes.json();
+            console.log(
+              "[INIT] 🗺️ Loaded path history for",
+              Object.keys(historyMap).length,
+              "participants",
+            );
+
+            setParticipants((prev) => {
+              const next = new Map(prev);
+              for (const [uidStr, path] of Object.entries(historyMap)) {
+                const current = next.get(uidStr) || { id: uidStr };
+                const color = current.color || generateRandomColor();
+                next.set(uidStr, { ...current, pathHistory: path as number[][], color });
+
+                // Update participantsInfo cache
+                const pInfo = participantsInfo.current.get(uidStr);
+                if (pInfo) pInfo.color = color;
+              }
+              return next;
+            });
+          }
+        } catch (pathErr) {
+          console.warn("[INIT] ⚠️ Path history fetch error (non-fatal):", pathErr);
         }
       } catch (err: any) {
         setError(err.message);
@@ -584,6 +761,28 @@ export default function EventMonitoringPage() {
 
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
+      
+      // ADD START AND FINISH MARKERS
+      const coords = getRouteCoordinates(event.routeGeojson);
+      if (coords && coords.length > 0) {
+        const startPoint = coords[0];
+        const finishPoint = coords[coords.length - 1];
+
+        const startEl = document.createElement("div");
+        startEl.className = "flex items-center justify-center font-bold text-white text-xs bg-emerald-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
+        startEl.innerText = "START";
+        new maplibregl.Marker({ element: startEl })
+          .setLngLat([startPoint[0], startPoint[1]])
+          .addTo(map);
+
+        const finishEl = document.createElement("div");
+        finishEl.className = "flex items-center justify-center font-bold text-white text-xs bg-rose-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
+        finishEl.innerText = "FINISH";
+        new maplibregl.Marker({ element: finishEl })
+          .setLngLat([finishPoint[0], finishPoint[1]])
+          .addTo(map);
+      }
+      
       console.log(
         "[Map] ✅ Map fully loaded. Draining",
         pendingUpdates.current.length,
@@ -660,17 +859,11 @@ export default function EventMonitoringPage() {
   }, [event, currentTheme]);
 
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001", {
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", {
       transports: ["polling", "websocket"], // Standard order: poll first then upgrade
       reconnectionDelay: 2000,
-      auth: { token: getAccessToken() },
+      withCredentials: true,
     });
-
-    const reconnectWithCurrentToken = () => {
-      socket.auth = { token: getAccessToken() };
-      socket.disconnect().connect();
-    };
-    window.addEventListener(AUTH_TOKENS_CHANGED_EVENT, reconnectWithCurrentToken);
 
     socket.on("connect", () => {
       console.log("🔌 Socket CONNECTED. SID:", socket.id);
@@ -689,8 +882,8 @@ export default function EventMonitoringPage() {
     // ── EMERGENCY DEBUG: Catch-ALL listener ──────────────────
     // This fires for EVERY event the server sends, regardless of name.
     // If you see events here but NOT in position_update, the event name is wrong.
-    socket.onAny((eventName: string, ...args: any[]) => {
-      console.log("📡 RAW WS EVENT:", eventName, args);
+    socket.onAny(() => {
+      // console.log('📡 RAW WS EVENT:', eventName, args);
     });
 
     socket.on("position_batch", (batchData: any) => {
@@ -713,6 +906,40 @@ export default function EventMonitoringPage() {
             data.bibNumber = pInfo.bibNumber || data.bibNumber;
           }
 
+          // ==========================================
+          // KODE PENGUJIAN LATENSI UNTUK SKRIPSI
+          // ==========================================
+          const rawTime = data.timestamp || data.capturedAt || data.captured_at;
+
+          if (rawTime) {
+            const timeSentFromMobile = new Date(rawTime);
+            const timeReceivedAtDashboard = new Date();
+
+            const latencyMs = timeReceivedAtDashboard.getTime() - timeSentFromMobile.getTime();
+
+            const formatTime = (d: Date) => {
+              return (
+                `${d.getHours().toString().padStart(2, "0")}:` +
+                `${d.getMinutes().toString().padStart(2, "0")}:` +
+                `${d.getSeconds().toString().padStart(2, "0")}.` +
+                `${d.getMilliseconds().toString().padStart(3, "0")}`
+              );
+            };
+
+            console.log(
+              `[LATENCY TEST] Peserta ID: ${userId} \n` +
+                `  ├─ Dikirim dari Mobile : ${formatTime(timeSentFromMobile)} \n` +
+                `  ├─ Diterima di Dasbor  : ${formatTime(timeReceivedAtDashboard)} \n` +
+                `  └─ Total Latensi       : ${latencyMs} ms`,
+            );
+          } else {
+            console.warn(
+              `[DEBUG] Tidak ada variabel waktu pada peserta ${userId}. Isi data:`,
+              data,
+            );
+          }
+          // ==========================================
+
           if (!mapIsReadyRef.current || !mapInstance.current) {
             pendingUpdates.current.push({ userId, data, lat, lng });
             return;
@@ -722,11 +949,20 @@ export default function EventMonitoringPage() {
           if (!hasFlown && mapInstance.current) {
             hasFlown = true;
             mapInstance.current.flyTo({ center: [lng, lat], zoom: 16 });
-            console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
+            // console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
           }
 
           // --- DIRECT MARKER MANIPULATION (Zero Latency) ---
           let marker = markers.current.get(userId);
+          // If we don't have a color yet, generate one for the new participant
+          if (!data.color) {
+            const currentP = participantsInfo.current.get(userId) as any;
+            data.color = currentP?.color || generateRandomColor();
+            if (currentP) {
+              currentP.color = data.color; // Save it back so it's consistent
+            }
+          }
+
           if (marker) {
             // Exists: Just slide it smoothly
             marker.setLngLat([lng, lat]);
@@ -737,17 +973,17 @@ export default function EventMonitoringPage() {
               data.status,
               false,
               data.isAnomaly,
+              participantsInfo.current.get(userId)?.color || data.color
             );
           } else {
             // Doesn't exist: Create instantly bypassing React
-            console.log(
-              `[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`,
-            );
+            // console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
             const el = createPulseMarker(
               data.name || `User ${String(userId).substring(0, 4)}`,
               data.status,
               false,
               data.isAnomaly,
+              data.color
             );
             marker = new maplibregl.Marker({ element: el })
               .setLngLat([lng, lat])
@@ -789,6 +1025,39 @@ export default function EventMonitoringPage() {
       }
     });
 
+    socket.on("sync_batch", (data: any) => {
+      try {
+        if (!data || !data.userId || !data.points || !Array.isArray(data.points)) return;
+        const userId = String(data.userId);
+
+        // console.log(`[Map] 📦 Received offline sync batch for ${userId} with ${data.points.length} points.`);
+
+        setParticipants((prev) => {
+          const next = new Map(prev);
+          const current = next.get(userId);
+          if (!current) return prev; // If user not on map yet, wait for position_batch
+
+          // Extract coordinates and append to history
+          const newHistory = [...(current.pathHistory || [])];
+          data.points.forEach((p: any) => {
+            const lat = parseFloat(p.lat);
+            const lng = parseFloat(p.lng);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              newHistory.push([lng, lat]);
+            }
+          });
+
+          next.set(userId, {
+            ...current,
+            pathHistory: newHistory,
+          });
+          return next;
+        });
+      } catch (e) {
+        console.error("Socket error processing sync_batch:", e);
+      }
+    });
+
     socket.on("anomaly_detected", (data: any) => {
       try {
         // CRITICAL: Always use data.userId (users.id), NOT data.participantId (event_participants.id)
@@ -797,7 +1066,7 @@ export default function EventMonitoringPage() {
           console.warn("[Map] ⚠️ Anomaly with no userId, skipping:", data);
           return;
         }
-        console.log(`[Map] 🚨 Anomaly detected for user ${userId}:`, data.type);
+        // console.log(`[Map] 🚨 Anomaly detected for user ${userId}:`, data.type);
 
         const pInfo = participantsInfo.current.get(userId);
         if (pInfo) {
@@ -849,7 +1118,7 @@ export default function EventMonitoringPage() {
           console.warn("[Map] ⚠️ SOS with no userId, skipping:", data);
           return;
         }
-        console.log(`[Map] 🚨 SOS EMERGENCY triggered for user ${userId}`);
+        // console.log(`[Map] 🚨 SOS EMERGENCY triggered for user ${userId}`);
 
         const pInfo = participantsInfo.current.get(userId);
         if (pInfo) {
@@ -902,7 +1171,7 @@ export default function EventMonitoringPage() {
         const userId = String(data.userId);
         if (!userId || userId === "undefined") return;
         const distance = data.distance ?? data.offRouteDistance ?? 0;
-        console.log(`[Map] ⚠️ Off-route alert for user ${userId}:`, distance, "m");
+        // console.log(`[Map] ⚠️ Off-route alert for user ${userId}:`, distance, 'm');
 
         const pInfo = participantsInfo.current.get(userId);
         const name = pInfo?.formattedName || pInfo?.name || `User ${userId.substring(0, 4)}`;
@@ -942,7 +1211,7 @@ export default function EventMonitoringPage() {
       try {
         const userId = String(data.userId);
         if (!userId || userId === "undefined") return;
-        console.log(`[Map] 🛑 User stopped alert for user ${userId}:`, data.durationSec, "s");
+        // console.log(`[Map] 🛑 User stopped alert for user ${userId}:`, data.durationSec, 's');
 
         const pInfo = participantsInfo.current.get(userId);
         const name = pInfo?.formattedName || pInfo?.name || `User ${userId.substring(0, 4)}`;
@@ -965,7 +1234,7 @@ export default function EventMonitoringPage() {
             next.set(userId, {
               ...current,
               hasAlert: true,
-              status: "stuck",
+              status: "stopped",
               lastUpdate: Date.now(),
             });
           }
@@ -981,9 +1250,7 @@ export default function EventMonitoringPage() {
         const userId = String(data.userId);
         if (!data.points || !Array.isArray(data.points)) return;
 
-        console.log(
-          `[Map] 📦 Received offline sync batch for user ${userId}: ${data.points.length} points`,
-        );
+        // console.log(`[Map] 📦 Received offline sync batch for user ${userId}: ${data.points.length} points`);
 
         setParticipants((prev) => {
           const next = new Map(prev);
@@ -1014,6 +1281,7 @@ export default function EventMonitoringPage() {
           "active",
           false,
           false,
+          participantsInfo.current.get(userId)?.color || data.color
         );
       setParticipants((prev) => {
         const next = new Map(prev);
@@ -1041,6 +1309,7 @@ export default function EventMonitoringPage() {
           "FINISHED",
           false,
           false,
+          participantsInfo.current.get(userId)?.color || data.color
         );
       setParticipants((prev) => {
         const next = new Map(prev);
@@ -1051,7 +1320,7 @@ export default function EventMonitoringPage() {
     });
 
     socket.on("EVENT_STATUS_CHANGED", (data: any) => {
-      console.log(`[Map] 🚦 EVENT STATUS CHANGED:`, data.status);
+      // console.log(`[Map] 🚦 EVENT STATUS CHANGED:`, data.status);
       setEvent((prev: any) => {
         if (!prev) return prev;
         return { ...prev, status: data.status };
@@ -1068,7 +1337,7 @@ export default function EventMonitoringPage() {
         return;
       }
       const center = mapInstance.current.getCenter();
-      console.log("🧪 Adding test marker at map center:", center);
+      // console.log('🧪 Adding test marker at map center:', center);
       const el = document.createElement("div");
       el.style.cssText = `
         width: 30px; height: 30px;
@@ -1081,15 +1350,14 @@ export default function EventMonitoringPage() {
       new maplibregl.Marker({ element: el })
         .setLngLat([center.lng, center.lat])
         .addTo(mapInstance.current!);
-      console.log("🧪 ✅ Test marker added! If you see a RED DOT, rendering works.");
+      // console.log('🧪 ✅ Test marker added! If you see a RED DOT, rendering works.');
     };
-    console.log("🧪 Debug: window.addTestMarker() is ready. Call it in the console.");
+    // console.log('🧪 Debug: window.addTestMarker() is ready. Call it in the console.');
 
     mqttClient.current = socket as any;
     return () => {
-      console.log("Socket: Cleanup - Disconnecting...");
+      // console.log("Socket: Cleanup - Disconnecting...");
       socket.emit("leaveEventRoom", { eventId: Number(eventId) });
-      window.removeEventListener(AUTH_TOKENS_CHANGED_EVENT, reconnectWithCurrentToken);
       socket.disconnect();
       delete (window as any).addTestMarker;
     };
@@ -1114,14 +1382,13 @@ export default function EventMonitoringPage() {
 
       if (!marker) {
         // PILLAR 5: Create marker ONCE, then only update position
-        console.log(
-          `[Marker] ➕ Creating new marker for userId=${userId} at [lng=${data.lng}, lat=${data.lat}]`,
-        );
+        // console.log(`[Marker] ➕ Creating new marker for userId=${userId} at [lng=${data.lng}, lat=${data.lat}]`);
         const el = createPulseMarker(
           data.name || `User ${String(userId).substring(0, 4)}`,
           data.status,
           isStale,
           data.isAnomaly,
+          data.color
         );
         marker = new maplibregl.Marker({ element: el, anchor: "center" })
           .setLngLat([data.lng, data.lat])
@@ -1139,6 +1406,7 @@ export default function EventMonitoringPage() {
           data.status,
           isStale,
           data.isAnomaly,
+          data.color
         );
         el.innerHTML = newEl.innerHTML;
       }
@@ -1163,7 +1431,7 @@ export default function EventMonitoringPage() {
         if (data.pathHistory && data.pathHistory.length > 1) {
           features.push({
             type: "Feature",
-            properties: { userId },
+            properties: { userId, color: data.color || "#10b981" },
             geometry: {
               type: "LineString",
               coordinates: data.pathHistory,
@@ -1191,9 +1459,10 @@ export default function EventMonitoringPage() {
           layout: {
             "line-join": "round",
             "line-cap": "round",
+            visibility: showPolylines ? "visible" : "none",
           },
           paint: {
-            "line-color": "#10b981", // Emerald green for participant trails
+            "line-color": ["get", "color"], // Dynamic colored paths
             "line-width": 3,
             "line-opacity": 0.6,
             "line-dasharray": [2, 2], // Dashed line to differentiate from main route
@@ -1201,7 +1470,18 @@ export default function EventMonitoringPage() {
         });
       }
     }
-  }, [participants, mapIsReady, now]);
+  }, [participants, mapIsReady, now, showPolylines]);
+
+  // Effect to toggle polyline visibility instantly
+  useEffect(() => {
+    if (mapInstance.current && mapInstance.current.getLayer("participants-paths-layer")) {
+      mapInstance.current.setLayoutProperty(
+        "participants-paths-layer",
+        "visibility",
+        showPolylines ? "visible" : "none",
+      );
+    }
+  }, [showPolylines]);
 
   // ── Interaction ─────────────────────────────────────────────
   const goToParticipant = (userId: string) => {
@@ -1251,31 +1531,60 @@ export default function EventMonitoringPage() {
     : null;
 
   return (
-    <div className="relative flex flex-1 h-full w-full overflow-hidden bg-[#0a0f1d] font-sans">
+    <div className="relative flex h-full w-full overflow-hidden bg-[#0a0f1d] font-sans">
       {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
+      {/* Altitude Chart (Floating Bottom) */}
+      {showAltitudeChart && event?.altitudeProfile && (
+        <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[800px] h-[200px] z-40 bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-4 transition-all duration-500 ease-in-out">
+          <AltitudeChart 
+            data={event.altitudeProfile} 
+            hoveredDistance={hoveredDistance} 
+            onHover={(pt) => {
+              setHoveredDistance(pt?.distance ?? null);
+              if (pt) {
+                if (!chartMarkerInstance.current) {
+                  const el = document.createElement("div");
+                  el.className = "w-4 h-4 bg-fuchsia-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(217,70,239,0.8)]";
+                  chartMarkerInstance.current = new maplibregl.Marker({ element: el })
+                    .setLngLat([pt.lng, pt.lat])
+                    .addTo(mapInstance.current!);
+                } else {
+                  chartMarkerInstance.current.setLngLat([pt.lng, pt.lat]);
+                }
+              } else {
+                if (chartMarkerInstance.current) {
+                  chartMarkerInstance.current.remove();
+                  chartMarkerInstance.current = null;
+                }
+              }
+            }} 
+          />
+        </div>
+      )}
+
       {/* Global HUD Header (Floating Top) */}
-      <div className="absolute top-6 left-6 right-6 z-40 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-40 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 pointer-events-none">
         {/* Left: Event Branding */}
-        <div className="flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl p-2 pr-6 rounded-3xl border border-white/10 shadow-2xl pointer-events-auto">
+        <div className="flex items-center gap-2 sm:gap-4 bg-slate-900/90 backdrop-blur-xl p-2 pr-4 sm:pr-6 rounded-3xl border border-white/10 shadow-2xl pointer-events-auto max-w-full overflow-hidden">
           <Link
-            href={`/dashboard/events/${eventId}`}
-            className="p-3 bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
+            href={`/events/${eventId}`}
+            className="p-2 sm:p-3 bg-slate-800 hover:bg-slate-700 rounded-xl sm:rounded-2xl transition-colors shrink-0"
           >
-            <ChevronLeft className="w-5 h-5 text-white" />
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </Link>
-          <div className="flex flex-col">
-            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">
+          <div className="flex flex-col min-w-0">
+            <span className="text-[8px] sm:text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">
               Telemetry Monitor
             </span>
-            <h1 className="text-lg font-black text-white uppercase tracking-tight truncate max-w-[200px] leading-none">
+            <h1 className="text-sm sm:text-lg font-black text-white uppercase tracking-tight truncate max-w-[120px] sm:max-w-[200px] leading-none">
               {event.name}
             </h1>
           </div>
           {/* Category Badge */}
           <div
-            className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${
+            className={`hidden sm:flex px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest items-center gap-1 shrink-0 ${
               event.category === "CYCLING"
                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                 : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
@@ -1286,15 +1595,14 @@ export default function EventMonitoringPage() {
           </div>
         </div>
 
-        {/* Center: Status Indicator + Race Control */}
-        <div className="flex items-center gap-3 pointer-events-auto">
-          {/* Status Indicator */}
+        {/* Center: Status Indicator */}
+        <div className="hidden md:flex items-center gap-3 pointer-events-auto">
           {currentStatus && (
             <div
               className={`flex items-center gap-3 px-5 py-3 rounded-2xl border backdrop-blur-md shadow-2xl ${currentStatus.bgColor}`}
             >
               <div
-                className={`w-2.5 h-2.5 rounded-full ${currentStatus.dotColor} ${monitoringStatus === "LIVE" ? "animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" : ""}`}
+                className={`w-2.5 h-2.5 rounded-full ${currentStatus.dotColor} ${monitoringStatus === "START" ? "animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" : ""}`}
               ></div>
               <div className="flex flex-col">
                 <span
@@ -1306,7 +1614,7 @@ export default function EventMonitoringPage() {
                   {currentStatus.description}
                 </span>
               </div>
-              {countdown && monitoringStatus === "WAITING_FOR_WINDOW" && (
+              {countdown && monitoringStatus === "READY" && (
                 <div className="ml-2 px-2 py-1 bg-slate-800 rounded-lg">
                   <span className="text-xs font-mono font-black text-white tracking-widest">
                     {countdown}
@@ -1315,48 +1623,10 @@ export default function EventMonitoringPage() {
               )}
             </div>
           )}
-          {/* Race Control Buttons */}
-          <div className="flex items-center gap-2">
-            {/* START Button */}
-            <button
-              onClick={() => handleStatusChange("LIVE")}
-              disabled={isStatusUpdating || monitoringStatus !== "READY_TO_START"}
-              className={`px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all border shadow-lg ${
-                monitoringStatus === "READY_TO_START"
-                  ? "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/30 shadow-emerald-900/30 hover:-translate-y-0.5"
-                  : "bg-slate-800/50 text-slate-600 border-slate-700/30 cursor-not-allowed"
-              }`}
-            >
-              {isStatusUpdating ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Play size={14} />
-              )}
-              Start Race
-            </button>
-
-            {/* STOP Button */}
-            <button
-              onClick={() => handleStatusChange("FINISHED")}
-              disabled={isStatusUpdating || monitoringStatus !== "LIVE"}
-              className={`px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all border shadow-lg ${
-                monitoringStatus === "LIVE"
-                  ? "bg-rose-600 hover:bg-rose-500 text-white border-rose-400/30 shadow-rose-900/30 hover:-translate-y-0.5"
-                  : "bg-slate-800/50 text-slate-600 border-slate-700/30 cursor-not-allowed"
-              }`}
-            >
-              {isStatusUpdating ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Square size={14} />
-              )}
-              Stop Race
-            </button>
-          </div>{" "}
         </div>
 
         {/* HUD Controls (Toggle Sidebars) */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-2 pointer-events-auto ml-auto sm:ml-0">
           <button
             onClick={() => setShowLeaderboard(!showLeaderboard)}
             className={`p-3 rounded-2xl border transition-all ${showLeaderboard ? "bg-indigo-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
@@ -1365,13 +1635,29 @@ export default function EventMonitoringPage() {
             <PanelLeft size={20} />
           </button>
 
+          <button
+            onClick={() => setShowPolylines(!showPolylines)}
+            className={`p-3 rounded-2xl border transition-all ${showPolylines ? "bg-emerald-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
+            title="Toggle Polylines"
+          >
+            <Navigation size={20} />
+          </button>
+
+          <button
+            onClick={() => setShowAltitudeChart(!showAltitudeChart)}
+            className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-fuchsia-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
+            title="Toggle Altitude Chart"
+          >
+            <Mountain size={20} />
+          </button>
+
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
             <div className="flex items-center gap-2">
               <div
-                className={`w-2 h-2 rounded-full ${monitoringStatus === "LIVE" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" : "bg-slate-600"}`}
+                className={`w-2 h-2 rounded-full ${monitoringStatus === "START" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" : "bg-slate-600"}`}
               ></div>
               <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                {monitoringStatus === "LIVE" ? "Live Link" : "Standby"}
+                {monitoringStatus === "START" ? "Live Link" : currentStatus?.label || "Standby"}
               </span>
             </div>
             <div className="w-px h-4 bg-slate-800"></div>
@@ -1402,7 +1688,7 @@ export default function EventMonitoringPage() {
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
       <aside
-        className={`absolute left-6 top-24 bottom-6 w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0"}`}
+        className={`absolute left-2 sm:left-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
@@ -1484,9 +1770,9 @@ export default function EventMonitoringPage() {
                   </div>
                   <div className="flex items-center justify-end gap-1 mt-0.5">
                     <Zap
-                      className={`w-2.5 h-2.5 ${p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
+                      className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-600" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">{p.battery || 0}%</span>
+                    <span className="text-[10px] font-bold text-slate-400">{p.battery != null ? `${p.battery}%` : '--%'}</span>
                   </div>
                   <div className="mt-1">
                     <button
@@ -1528,7 +1814,7 @@ export default function EventMonitoringPage() {
 
       {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
       <aside
-        className={`absolute right-6 top-24 bottom-6 w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0"}`}
+        className={`absolute right-2 sm:right-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
@@ -1569,15 +1855,32 @@ export default function EventMonitoringPage() {
               participantData?.name ||
               `User ${userIdStr.substring(0, 4)}`;
 
+            // Determine color based on alert type
+            let colorAccent = "bg-rose-500";
+            let textColorAccent = "text-rose-400";
+
+            if (alert.type === "STOP") {
+              colorAccent = "bg-amber-500";
+              textColorAccent = "text-amber-400";
+            } else if (alert.type === "OFF_ROUTE") {
+              colorAccent = "bg-orange-500";
+              textColorAccent = "text-orange-400";
+            } else if (alert.type === "SOS_EMERGENCY") {
+              colorAccent = "bg-rose-600";
+              textColorAccent = "text-rose-500";
+            }
+
             return (
               <div
                 key={alert.id}
                 onClick={() => goToParticipant(userIdStr)}
                 className="relative overflow-hidden p-4 rounded-2xl bg-white/5 border border-white/5 shadow-sm hover:bg-white/10 transition-all cursor-pointer group animate-in slide-in-from-right-10 duration-300"
               >
-                <div className="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+                <div className={`absolute top-0 left-0 w-1 h-full ${colorAccent}`}></div>
                 <div className="flex justify-between items-start mb-2">
-                  <span className="text-[10px] font-black uppercase text-rose-400 tracking-widest">
+                  <span
+                    className={`text-[10px] font-black uppercase tracking-widest ${textColorAccent}`}
+                  >
                     {alert.type?.replace("_", " ") || "WARN"}
                   </span>
                   <span className="text-[9px] font-mono text-slate-500 bg-black/40 px-1.5 py-0.5 rounded">
@@ -1599,7 +1902,7 @@ export default function EventMonitoringPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          void handleUpdateParticipantState(userIdStr, "CONFIRMED", alert.id);
+                          void handleUpdateParticipantState(userIdStr, "TRACKING", alert.id);
                         }}
                         className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded text-[9px] font-black uppercase transition-all"
                       >
@@ -1616,6 +1919,7 @@ export default function EventMonitoringPage() {
                         Dismiss ✕
                       </button>
                     )}
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

@@ -6,9 +6,13 @@ export interface ParticipantData {
   lat: number;
   lng: number;
   speed: number;
-  battery: number;
+  battery?: number;
   status: "stuck" | "off-route" | "active" | "inactive" | "emergency";
   isAnomaly?: boolean;
+  altitude?: number;
+  minAltitude?: number;
+  maxAltitude?: number;
+  elevationGain?: number;
   pathHistory: [number, number][];
 }
 
@@ -63,7 +67,6 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
         lat: 0,
         lng: 0,
         speed: 0,
-        battery: 100,
         status: "inactive",
         pathHistory: [],
       };

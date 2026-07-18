@@ -357,9 +357,15 @@ export default function LandingPage() {
                 and enable live tracking during the race.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="px-8 py-4 bg-white text-slate-900 hover:bg-slate-100 rounded-full font-bold text-lg transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] flex items-center justify-center gap-2">
+                <a
+                  href="https://github.com/Fikuraru72/DashlyBackend/releases/download/v1/DashlyV2.apk"
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-8 py-4 bg-white text-slate-900 hover:bg-slate-100 rounded-full font-bold text-lg transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] flex items-center justify-center gap-2"
+                >
                   <Smartphone className="w-5 h-5" /> Download for Android
-                </button>
+                </a>
               </div>
             </div>
 
