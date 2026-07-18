@@ -38,6 +38,8 @@ import {
   CheckCircle2,
   Bike,
   Footprints,
+  Smartphone,
+  Download,
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
@@ -1651,6 +1653,24 @@ export default function PublicEventMonitoringPage() {
             <Mountain size={20} />
           </button>
 
+          {/* APK Download Button */}
+          <a
+            href="https://github.com/Fikuraru72/DashlyBackend/releases/tag/v1"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Download Dashly Mobile App (APK)"
+            className="relative group p-3 rounded-2xl border transition-all bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md hover:bg-violet-600 hover:text-white hover:border-violet-400/30 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+          >
+            <Smartphone size={20} />
+            {/* Animated download arrow overlay */}
+            <span className="absolute -bottom-1 -right-1 bg-violet-500 rounded-full w-4 h-4 flex items-center justify-center shadow-md">
+              <Download size={9} className="text-white" />
+            </span>
+            {/* Tooltip */}
+            <div className="absolute top-full mt-2 right-0 whitespace-nowrap bg-slate-800 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+              Download Mobile App
+            </div>
+          </a>
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
             <div className="flex items-center gap-2">
               <div
