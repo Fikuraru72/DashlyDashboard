@@ -44,10 +44,10 @@ import { useParticipantStore } from "@/store/useParticipantStore";
 import { AUTH_TOKENS_CHANGED_EVENT, authenticatedFetch, getAccessToken } from "@/lib/api";
 
 const getCookie = (name: string) => {
-  if (typeof document === 'undefined') return null;
+  if (typeof document === "undefined") return null;
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
   return null;
 };
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
@@ -489,27 +489,33 @@ export default function PublicEventMonitoringPage() {
     }
   }, [mapIsReady]);
 
-
-  const handleUpdateParticipantState = async (userId: string, newState: string, alertId?: string) => {
+  const handleUpdateParticipantState = async (
+    userId: string,
+    newState: string,
+    alertId?: string,
+  ) => {
     try {
       const token = getCookie("auth_token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-      const res = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants/${userId}/state`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await authenticatedFetch(
+        `${apiUrl}/events/${eventId}/participants/${userId}/state`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ state: newState }),
         },
-        body: JSON.stringify({ state: newState }),
-      });
+      );
       if (!res.ok) throw new Error("Failed to update participant state");
-      
+
       setParticipants((prev) => {
         const next = new Map(prev);
         const p = next.get(userId);
         if (p) {
           next.set(userId, { ...p, participantState: newState, isAnomaly: false });
-          
+
           // Force reset marker visually immediately
           const marker = markers.current.get(userId);
           if (marker) {
@@ -519,7 +525,7 @@ export default function PublicEventMonitoringPage() {
               p.status || "active",
               false,
               false, // isAnomaly = false
-              participantsInfo.current.get(userId)?.color || p.color
+              participantsInfo.current.get(userId)?.color || p.color,
             );
           }
         }
@@ -566,7 +572,9 @@ export default function PublicEventMonitoringPage() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
         const startTime = performance.now();
-        const res = await authenticatedFetch(`${apiUrl}/events/${eventId}`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
+        const res = await authenticatedFetch(`${apiUrl}/events/${eventId}`, {
+          headers: { Authorization: `Bearer ${getCookie("auth_token")}` },
+        });
 
         if (!res.ok) throw new Error(`Failed to fetch event data: ${res.status}`);
 
@@ -589,7 +597,9 @@ export default function PublicEventMonitoringPage() {
 
         // Fetch participants for mapping
         try {
-          const partsRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
+          const partsRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants`, {
+            headers: { Authorization: `Bearer ${getCookie("auth_token")}` },
+          });
           if (partsRes.ok) {
             const partsData = await partsRes.json();
             if (partsData.success && partsData.data) {
@@ -623,7 +633,9 @@ export default function PublicEventMonitoringPage() {
         // Fetch live positions AFTER loading gate is removed.
         // Wrapped in its own try-catch so failures don't break the map.
         try {
-          const posRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/live`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
+          const posRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/live`, {
+            headers: { Authorization: `Bearer ${getCookie("auth_token")}` },
+          });
 
           if (posRes.ok) {
             const livePositions = await posRes.json();
@@ -650,7 +662,10 @@ export default function PublicEventMonitoringPage() {
                     lng: parseFloat(p.lng),
                     color: pInfo?.color,
                     speed: parseFloat(p.speed) || 0,
-                    battery: p.battery != null && !isNaN(parseInt(p.battery)) ? parseInt(p.battery) : undefined,
+                    battery:
+                      p.battery != null && !isNaN(parseInt(p.battery))
+                        ? parseInt(p.battery)
+                        : undefined,
                     status: isOfflineNormalized ? "inactive" : "active",
                     isOffline: isOfflineNormalized,
                     lastUpdate: Date.now(),
@@ -668,7 +683,9 @@ export default function PublicEventMonitoringPage() {
 
         // Fetch historical path data so polylines persist on refresh
         try {
-          const pathRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/path-history`, { headers: { Authorization: `Bearer ${getCookie("auth_token")}` } });
+          const pathRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/path-history`, {
+            headers: { Authorization: `Bearer ${getCookie("auth_token")}` },
+          });
           if (pathRes.ok) {
             const historyMap = await pathRes.json();
             console.log(
@@ -761,7 +778,7 @@ export default function PublicEventMonitoringPage() {
 
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
-      
+
       // ADD START AND FINISH MARKERS
       const coords = getRouteCoordinates(event.routeGeojson);
       if (coords && coords.length > 0) {
@@ -769,20 +786,22 @@ export default function PublicEventMonitoringPage() {
         const finishPoint = coords[coords.length - 1];
 
         const startEl = document.createElement("div");
-        startEl.className = "flex items-center justify-center font-bold text-white text-xs bg-emerald-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
+        startEl.className =
+          "flex items-center justify-center font-bold text-white text-xs bg-emerald-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
         startEl.innerText = "START";
         new maplibregl.Marker({ element: startEl })
           .setLngLat([startPoint[0], startPoint[1]])
           .addTo(map);
 
         const finishEl = document.createElement("div");
-        finishEl.className = "flex items-center justify-center font-bold text-white text-xs bg-rose-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
+        finishEl.className =
+          "flex items-center justify-center font-bold text-white text-xs bg-rose-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
         finishEl.innerText = "FINISH";
         new maplibregl.Marker({ element: finishEl })
           .setLngLat([finishPoint[0], finishPoint[1]])
           .addTo(map);
       }
-      
+
       console.log(
         "[Map] ✅ Map fully loaded. Draining",
         pendingUpdates.current.length,
@@ -860,8 +879,9 @@ export default function PublicEventMonitoringPage() {
 
   useEffect(() => {
     const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", {
-      transports: ["polling", "websocket"], // Standard order: poll first then upgrade
+      transports: ["polling", "websocket"],
       reconnectionDelay: 2000,
+      auth: { token: getAccessToken() },
       withCredentials: true,
     });
 
@@ -973,7 +993,7 @@ export default function PublicEventMonitoringPage() {
               data.status,
               false,
               data.isAnomaly,
-              participantsInfo.current.get(userId)?.color || data.color
+              participantsInfo.current.get(userId)?.color || data.color,
             );
           } else {
             // Doesn't exist: Create instantly bypassing React
@@ -983,7 +1003,7 @@ export default function PublicEventMonitoringPage() {
               data.status,
               false,
               data.isAnomaly,
-              data.color
+              data.color,
             );
             marker = new maplibregl.Marker({ element: el })
               .setLngLat([lng, lat])
@@ -1281,7 +1301,7 @@ export default function PublicEventMonitoringPage() {
           "active",
           false,
           false,
-          participantsInfo.current.get(userId)?.color || data.color
+          participantsInfo.current.get(userId)?.color || data.color,
         );
       setParticipants((prev) => {
         const next = new Map(prev);
@@ -1309,7 +1329,7 @@ export default function PublicEventMonitoringPage() {
           "FINISHED",
           false,
           false,
-          participantsInfo.current.get(userId)?.color || data.color
+          participantsInfo.current.get(userId)?.color || data.color,
         );
       setParticipants((prev) => {
         const next = new Map(prev);
@@ -1388,7 +1408,7 @@ export default function PublicEventMonitoringPage() {
           data.status,
           isStale,
           data.isAnomaly,
-          data.color
+          data.color,
         );
         marker = new maplibregl.Marker({ element: el, anchor: "center" })
           .setLngLat([data.lng, data.lat])
@@ -1406,7 +1426,7 @@ export default function PublicEventMonitoringPage() {
           data.status,
           isStale,
           data.isAnomaly,
-          data.color
+          data.color,
         );
         el.innerHTML = newEl.innerHTML;
       }
@@ -1538,15 +1558,16 @@ export default function PublicEventMonitoringPage() {
       {/* Altitude Chart (Floating Bottom) */}
       {showAltitudeChart && event?.altitudeProfile && (
         <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[800px] h-[200px] z-40 bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-4 transition-all duration-500 ease-in-out">
-          <AltitudeChart 
-            data={event.altitudeProfile} 
-            hoveredDistance={hoveredDistance} 
+          <AltitudeChart
+            data={event.altitudeProfile}
+            hoveredDistance={hoveredDistance}
             onHover={(pt) => {
               setHoveredDistance(pt?.distance ?? null);
               if (pt) {
                 if (!chartMarkerInstance.current) {
                   const el = document.createElement("div");
-                  el.className = "w-4 h-4 bg-fuchsia-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(217,70,239,0.8)]";
+                  el.className =
+                    "w-4 h-4 bg-fuchsia-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(217,70,239,0.8)]";
                   chartMarkerInstance.current = new maplibregl.Marker({ element: el })
                     .setLngLat([pt.lng, pt.lat])
                     .addTo(mapInstance.current!);
@@ -1559,7 +1580,7 @@ export default function PublicEventMonitoringPage() {
                   chartMarkerInstance.current = null;
                 }
               }
-            }} 
+            }}
           />
         </div>
       )}
@@ -1772,7 +1793,9 @@ export default function PublicEventMonitoringPage() {
                     <Zap
                       className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-600" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">{p.battery != null ? `${p.battery}%` : '--%'}</span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {p.battery != null ? `${p.battery}%` : "--%"}
+                    </span>
                   </div>
                   <div className="mt-1">
                     <button

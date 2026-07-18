@@ -59,9 +59,10 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     token ||= getAccessToken() || undefined;
 
     const socket = io(apiUrl, {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       auth: token ? { token } : undefined,
       reconnectionAttempts: 5,
+      withCredentials: true,
     });
 
     socket.io.on("reconnect_attempt", () => {

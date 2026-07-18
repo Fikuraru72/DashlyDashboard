@@ -561,7 +561,10 @@ export default function PublicEventMonitoringPage() {
                     lat: parseFloat(p.lat),
                     lng: parseFloat(p.lng),
                     speed: parseFloat(p.speed) || 0,
-                    battery: p.battery != null && !isNaN(parseInt(p.battery)) ? parseInt(p.battery) : undefined,
+                    battery:
+                      p.battery != null && !isNaN(parseInt(p.battery))
+                        ? parseInt(p.battery)
+                        : undefined,
                     status: isOfflineNormalized ? "inactive" : "active",
                     isOffline: isOfflineNormalized,
                     lastUpdate: Date.now(),
@@ -750,15 +753,15 @@ export default function PublicEventMonitoringPage() {
 
   useEffect(() => {
     const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", {
-      transports: ["polling", "websocket"], // Standard order: poll first then upgrade
+      transports: ["polling", "websocket"],
       reconnectionDelay: 2000,
       withCredentials: true,
     });
 
     socket.on("connect", () => {
       console.log("🔌 Socket CONNECTED. SID:", socket.id);
-      console.log("🔌 Socket joined room: event_" + eventId);
-      socket.emit("joinEventRoom", { eventId: Number(eventId) });
+      console.log("🔌 Socket joined public room: public_event_" + eventId);
+      socket.emit("joinPublicEventRoom", { eventId: Number(eventId) });
     });
 
     socket.on("disconnect", (reason: string) => {
@@ -1245,7 +1248,7 @@ export default function PublicEventMonitoringPage() {
     mqttClient.current = socket as any;
     return () => {
       // console.log("Socket: Cleanup - Disconnecting...");
-      socket.emit("leaveEventRoom", { eventId: Number(eventId) });
+      socket.emit("leavePublicEventRoom", { eventId: Number(eventId) });
       socket.disconnect();
       delete (window as any).addTestMarker;
     };
@@ -1621,7 +1624,9 @@ export default function PublicEventMonitoringPage() {
                     <Zap
                       className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-600" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">{p.battery != null ? `${p.battery}%` : '--%'}</span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {p.battery != null ? `${p.battery}%` : "--%"}
+                    </span>
                   </div>
                   <div className="mt-1">
                     <button
