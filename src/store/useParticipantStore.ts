@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { isStalePosition } from "@/lib/realtime-position";
+
 export interface ParticipantData {
   id: string;
   name: string;
@@ -13,6 +15,9 @@ export interface ParticipantData {
   minAltitude?: number;
   maxAltitude?: number;
   elevationGain?: number;
+  timestamp?: string;
+  capturedAt?: string;
+  captured_at?: string;
   pathHistory: [number, number][];
 }
 
@@ -70,6 +75,8 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
         status: "inactive",
         pathHistory: [],
       };
+
+      if (isStalePosition(data, existing)) return state;
 
       const newLat = data.lat ?? existing.lat;
       const newLng = data.lng ?? existing.lng;

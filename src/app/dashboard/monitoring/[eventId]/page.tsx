@@ -42,6 +42,7 @@ import {
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
 import { AUTH_TOKENS_CHANGED_EVENT, authenticatedFetch, getAccessToken } from "@/lib/api";
+import { getPositionTimestamp } from "@/lib/realtime-position";
 
 const getCookie = (name: string) => {
   if (typeof document === "undefined") return null;
@@ -293,6 +294,7 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const latestPositionTimestamps = useRef<Map<string, number>>(new Map());
   const clusterMarkers = useRef<Map<string, maplibregl.Marker>>(new Map());
   const superclusterRef = useRef<Supercluster | null>(null);
 
@@ -919,6 +921,19 @@ export default function PublicEventMonitoringPage() {
           const lng = parseFloat(data.lng);
 
           if (isNaN(lat) || isNaN(lng)) return;
+
+          const positionTimestamp = getPositionTimestamp(data);
+          const latestTimestamp = latestPositionTimestamps.current.get(userId);
+          if (
+            positionTimestamp !== null &&
+            latestTimestamp !== undefined &&
+            positionTimestamp <= latestTimestamp
+          ) {
+            return;
+          }
+          if (positionTimestamp !== null) {
+            latestPositionTimestamps.current.set(userId, positionTimestamp);
+          }
 
           const pInfo = participantsInfo.current.get(userId);
           if (pInfo) {

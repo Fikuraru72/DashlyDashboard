@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 import { AUTH_TOKENS_CHANGED_EVENT, getAccessToken } from "@/lib/api";
+import { isStalePosition } from "@/lib/realtime-position";
 
 let tokenChangeHandler: (() => void) | null = null;
 
@@ -13,6 +14,9 @@ interface Position {
   name?: string;
   bibNumber?: string;
   isOffline?: boolean;
+  timestamp?: string;
+  capturedAt?: string;
+  captured_at?: string;
 }
 
 interface LeaderboardEntry {
@@ -93,11 +97,11 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       set((state) => {
         const newPositions = { ...state.livePositions };
         data.positions.forEach((p) => {
+          const current = newPositions[p.userId];
+          if (isStalePosition(p, current)) return;
+
           // Merge with existing to preserve name/bib if not sent in every tick
-          newPositions[p.userId] = {
-            ...newPositions[p.userId],
-            ...p,
-          };
+          newPositions[p.userId] = { ...current, ...p };
         });
         return { livePositions: newPositions };
       });
