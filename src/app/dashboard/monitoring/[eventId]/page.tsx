@@ -501,7 +501,20 @@ export default function PublicEventMonitoringPage() {
         const next = new Map(prev);
         const p = next.get(userId);
         if (p) {
-          next.set(userId, { ...p, participantState: newState });
+          next.set(userId, { ...p, participantState: newState, isAnomaly: false });
+          
+          // Force reset marker visually immediately
+          const marker = markers.current.get(userId);
+          if (marker) {
+            updateMarkerElement(
+              marker.getElement(),
+              p.name || `User ${userId.substring(0, 4)}`,
+              p.status || "active",
+              false,
+              false, // isAnomaly = false
+              participantsInfo.current.get(userId)?.color || p.color
+            );
+          }
         }
         return next;
       });
