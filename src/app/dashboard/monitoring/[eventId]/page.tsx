@@ -97,7 +97,7 @@ const updateMarkerElement = (
   el.innerHTML = `
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
       <div style="
-        width: 32px; height: 32px;
+        width: 20px; height: 20px;
         border-radius: 50%;
         background: ${coreColor}30;
         animation: ${!isStale && status !== "inactive" ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
@@ -107,23 +107,23 @@ const updateMarkerElement = (
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 20px; height: 20px;
+      width: 12px; height: 12px;
       border-radius: 50%;
       background: ${coreColor};
-      border: 3px solid white;
-      box-shadow: 0 0 15px ${coreColor}80;
+      border: 2px solid white;
+      box-shadow: 0 0 10px ${coreColor}80;
     "></div>
     <div class="marker-label" style="
       position: absolute;
       bottom: 100%;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(15,23,42,0.9);
+      background: rgba(15,23,42,0.85);
       color: white;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 10px;
+      padding: 1.5px 6px;
+      border-radius: 3px;
+      font-size: 8.5px;
       font-weight: bold;
       white-space: nowrap;
       border: 1px solid rgba(255,255,255,0.1);
@@ -148,8 +148,8 @@ const createPulseMarker = (
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 24px;
+    height: 24px;
     z-index: 9999 !important;
     border-radius: 50%;
     cursor: pointer;
