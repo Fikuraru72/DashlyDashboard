@@ -52,25 +52,25 @@ import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
-const generateRandomColor = () => {
+const getUserColor = (userId: string) => {
   const colors = [
-    "#f87171",
-    "#fb923c",
-    "#fbbf24",
-    "#a3e635",
-    "#4ade80",
-    "#34d399",
-    "#2dd4bf",
-    "#38bdf8",
-    "#60a5fa",
-    "#818cf8",
-    "#a78bfa",
-    "#c084fc",
-    "#e879f9",
-    "#f472b6",
-    "#fb7185",
+    "#f87171", // red
+    "#fb923c", // orange
+    "#fbbf24", // yellow
+    "#2dd4bf", // teal
+    "#38bdf8", // sky
+    "#60a5fa", // blue
+    "#818cf8", // indigo
+    "#a78bfa", // violet
+    "#c084fc", // fuchsia
+    "#e879f9", // pink
+    "#f472b6", // rose
   ];
-  return colors[Math.floor(Math.random() * colors.length)];
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
 };
 
 // Helper to inject HTML into an existing DOM element so we can update colors dynamically
@@ -555,7 +555,7 @@ export default function PublicEventMonitoringPage() {
                   healthInfo: p.healthInfo,
                   email: p.email,
                   phone: p.phone,
-                  color: generateRandomColor(),
+                  color: getUserColor(String(p.id)),
                 });
               });
               console.log("[INIT] 👥 Loaded participants mapping:", participantsInfo.current.size);
@@ -887,7 +887,7 @@ export default function PublicEventMonitoringPage() {
           // If we don't have a color yet, generate one for the new participant
           if (!data.color) {
             const currentP = participantsInfo.current.get(userId) as any;
-            data.color = currentP?.color || generateRandomColor();
+            data.color = currentP?.color || getUserColor(String(userId));
             if (currentP) {
               currentP.color = data.color; // Save it back so it's consistent
             }
