@@ -1836,7 +1836,7 @@ export default function PublicEventMonitoringPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          void handleUpdateParticipantState(userIdStr, "CONFIRMED", alert.id);
+                          void handleUpdateParticipantState(userIdStr, "TRACKING", alert.id);
                         }}
                         className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded text-[9px] font-black uppercase transition-all"
                       >
