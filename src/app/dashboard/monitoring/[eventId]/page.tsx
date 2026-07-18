@@ -1712,7 +1712,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
       <aside
-        className={`absolute left-2 sm:left-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
@@ -1838,7 +1838,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
       <aside
-        className={`absolute right-2 sm:right-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute right-2 sm:right-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">

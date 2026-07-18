@@ -423,14 +423,42 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         </button>
                       ))}
                     </div>
-                    {(event.status === "READY" || event.status === "LIVE") && (
-                      <Link
-                        href={`/dashboard/monitoring/${eventId}`}
-                        className="flex items-center justify-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white rounded-xl font-bold transition-all shadow-md hover:-translate-y-0.5 mt-2"
+                    <div className="flex items-center gap-3 mt-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const token = getCookie("auth_token");
+                            const res = await fetch(`${apiUrl}/events/${eventId}/telemetry-report`, {
+                              headers: { Authorization: `Bearer ${token}` }
+                            });
+                            if (!res.ok) throw new Error("Failed to download report");
+                            const blob = await res.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `telemetry-report-event-${eventId}.xlsx`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                          } catch (err) {
+                            alert("Failed to download telemetry report. Ensure you are authorized.");
+                          }
+                        }}
+                        className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all shadow-md hover:-translate-y-0.5 border border-slate-700"
+                        title="Download Telemetry Excel Report"
                       >
-                        <Activity className="w-4 h-4" /> Live Monitor
-                      </Link>
-                    )}
+                        <Download className="w-4 h-4" /> Telemetry Report
+                      </button>
+                      {(event.status === "READY" || event.status === "LIVE") && (
+                        <Link
+                          href={`/dashboard/monitoring/${eventId}`}
+                          className="flex items-center justify-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white rounded-xl font-bold transition-all shadow-md hover:-translate-y-0.5"
+                        >
+                          <Activity className="w-4 h-4" /> Live Monitor
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
