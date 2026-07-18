@@ -903,7 +903,7 @@ export default function PublicEventMonitoringPage() {
               data.status,
               false,
               data.isAnomaly,
-              data.color,
+              data.color
             );
           } else {
             // Doesn't exist: Create instantly bypassing React
@@ -913,7 +913,7 @@ export default function PublicEventMonitoringPage() {
               data.status,
               false,
               data.isAnomaly,
-              data.color,
+              data.color
             );
             marker = new maplibregl.Marker({ element: el })
               .setLngLat([lng, lat])
@@ -1211,6 +1211,7 @@ export default function PublicEventMonitoringPage() {
           "active",
           false,
           false,
+          data.color
         );
       setParticipants((prev) => {
         const next = new Map(prev);
@@ -1238,6 +1239,7 @@ export default function PublicEventMonitoringPage() {
           "FINISHED",
           false,
           false,
+          data.color
         );
       setParticipants((prev) => {
         const next = new Map(prev);
@@ -1316,6 +1318,7 @@ export default function PublicEventMonitoringPage() {
           data.status,
           isStale,
           data.isAnomaly,
+          data.color
         );
         marker = new maplibregl.Marker({ element: el, anchor: "center" })
           .setLngLat([data.lng, data.lat])
@@ -1333,6 +1336,7 @@ export default function PublicEventMonitoringPage() {
           data.status,
           isStale,
           data.isAnomaly,
+          data.color
         );
         el.innerHTML = newEl.innerHTML;
       }
