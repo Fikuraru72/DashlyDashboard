@@ -1786,15 +1786,28 @@ export default function PublicEventMonitoringPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeAnomaly(alert.id);
-                      }}
-                      className="px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-400 border border-white/10 rounded text-[9px] font-black uppercase transition-all"
-                    >
-                      Dismiss ✕
-                    </button>
+                    {alert.type === "SOS_EMERGENCY" ||
+                    participantData?.participantState === "FROZEN" ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleUpdateParticipantState(userIdStr, "CONFIRMED", alert.id);
+                        }}
+                        className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded text-[9px] font-black uppercase transition-all"
+                      >
+                        🔓 Unfreeze
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeAnomaly(alert.id);
+                        }}
+                        className="px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-400 border border-white/10 rounded text-[9px] font-black uppercase transition-all"
+                      >
+                        Dismiss ✕
+                      </button>
+                    )}
 
                     <button
                       onClick={(e) => {
