@@ -14,6 +14,7 @@ const isParticipantOffline = (val: any): boolean => {
 import "maplibre-gl/dist/maplibre-gl.css";
 import Supercluster from "supercluster";
 import { io } from "socket.io-client";
+import AltitudeChart, { AltitudePoint } from "@/components/map/AltitudeChart";
 import { useTheme } from "next-themes";
 import {
   Activity,
@@ -23,6 +24,7 @@ import {
   ShieldAlert,
   Navigation,
   ChevronLeft,
+  Mountain,
   Zap,
   AlertTriangle,
   Trophy,
@@ -250,6 +252,11 @@ export default function PublicEventMonitoringPage() {
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showAlerts, setShowAlerts] = useState(true);
   const [showPolylines, setShowPolylines] = useState(false);
+  const [showAltitudeChart, setShowAltitudeChart] = useState(false);
+
+  // Altitude Chart Interactivity
+  const [hoveredDistance, setHoveredDistance] = useState<number | null>(null);
+  const chartMarkerInstance = useRef<maplibregl.Marker | null>(null);
 
   // Timer for monitoring window countdown
   const [now, setNow] = useState(new Date());
@@ -754,6 +761,28 @@ export default function PublicEventMonitoringPage() {
 
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
+      
+      // ADD START AND FINISH MARKERS
+      const coords = getRouteCoordinates(event.routeGeojson);
+      if (coords && coords.length > 0) {
+        const startPoint = coords[0];
+        const finishPoint = coords[coords.length - 1];
+
+        const startEl = document.createElement("div");
+        startEl.className = "flex items-center justify-center font-bold text-white text-xs bg-emerald-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
+        startEl.innerText = "START";
+        new maplibregl.Marker({ element: startEl })
+          .setLngLat([startPoint[0], startPoint[1]])
+          .addTo(map);
+
+        const finishEl = document.createElement("div");
+        finishEl.className = "flex items-center justify-center font-bold text-white text-xs bg-rose-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
+        finishEl.innerText = "FINISH";
+        new maplibregl.Marker({ element: finishEl })
+          .setLngLat([finishPoint[0], finishPoint[1]])
+          .addTo(map);
+      }
+      
       console.log(
         "[Map] ✅ Map fully loaded. Draining",
         pendingUpdates.current.length,
@@ -1506,6 +1535,35 @@ export default function PublicEventMonitoringPage() {
       {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
+      {/* Altitude Chart (Floating Bottom) */}
+      {showAltitudeChart && event?.altitudeProfile && (
+        <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[800px] h-[200px] z-40 bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-4 transition-all duration-500 ease-in-out">
+          <AltitudeChart 
+            data={event.altitudeProfile} 
+            hoveredDistance={hoveredDistance} 
+            onHover={(pt) => {
+              setHoveredDistance(pt?.distance ?? null);
+              if (pt) {
+                if (!chartMarkerInstance.current) {
+                  const el = document.createElement("div");
+                  el.className = "w-4 h-4 bg-fuchsia-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(217,70,239,0.8)]";
+                  chartMarkerInstance.current = new maplibregl.Marker({ element: el })
+                    .setLngLat([pt.lng, pt.lat])
+                    .addTo(mapInstance.current!);
+                } else {
+                  chartMarkerInstance.current.setLngLat([pt.lng, pt.lat]);
+                }
+              } else {
+                if (chartMarkerInstance.current) {
+                  chartMarkerInstance.current.remove();
+                  chartMarkerInstance.current = null;
+                }
+              }
+            }} 
+          />
+        </div>
+      )}
+
       {/* Global HUD Header (Floating Top) */}
       <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-40 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 pointer-events-none">
         {/* Left: Event Branding */}
@@ -1583,6 +1641,14 @@ export default function PublicEventMonitoringPage() {
             title="Toggle Polylines"
           >
             <Navigation size={20} />
+          </button>
+
+          <button
+            onClick={() => setShowAltitudeChart(!showAltitudeChart)}
+            className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-fuchsia-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
+            title="Toggle Altitude Chart"
+          >
+            <Mountain size={20} />
           </button>
 
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
