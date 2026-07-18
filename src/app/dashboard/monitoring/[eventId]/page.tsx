@@ -633,7 +633,7 @@ export default function PublicEventMonitoringPage() {
               for (const [uidStr, path] of Object.entries(historyMap)) {
                 const current = next.get(uidStr) || { id: uidStr };
                 // Assign a consistent color if not already assigned
-                const color = current.color || generateRandomColor();
+                const color = current.color || getUserColor(uidStr);
                 next.set(uidStr, { ...current, pathHistory: path as number[][], color });
 
                 // Update participantsInfo cache
