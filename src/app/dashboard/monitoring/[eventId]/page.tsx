@@ -483,6 +483,38 @@ export default function PublicEventMonitoringPage() {
   }, [mapIsReady]);
 
 
+  const handleUpdateParticipantState = async (userId: string, newState: string, alertId?: string) => {
+    try {
+      const token = getCookie("auth_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      const res = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants/${userId}/state`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ state: newState }),
+      });
+      if (!res.ok) throw new Error("Failed to update participant state");
+      
+      setParticipants((prev) => {
+        const next = new Map(prev);
+        const p = next.get(userId);
+        if (p) {
+          next.set(userId, { ...p, participantState: newState });
+        }
+        return next;
+      });
+
+      if (alertId) {
+        removeAnomaly(alertId);
+      }
+    } catch (e) {
+      console.error("Error updating participant state:", e);
+      alert("Gagal mengupdate state partisipan.");
+    }
+  };
+
   const [statusLoading, setStatusLoading] = useState(false);
   const handleUpdateStatus = async (newStatus: string) => {
     try {
