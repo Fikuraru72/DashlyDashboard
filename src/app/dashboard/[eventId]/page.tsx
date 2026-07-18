@@ -87,7 +87,7 @@ export default function DashboardPage({ params }: { params: Promise<{ eventId: s
               lat: parseFloat(p.lat),
               lng: parseFloat(p.lng),
               speed: parseFloat(p.speed) || 0,
-              battery: parseInt(p.battery) || 100,
+              battery: p.battery != null && !isNaN(parseInt(p.battery)) ? parseInt(p.battery) : undefined,
               status: p.isOffline === "true" ? "inactive" : "active",
               pathHistory: [[parseFloat(p.lat), parseFloat(p.lng)]],
             };
@@ -156,10 +156,10 @@ export default function DashboardPage({ params }: { params: Promise<{ eventId: s
                 </span>
                 <div className="flex items-center gap-1 mt-0.5">
                   <Zap
-                    className={`h-3 w-3 ${p.battery < 20 ? "text-rose-500" : "text-amber-500"}`}
+                    className={`h-3 w-3 ${p.battery == null ? "text-slate-400" : p.battery < 20 ? "text-rose-500" : "text-amber-500"}`}
                   />
                   <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {p.battery}%
+                    {p.battery != null ? `${p.battery}%` : '--%'}
                   </span>
                 </div>
               </div>

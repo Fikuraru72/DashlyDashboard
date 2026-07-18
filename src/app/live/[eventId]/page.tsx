@@ -561,7 +561,7 @@ export default function PublicEventMonitoringPage() {
                     lat: parseFloat(p.lat),
                     lng: parseFloat(p.lng),
                     speed: parseFloat(p.speed) || 0,
-                    battery: parseInt(p.battery) || 100,
+                    battery: p.battery != null && !isNaN(parseInt(p.battery)) ? parseInt(p.battery) : undefined,
                     status: isOfflineNormalized ? "inactive" : "active",
                     isOffline: isOfflineNormalized,
                     lastUpdate: Date.now(),
@@ -1619,9 +1619,9 @@ export default function PublicEventMonitoringPage() {
                   </div>
                   <div className="flex items-center justify-end gap-1 mt-0.5">
                     <Zap
-                      className={`w-2.5 h-2.5 ${p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
+                      className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-600" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">{p.battery || 0}%</span>
+                    <span className="text-[10px] font-bold text-slate-400">{p.battery != null ? `${p.battery}%` : '--%'}</span>
                   </div>
                   <div className="mt-1">
                     <button

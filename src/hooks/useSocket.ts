@@ -70,7 +70,11 @@ export function useSocket(eventId: string) {
               lat: parseFloat(pos.lat),
               lng: parseFloat(pos.lng),
               speed: parseFloat(pos.speed) || 0,
-              battery: parseInt(pos.battery) || 100,
+              battery: pos.battery != null && !isNaN(parseInt(pos.battery)) ? parseInt(pos.battery) : undefined,
+              altitude: pos.altitude != null && !isNaN(parseFloat(pos.altitude)) ? parseFloat(pos.altitude) : undefined,
+              minAltitude: pos.minAltitude != null && !isNaN(parseFloat(pos.minAltitude)) ? parseFloat(pos.minAltitude) : undefined,
+              maxAltitude: pos.maxAltitude != null && !isNaN(parseFloat(pos.maxAltitude)) ? parseFloat(pos.maxAltitude) : undefined,
+              elevationGain: pos.elevationGain != null && !isNaN(parseFloat(pos.elevationGain)) ? parseFloat(pos.elevationGain) : undefined,
               status: pos.isOffline ? "inactive" : "active",
             });
           }
@@ -87,7 +91,11 @@ export function useSocket(eventId: string) {
           lat: parseFloat(data.lat),
           lng: parseFloat(data.lng),
           speed: parseFloat(data.speed) || 0,
-          battery: parseInt(data.battery) || 100,
+          battery: data.battery != null && !isNaN(parseInt(data.battery)) ? parseInt(data.battery) : undefined,
+          altitude: data.altitude != null && !isNaN(parseFloat(data.altitude)) ? parseFloat(data.altitude) : undefined,
+          minAltitude: data.minAltitude != null && !isNaN(parseFloat(data.minAltitude)) ? parseFloat(data.minAltitude) : undefined,
+          maxAltitude: data.maxAltitude != null && !isNaN(parseFloat(data.maxAltitude)) ? parseFloat(data.maxAltitude) : undefined,
+          elevationGain: data.elevationGain != null && !isNaN(parseFloat(data.elevationGain)) ? parseFloat(data.elevationGain) : undefined,
           status: "active",
         });
       }
