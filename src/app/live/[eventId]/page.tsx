@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
-import { getPositionTimestamp } from "@/lib/realtime-position";
+import { isParticipantDisconnected } from "@/lib/realtime-position";
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
@@ -73,7 +73,7 @@ const updateMarkerElement = (
 ) => {
   let coreColor = isAnomaly
     ? "#e11d48" // Bright RED — Stationary Incident
-    : isStale || status === "inactive"
+    : isStale
       ? "#64748b" // Grey — Signal lost or disconnected
       : status === "stationary"
         ? "#f97316" // Orange — Long stationary (not yet incident)
@@ -89,7 +89,7 @@ const updateMarkerElement = (
         width: 32px; height: 32px;
         border-radius: 50%;
         background: ${coreColor}30;
-        animation: ${!isStale && status !== "inactive" ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
+        animation: ${!isStale ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
       "></div>
     </div>
     <div style="
@@ -278,7 +278,6 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const latestPositionTimestamps = useRef<Map<string, number>>(new Map());
   const clusterMarkers = useRef<Map<string, maplibregl.Marker>>(new Map());
   const superclusterRef = useRef<Supercluster | null>(null);
 
@@ -399,9 +398,9 @@ export default function PublicEventMonitoringPage() {
     if (!mapIsReady) return;
     const map = mapInstance.current;
     if (map) {
-      map.on("zoom", updateClusters);
+      map.on("zoomend", updateClusters);
       return () => {
-        map.off("zoom", updateClusters);
+        map.off("zoomend", updateClusters);
       };
     }
   }, [mapIsReady, updateClusters]);
@@ -548,6 +547,7 @@ export default function PublicEventMonitoringPage() {
                 const next = new Map(prev);
                 livePositions.forEach((p: any) => {
                   const uid = String(p.userId);
+                  if (next.has(uid)) return;
                   const isOfflineNormalized = isParticipantOffline(p.isOffline);
                   console.log(
                     `[INIT Debug] User ${uid} raw isOffline:`,
@@ -795,19 +795,6 @@ export default function PublicEventMonitoringPage() {
 
           if (isNaN(lat) || isNaN(lng)) return;
 
-          const positionTimestamp = getPositionTimestamp(data);
-          const latestTimestamp = latestPositionTimestamps.current.get(userId);
-          if (
-            positionTimestamp !== null &&
-            latestTimestamp !== undefined &&
-            positionTimestamp <= latestTimestamp
-          ) {
-            return;
-          }
-          if (positionTimestamp !== null) {
-            latestPositionTimestamps.current.set(userId, positionTimestamp);
-          }
-
           const pInfo = participantsInfo.current.get(userId);
           if (pInfo) {
             data.name = pInfo.formattedName || pInfo.name || data.name;
@@ -860,43 +847,10 @@ export default function PublicEventMonitoringPage() {
             // console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
           }
 
-          // --- DIRECT MARKER MANIPULATION (Zero Latency) ---
-          let marker = markers.current.get(userId);
-          // If we don't have a color yet, generate one for the new participant
           if (!data.color) {
-            const currentP = participantsInfo.current.get(userId) as any;
+            const currentP = participantsInfo.current.get(userId);
             data.color = currentP?.color || generateRandomColor();
-            if (currentP) {
-              currentP.color = data.color; // Save it back so it's consistent
-            }
-          }
-
-          if (marker) {
-            // Exists: Just slide it smoothly
-            marker.setLngLat([lng, lat]);
-            // Re-render HTML so color updates if status changes (e.g. inactive)
-            updateMarkerElement(
-              marker.getElement(),
-              data.name || `User ${String(userId).substring(0, 4)}`,
-              data.status,
-              false,
-              data.isAnomaly,
-              data.color,
-            );
-          } else {
-            // Doesn't exist: Create instantly bypassing React
-            // console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
-            const el = createPulseMarker(
-              data.name || `User ${String(userId).substring(0, 4)}`,
-              data.status,
-              false,
-              data.isAnomaly,
-              data.color,
-            );
-            marker = new maplibregl.Marker({ element: el })
-              .setLngLat([lng, lat])
-              .addTo(mapInstance.current!);
-            markers.current.set(userId, marker);
+            if (currentP) currentP.color = data.color;
           }
 
           newParticipants.set(userId, { data, lat, lng });
@@ -1284,7 +1238,7 @@ export default function PublicEventMonitoringPage() {
       }
 
       let marker = markers.current.get(userId);
-      const isStale = Date.now() - data.lastUpdate > 15000; // 15s Threshold
+      const isStale = isParticipantDisconnected(data);
 
       if (!marker) {
         // PILLAR 5: Create marker ONCE, then only update position
@@ -1614,12 +1568,12 @@ export default function PublicEventMonitoringPage() {
                     </span>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline || p.status === "inactive" ? "text-slate-500" : "text-slate-400"}`}
+                        className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline ? "text-slate-500" : "text-slate-400"}`}
                       >
                         <Signal
-                          className={`w-2.5 h-2.5 ${p.isOffline || p.status === "inactive" ? "text-slate-500" : "text-emerald-500"}`}
+                          className={`w-2.5 h-2.5 ${p.isOffline ? "text-slate-500" : "text-emerald-500"}`}
                         />
-                        {p.isOffline || p.status === "inactive" ? "Offline" : "Connected"}
+                        {p.isOffline ? "Offline" : "Connected"}
                       </span>
                       {p.hasAlert && (
                         <span className="text-[9px] font-black text-rose-400 animate-pulse uppercase">
