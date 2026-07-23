@@ -1550,7 +1550,7 @@ export default function PublicEventMonitoringPage() {
       {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
-      {/* Altitude Chart (Floating Bottom) */}
+      {/* ── ELEVATION PROFILE CHART (Bottom, Responsive) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
         <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[800px] h-[200px] z-40 bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-4 transition-all duration-500 ease-in-out">
           <AltitudeChart
@@ -1567,12 +1567,10 @@ export default function PublicEventMonitoringPage() {
                     .setLngLat([pt.lng, pt.lat])
                     .addTo(mapInstance.current!);
                 } else {
-                  chartMarkerInstance.current.setLngLat([pt.lng, pt.lat]);
-                }
-              } else {
-                if (chartMarkerInstance.current) {
-                  chartMarkerInstance.current.remove();
-                  chartMarkerInstance.current = null;
+                  if (chartMarkerInstance.current) {
+                    chartMarkerInstance.current.remove();
+                    chartMarkerInstance.current = null;
+                  }
                 }
               }
             }}
@@ -1659,14 +1657,15 @@ export default function PublicEventMonitoringPage() {
             <Navigation size={20} />
           </button>
 
-          <button
-            onClick={() => setShowAltitudeChart(!showAltitudeChart)}
-            className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-fuchsia-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
-            title="Toggle Altitude Chart"
-          >
-            <Mountain size={20} />
-          </button>
-
+          {event?.altitudeProfile && (
+            <button
+              onClick={() => setShowAltitudeChart(!showAltitudeChart)}
+              className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-fuchsia-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
+              title="Toggle Altitude Chart"
+            >
+              <Mountain size={20} />
+            </button>
+          )}
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
             <div className="flex items-center gap-2">
               <div
@@ -1704,7 +1703,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
       <aside
-        className={`absolute left-2 sm:left-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
@@ -1832,7 +1831,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
       <aside
-        className={`absolute right-2 sm:right-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute right-2 sm:right-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">

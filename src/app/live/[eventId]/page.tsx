@@ -33,11 +33,13 @@ import {
   CheckCircle2,
   Bike,
   Footprints,
+  Mountain,
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
 import { isParticipantDisconnected } from "@/lib/realtime-position";
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
+import AltitudeChart from "@/components/map/AltitudeChart";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
@@ -242,6 +244,8 @@ export default function PublicEventMonitoringPage() {
   const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showAlerts, setShowAlerts] = useState(true);
   const [showPolylines, setShowPolylines] = useState(false);
+  const [showAltitudeChart, setShowAltitudeChart] = useState(false);
+  const [hoveredElevationDistance, setHoveredElevationDistance] = useState<number | null>(null);
 
   // Timer for monitoring window countdown
   const [now, setNow] = useState(new Date());
@@ -1472,6 +1476,17 @@ export default function PublicEventMonitoringPage() {
             <Navigation size={20} />
           </button>
 
+          {/* Elevation Chart Toggle — only if altitudeProfile is available */}
+          {event?.altitudeProfile && (
+            <button
+              onClick={() => setShowAltitudeChart(!showAltitudeChart)}
+              className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-emerald-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
+              title="Toggle Elevation Profile"
+            >
+              <Mountain size={20} />
+            </button>
+          )}
+
           <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
             <div className="flex items-center gap-2">
               <div
@@ -1497,6 +1512,42 @@ export default function PublicEventMonitoringPage() {
         </div>
       </div>
 
+      {/* ── ELEVATION PROFILE CHART (Bottom, Responsive) ── */}
+      {showAltitudeChart && event?.altitudeProfile && (
+        <div
+          className="absolute bottom-0 left-0 right-0 z-30 h-32 sm:h-40 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 flex flex-col transition-all duration-300"
+        >
+          {/* Header bar */}
+          <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 shrink-0">
+            <div className="flex items-center gap-2">
+              <Mountain size={12} className="text-emerald-400" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+                Elevation Profile
+              </span>
+              {event.totalElevationMeters != null && (
+                <span className="text-[10px] text-emerald-400 font-bold ml-2">
+                  +{Math.round(event.totalElevationMeters)}m gain
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowAltitudeChart(false)}
+              className="p-1 hover:bg-white/10 rounded-lg text-slate-400 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          </div>
+          {/* Chart area */}
+          <div className="flex-1 min-h-0 px-2 py-1">
+            <AltitudeChart
+              data={event.altitudeProfile}
+              hoveredDistance={hoveredElevationDistance}
+              onHover={(pt) => setHoveredElevationDistance(pt ? pt.distance : null)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Status Error Toast */}
       {statusError && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-auto animate-in fade-in slide-in-from-top-5 duration-300">
@@ -1509,7 +1560,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
       <aside
-        className={`absolute left-2 sm:left-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
@@ -1637,7 +1688,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
       <aside
-        className={`absolute right-2 sm:right-6 top-32 sm:top-24 bottom-20 sm:bottom-6 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute right-2 sm:right-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
