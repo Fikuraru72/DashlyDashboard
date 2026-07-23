@@ -11,10 +11,18 @@ const mocks = vi.hoisted(() => {
     io: { on: vi.fn() },
   };
   socket.disconnect.mockReturnValue(socket);
-  return { socket, io: vi.fn(() => socket) };
+  return {
+    socket,
+    io: vi.fn(() => socket),
+    refreshAccessToken: vi.fn(async () => null),
+  };
 });
 
 vi.mock("socket.io-client", () => ({ io: mocks.io }));
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  refreshAccessToken: mocks.refreshAccessToken,
+}));
 
 import { setAccessToken } from "@/lib/api";
 import { useSocketStore } from "@/store/useSocketStore";
@@ -24,6 +32,7 @@ describe("socket authentication compatibility", () => {
     vi.clearAllMocks();
     mocks.socket.auth = {};
     mocks.socket.connected = false;
+    mocks.refreshAccessToken.mockResolvedValue(null);
     useSocketStore.setState({ socket: null, isConnected: false, activeEventId: null });
   });
 
@@ -31,6 +40,7 @@ describe("socket authentication compatibility", () => {
     setAccessToken({ accessToken: "access-1" });
 
     useSocketStore.getState().connect();
+    mocks.socket.connected = true;
 
     expect(mocks.io).toHaveBeenCalledWith(
       "http://localhost:3001",

@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
+import { isParticipantDisconnected } from "@/lib/realtime-position";
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 import AltitudeChart from "@/components/map/AltitudeChart";
 
@@ -74,7 +75,7 @@ const updateMarkerElement = (
 ) => {
   let coreColor = isAnomaly
     ? "#e11d48" // Bright RED — Stationary Incident
-    : isStale || status === "inactive"
+    : isStale
       ? "#64748b" // Grey — Signal lost or disconnected
       : status === "stationary"
         ? "#f97316" // Orange — Long stationary (not yet incident)
@@ -90,7 +91,7 @@ const updateMarkerElement = (
         width: 32px; height: 32px;
         border-radius: 50%;
         background: ${coreColor}30;
-        animation: ${!isStale && status !== "inactive" ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
+        animation: ${!isStale ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
       "></div>
     </div>
     <div style="
@@ -401,9 +402,9 @@ export default function PublicEventMonitoringPage() {
     if (!mapIsReady) return;
     const map = mapInstance.current;
     if (map) {
-      map.on("zoom", updateClusters);
+      map.on("zoomend", updateClusters);
       return () => {
-        map.off("zoom", updateClusters);
+        map.off("zoomend", updateClusters);
       };
     }
   }, [mapIsReady, updateClusters]);
@@ -550,6 +551,7 @@ export default function PublicEventMonitoringPage() {
                 const next = new Map(prev);
                 livePositions.forEach((p: any) => {
                   const uid = String(p.userId);
+                  if (next.has(uid)) return;
                   const isOfflineNormalized = isParticipantOffline(p.isOffline);
                   console.log(
                     `[INIT Debug] User ${uid} raw isOffline:`,
@@ -565,7 +567,10 @@ export default function PublicEventMonitoringPage() {
                     lat: parseFloat(p.lat),
                     lng: parseFloat(p.lng),
                     speed: parseFloat(p.speed) || 0,
-                    battery: p.battery != null && !isNaN(parseInt(p.battery)) ? parseInt(p.battery) : undefined,
+                    battery:
+                      p.battery != null && !isNaN(parseInt(p.battery))
+                        ? parseInt(p.battery)
+                        : undefined,
                     status: isOfflineNormalized ? "inactive" : "active",
                     isOffline: isOfflineNormalized,
                     lastUpdate: Date.now(),
@@ -754,15 +759,15 @@ export default function PublicEventMonitoringPage() {
 
   useEffect(() => {
     const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", {
-      transports: ["polling", "websocket"], // Standard order: poll first then upgrade
+      transports: ["polling", "websocket"],
       reconnectionDelay: 2000,
       withCredentials: true,
     });
 
     socket.on("connect", () => {
       console.log("🔌 Socket CONNECTED. SID:", socket.id);
-      console.log("🔌 Socket joined room: event_" + eventId);
-      socket.emit("joinEventRoom", { eventId: Number(eventId) });
+      console.log("🔌 Socket joined public room: public_event_" + eventId);
+      socket.emit("joinPublicEventRoom", { eventId: Number(eventId) });
     });
 
     socket.on("disconnect", (reason: string) => {
@@ -846,43 +851,10 @@ export default function PublicEventMonitoringPage() {
             // console.log(`[Map] 🚁 Initial lock-on to [${lng}, ${lat}]`);
           }
 
-          // --- DIRECT MARKER MANIPULATION (Zero Latency) ---
-          let marker = markers.current.get(userId);
-          // If we don't have a color yet, generate one for the new participant
           if (!data.color) {
-            const currentP = participantsInfo.current.get(userId) as any;
+            const currentP = participantsInfo.current.get(userId);
             data.color = currentP?.color || generateRandomColor();
-            if (currentP) {
-              currentP.color = data.color; // Save it back so it's consistent
-            }
-          }
-
-          if (marker) {
-            // Exists: Just slide it smoothly
-            marker.setLngLat([lng, lat]);
-            // Re-render HTML so color updates if status changes (e.g. inactive)
-            updateMarkerElement(
-              marker.getElement(),
-              data.name || `User ${String(userId).substring(0, 4)}`,
-              data.status,
-              false,
-              data.isAnomaly,
-              data.color,
-            );
-          } else {
-            // Doesn't exist: Create instantly bypassing React
-            // console.log(`[Marker] ➕ Instant dumb-pipe creation for userId=${userId} at [lng=${lng}, lat=${lat}]`);
-            const el = createPulseMarker(
-              data.name || `User ${String(userId).substring(0, 4)}`,
-              data.status,
-              false,
-              data.isAnomaly,
-              data.color,
-            );
-            marker = new maplibregl.Marker({ element: el })
-              .setLngLat([lng, lat])
-              .addTo(mapInstance.current!);
-            markers.current.set(userId, marker);
+            if (currentP) currentP.color = data.color;
           }
 
           newParticipants.set(userId, { data, lat, lng });
@@ -1249,7 +1221,7 @@ export default function PublicEventMonitoringPage() {
     mqttClient.current = socket as any;
     return () => {
       // console.log("Socket: Cleanup - Disconnecting...");
-      socket.emit("leaveEventRoom", { eventId: Number(eventId) });
+      socket.emit("leavePublicEventRoom", { eventId: Number(eventId) });
       socket.disconnect();
       delete (window as any).addTestMarker;
     };
@@ -1270,7 +1242,7 @@ export default function PublicEventMonitoringPage() {
       }
 
       let marker = markers.current.get(userId);
-      const isStale = Date.now() - data.lastUpdate > 15000; // 15s Threshold
+      const isStale = isParticipantDisconnected(data);
 
       if (!marker) {
         // PILLAR 5: Create marker ONCE, then only update position
@@ -1647,12 +1619,12 @@ export default function PublicEventMonitoringPage() {
                     </span>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline || p.status === "inactive" ? "text-slate-500" : "text-slate-400"}`}
+                        className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline ? "text-slate-500" : "text-slate-400"}`}
                       >
                         <Signal
-                          className={`w-2.5 h-2.5 ${p.isOffline || p.status === "inactive" ? "text-slate-500" : "text-emerald-500"}`}
+                          className={`w-2.5 h-2.5 ${p.isOffline ? "text-slate-500" : "text-emerald-500"}`}
                         />
-                        {p.isOffline || p.status === "inactive" ? "Offline" : "Connected"}
+                        {p.isOffline ? "Offline" : "Connected"}
                       </span>
                       {p.hasAlert && (
                         <span className="text-[9px] font-black text-rose-400 animate-pulse uppercase">
@@ -1672,7 +1644,9 @@ export default function PublicEventMonitoringPage() {
                     <Zap
                       className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-600" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">{p.battery != null ? `${p.battery}%` : '--%'}</span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {p.battery != null ? `${p.battery}%` : "--%"}
+                    </span>
                   </div>
                   <div className="mt-1">
                     <button
