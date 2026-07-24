@@ -62,7 +62,7 @@ export default function AltitudeChart({
 }: AltitudeChartProps) {
   if (!data || data.length === 0) return null;
 
-  // Precise Haversine distance calculation in meters
+  // Fallback Haversine distance calculation in meters (used only if routeDistance is missing)
   const haversineMeters = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371000;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -76,7 +76,6 @@ export default function AltitudeChart({
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // Real-time spatial matching: Find closest point on route to participant's GPS (lat, lng)
   const findClosestRoutePoint = (pLat: number, pLng: number): { distance: number; elevation: number } => {
     let closest = data[0];
     let minMeters = haversineMeters(data[0].lat, data[0].lng, pLat, pLng);
@@ -143,12 +142,19 @@ export default function AltitudeChart({
           {participants
             .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
-              const pLat = parseFloat(p.lat);
-              const pLng = parseFloat(p.lng);
-              const routePoint = findClosestRoutePoint(pLat, pLng);
-              const pDist = routePoint.distance;
-              // ALWAYS ride directly on the elevation curve line
-              const pElev = routePoint.elevation;
+              // Direct O(1) rendering using pre-calculated backend routeDistance and routeElevation
+              let pDist = typeof p.routeDistance === "number" ? p.routeDistance : undefined;
+              let pElev = typeof p.routeElevation === "number" ? p.routeElevation : undefined;
+
+              // Fallback to spatial matching only if backend routeDistance is absent
+              if (pDist === undefined || pElev === undefined || (pDist === 0 && pElev === 0)) {
+                const pLat = parseFloat(p.lat);
+                const pLng = parseFloat(p.lng);
+                const routePoint = findClosestRoutePoint(pLat, pLng);
+                pDist = routePoint.distance;
+                pElev = routePoint.elevation;
+              }
+
               const pColor = p.color || "#6366f1"; // default indigo
               const labelName = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.split(" ")[0] : `P-${p.id}`;
 
