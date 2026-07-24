@@ -153,6 +153,7 @@ const createPulseMarker = (
     height: 24px;
     border-radius: 50%;
     cursor: pointer;
+    transition: transform 0.3s ease-out;
   `;
   updateMarkerElement(el, name, status, isStale, isAnomaly, userColor);
   return el;
@@ -1411,20 +1412,22 @@ export default function PublicEventMonitoringPage() {
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
       } else {
-        // PILLAR 5: Efficient update — no new DOM elements
-        console.log(
-          `[Marker] 🔄 Updating existing marker for userId: ${userId} to [${data.lng}, ${data.lat}]`,
-        );
+        // High Performance: Update LngLat position directly
         marker.setLngLat([data.lng, data.lat]);
-        const el = marker.getElement();
-        const newEl = createPulseMarker(
-          data.name || `User ${String(userId).substring(0, 4)}`,
-          data.status,
-          isStale,
-          data.isAnomaly,
-          data.color,
-        );
-        el.innerHTML = newEl.innerHTML;
+
+        const stateKey = `${data.name}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}`;
+        if ((marker as any).__stateKey !== stateKey) {
+          (marker as any).__stateKey = stateKey;
+          const el = marker.getElement();
+          const newEl = createPulseMarker(
+            data.name || `User ${String(userId).substring(0, 4)}`,
+            data.status,
+            isStale,
+            data.isAnomaly,
+            data.color,
+          );
+          el.innerHTML = newEl.innerHTML;
+        }
       }
     });
 
