@@ -358,7 +358,7 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
-                  href="https://github.com/Fikuraru72/DashlyBackend/releases/download/v1/DashlyV2.apk"
+                  href="https://github.com/Fikuraru72/DashlyBackend/releases/download/v1/DashlyV3.apk"
                   download
                   target="_blank"
                   rel="noopener noreferrer"
