@@ -89,6 +89,20 @@ export default function AltitudeChart({
     return { distance: closest.distance, elevation: closest.elevation };
   };
 
+  // Find exact elevation Y value on profile data curve for any given X distance (in meters)
+  const getElevationAtDistance = (dist: number): number => {
+    let closest = data[0];
+    let minDiff = Math.abs(data[0].distance - dist);
+    for (let i = 1; i < data.length; i++) {
+      const diff = Math.abs(data[i].distance - dist);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = data[i];
+      }
+    }
+    return closest.elevation;
+  };
+
   return (
     <div className="w-full h-full relative" onMouseLeave={() => onHover(null)}>
       <ResponsiveContainer width="100%" height="100%">
@@ -142,12 +156,19 @@ export default function AltitudeChart({
           {participants
             .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
-              // Direct O(1) rendering using pre-calculated backend routeDistance and routeElevation
-              let pDist = typeof p.routeDistance === "number" ? p.routeDistance : undefined;
-              let pElev = typeof p.routeElevation === "number" ? p.routeElevation : undefined;
+              let pDist: number;
+              let pElev: number;
 
-              // Fallback to spatial matching ONLY if backend routeDistance/routeElevation is undefined
-              if (pDist === undefined || pElev === undefined) {
+              const rawDist = p.routeDistance !== undefined && p.routeDistance !== null ? parseFloat(p.routeDistance) : NaN;
+
+              if (!isNaN(rawDist)) {
+                // Primary: Fast O(1) lookup using backend routeDistance
+                pDist = rawDist;
+                pElev = p.routeElevation !== undefined && p.routeElevation !== null && !isNaN(parseFloat(p.routeElevation)) && parseFloat(p.routeElevation) > 0
+                  ? parseFloat(p.routeElevation)
+                  : getElevationAtDistance(pDist);
+              } else {
+                // Secondary Fallback: Haversine spatial matching
                 const pLat = parseFloat(p.lat);
                 const pLng = parseFloat(p.lng);
                 const routePoint = findClosestRoutePoint(pLat, pLng);
