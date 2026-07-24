@@ -671,6 +671,9 @@ export default function PublicEventMonitoringPage() {
                         : undefined,
                     status: isOfflineNormalized ? "inactive" : "active",
                     isOffline: isOfflineNormalized,
+                    routeIndex: p.routeIndex != null ? parseInt(p.routeIndex) : undefined,
+                    routeDistance: p.routeDistance != null ? parseFloat(p.routeDistance) : undefined,
+                    routeElevation: p.routeElevation != null ? parseFloat(p.routeElevation) : undefined,
                     lastUpdate: Date.now(),
                   });
                 });
@@ -902,6 +905,9 @@ export default function PublicEventMonitoringPage() {
       socket.emit("joinEventRoom", { eventId: Number(eventId) }, (response: any) => {
         if (response?.event === "joinError") console.error("🔌 Socket JOIN ERROR:", response.data);
       });
+      socket.emit("joinPublicEventRoom", { eventId: Number(eventId) }, (response: any) => {
+        if (response?.event === "joinError") console.error("🔌 Socket PUBLIC JOIN ERROR:", response.data);
+      });
     });
 
     socket.on("disconnect", (reason: string) => {
@@ -1025,6 +1031,9 @@ export default function PublicEventMonitoringPage() {
                 status: isOfflineNormalized ? "inactive" : data.status,
                 lat,
                 lng,
+                routeIndex: data.routeIndex !== undefined && data.routeIndex !== null ? parseInt(data.routeIndex) : current.routeIndex,
+                routeDistance: data.routeDistance !== undefined && data.routeDistance !== null ? parseFloat(data.routeDistance) : current.routeDistance,
+                routeElevation: data.routeElevation !== undefined && data.routeElevation !== null ? parseFloat(data.routeElevation) : current.routeElevation,
                 lastUpdate: Date.now(),
                 pathHistory: newHistory,
               });
