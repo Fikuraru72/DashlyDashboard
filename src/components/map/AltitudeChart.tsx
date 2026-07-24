@@ -89,18 +89,31 @@ export default function AltitudeChart({
     return { distance: closest.distance, elevation: closest.elevation };
   };
 
-  // Find exact elevation Y value on profile data curve for any given X distance (in meters)
+  // Find exact elevation Y value on profile data curve for any given X distance (in meters).
+  // Uses binary search to locate the bracketing segment, then linearly interpolates
+  // so the returned elevation sits precisely ON the rendered Recharts curve.
   const getElevationAtDistance = (dist: number): number => {
-    let closest = data[0];
-    let minDiff = Math.abs(data[0].distance - dist);
-    for (let i = 1; i < data.length; i++) {
-      const diff = Math.abs(data[i].distance - dist);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closest = data[i];
-      }
+    if (data.length === 0) return 0;
+    if (dist <= data[0].distance) return data[0].elevation;
+    if (dist >= data[data.length - 1].distance) return data[data.length - 1].elevation;
+
+    // Binary search for the segment [lo, lo+1] that brackets `dist`
+    let lo = 0;
+    let hi = data.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >>> 1;
+      if (data[mid].distance <= dist) lo = mid;
+      else hi = mid;
     }
-    return closest.elevation;
+
+    const d0 = data[lo].distance;
+    const d1 = data[hi].distance;
+    const e0 = data[lo].elevation;
+    const e1 = data[hi].elevation;
+
+    if (d1 === d0) return e0; // degenerate segment
+    const t = (dist - d0) / (d1 - d0); // interpolation fraction [0..1]
+    return e0 + (e1 - e0) * t;
   };
 
   return (
@@ -156,25 +169,24 @@ export default function AltitudeChart({
           {participants
             .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
+              // Determine X-axis position (distance along route in meters)
               let pDist: number;
-              let pElev: number;
-
               const rawDist = p.routeDistance !== undefined && p.routeDistance !== null ? parseFloat(p.routeDistance) : NaN;
 
-              if (!isNaN(rawDist)) {
-                // Primary: Fast O(1) lookup using backend routeDistance
+              if (!isNaN(rawDist) && rawDist >= 0) {
+                // Primary: Use backend-computed routeDistance (O(1))
                 pDist = rawDist;
-                pElev = p.routeElevation !== undefined && p.routeElevation !== null && !isNaN(parseFloat(p.routeElevation)) && parseFloat(p.routeElevation) > 0
-                  ? parseFloat(p.routeElevation)
-                  : getElevationAtDistance(pDist);
               } else {
-                // Secondary Fallback: Haversine spatial matching
+                // Fallback: Haversine spatial matching against route points
                 const pLat = parseFloat(p.lat);
                 const pLng = parseFloat(p.lng);
                 const routePoint = findClosestRoutePoint(pLat, pLng);
                 pDist = routePoint.distance;
-                pElev = routePoint.elevation;
               }
+
+              // Y-axis: ALWAYS derive from the chart's own data curve
+              // This guarantees the dot sits exactly ON the green elevation line
+              const pElev = getElevationAtDistance(pDist);
 
               const pColor = p.color || "#6366f1"; // default indigo
               const labelName = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.split(" ")[0] : `P-${p.id}`;
