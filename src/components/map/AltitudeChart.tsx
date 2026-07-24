@@ -62,14 +62,28 @@ export default function AltitudeChart({
 }: AltitudeChartProps) {
   if (!data || data.length === 0) return null;
 
+  // Precise Haversine distance calculation in meters
+  const haversineMeters = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
   // Real-time spatial matching: Find closest point on route to participant's GPS (lat, lng)
   const findClosestRoutePoint = (pLat: number, pLng: number): { distance: number; elevation: number } => {
     let closest = data[0];
-    let minSqDist = Math.pow(data[0].lat - pLat, 2) + Math.pow(data[0].lng - pLng, 2);
+    let minMeters = haversineMeters(data[0].lat, data[0].lng, pLat, pLng);
     for (let i = 1; i < data.length; i++) {
-      const sqDist = Math.pow(data[i].lat - pLat, 2) + Math.pow(data[i].lng - pLng, 2);
-      if (sqDist < minSqDist) {
-        minSqDist = sqDist;
+      const m = haversineMeters(data[i].lat, data[i].lng, pLat, pLng);
+      if (m < minMeters) {
+        minMeters = m;
         closest = data[i];
       }
     }
@@ -129,12 +143,12 @@ export default function AltitudeChart({
           {participants
             .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
-              // Real-time position matching
               const pLat = parseFloat(p.lat);
               const pLng = parseFloat(p.lng);
               const routePoint = findClosestRoutePoint(pLat, pLng);
               const pDist = routePoint.distance;
-              const pElev = p.altitude != null ? parseFloat(p.altitude) : routePoint.elevation;
+              // ALWAYS ride directly on the elevation curve line
+              const pElev = routePoint.elevation;
               const pColor = p.color || "#6366f1"; // default indigo
               const labelName = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.split(" ")[0] : `P-${p.id}`;
 
