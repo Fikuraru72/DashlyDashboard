@@ -38,6 +38,7 @@ import {
   CheckCircle2,
   Bike,
   Footprints,
+  Route,
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
@@ -1613,6 +1614,12 @@ export default function PublicEventMonitoringPage() {
             {event.category === "CYCLING" ? <Bike size={10} /> : <Footprints size={10} />}
             {event.category || "RUNNING"}
           </div>
+
+          {/* OSRM Engine Badge */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-indigo-400 text-[9px] font-black uppercase tracking-widest shrink-0">
+            <Route size={11} className="text-indigo-400" />
+            <span>OSRM Snapped</span>
+          </div>
         </div>
 
         {/* Center: Status Indicator */}
@@ -1775,6 +1782,11 @@ export default function PublicEventMonitoringPage() {
                         />
                         {p.isOffline ? "Offline" : "Connected"}
                       </span>
+                      {!p.isOffline && (
+                        <span className="text-[8px] font-black text-indigo-400 bg-indigo-500/10 px-1 py-0.5 rounded border border-indigo-500/20 flex items-center gap-0.5 uppercase tracking-tighter">
+                          <Route size={8} /> OSRM
+                        </span>
+                      )}
                       {p.hasAlert && (
                         <span className="text-[9px] font-black text-rose-400 animate-pulse uppercase">
                           Incident!
