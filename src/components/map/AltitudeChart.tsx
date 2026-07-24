@@ -62,19 +62,18 @@ export default function AltitudeChart({
 }: AltitudeChartProps) {
   if (!data || data.length === 0) return null;
 
-  // Helper to interpolate elevation at distance
-  const getElevationAtDistance = (targetDist: number): number => {
-    if (data.length === 0) return 0;
+  // Real-time spatial matching: Find closest point on route to participant's GPS (lat, lng)
+  const findClosestRoutePoint = (pLat: number, pLng: number): { distance: number; elevation: number } => {
     let closest = data[0];
-    let minDiff = Math.abs(data[0].distance - targetDist);
+    let minSqDist = Math.pow(data[0].lat - pLat, 2) + Math.pow(data[0].lng - pLng, 2);
     for (let i = 1; i < data.length; i++) {
-      const diff = Math.abs(data[i].distance - targetDist);
-      if (diff < minDiff) {
-        minDiff = diff;
+      const sqDist = Math.pow(data[i].lat - pLat, 2) + Math.pow(data[i].lng - pLng, 2);
+      if (sqDist < minSqDist) {
+        minSqDist = sqDist;
         closest = data[i];
       }
     }
-    return closest.elevation;
+    return { distance: closest.distance, elevation: closest.elevation };
   };
 
   return (
@@ -82,7 +81,7 @@ export default function AltitudeChart({
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{ top: 15, right: 15, left: 0, bottom: 0 }}
+          margin={{ top: 20, right: 20, left: 0, bottom: 0 }}
           onMouseMove={(e: any) => {
             if (e && e.activePayload && e.activePayload.length > 0) {
               onHover(e.activePayload[0].payload);
@@ -115,12 +114,16 @@ export default function AltitudeChart({
             <ReferenceLine x={hoveredDistance} stroke="#f43f5e" strokeDasharray="3 3" />
           )}
 
-          {/* Render markers for all participants on the elevation curve */}
+          {/* Render real-time markers for all participants on the elevation curve */}
           {participants
-            .filter((p) => typeof p.lat === "number" && typeof p.lng === "number")
+            .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
-              const pDist = ((p.distance || p.totalDistance || 0) * 1000);
-              const pElev = getElevationAtDistance(pDist);
+              // Real-time position matching
+              const pLat = parseFloat(p.lat);
+              const pLng = parseFloat(p.lng);
+              const routePoint = findClosestRoutePoint(pLat, pLng);
+              const pDist = routePoint.distance;
+              const pElev = p.altitude != null ? parseFloat(p.altitude) : routePoint.elevation;
               const pColor = p.color || "#10b981";
               const labelName = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.split(" ")[0] : `P-${p.id}`;
 
@@ -129,7 +132,7 @@ export default function AltitudeChart({
                   key={`participant-chart-${p.id}`}
                   x={pDist}
                   y={pElev}
-                  r={7}
+                  r={8}
                   fill={pColor}
                   stroke="#ffffff"
                   strokeWidth={2}
@@ -139,9 +142,9 @@ export default function AltitudeChart({
                     value: labelName,
                     position: "top",
                     fill: "#ffffff",
-                    fontSize: 9,
+                    fontSize: 10,
                     fontWeight: "bold",
-                    className: "bg-slate-900 px-1 rounded shadow cursor-pointer",
+                    className: "bg-slate-900 px-1.5 py-0.5 rounded shadow cursor-pointer border border-white/20",
                   }}
                 />
               );

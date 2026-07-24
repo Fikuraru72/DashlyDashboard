@@ -1552,7 +1552,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── ELEVATION PROFILE CHART (Bottom, Responsive) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[800px] h-[200px] z-40 bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-4 transition-all duration-500 ease-in-out">
+        <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 w-[calc(100%-32px)] sm:w-[92%] max-w-6xl h-[230px] z-40 bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-4 transition-all duration-300 ease-in-out">
           <AltitudeChart
             data={event.altitudeProfile}
             hoveredDistance={hoveredDistance}
