@@ -249,8 +249,8 @@ export default function PublicEventMonitoringPage() {
   const [participantDetailModal, setParticipantDetailModal] = useState<any>(null);
 
   // HUD Visibility
-  const [showLeaderboard, setShowLeaderboard] = useState(true);
-  const [showAlerts, setShowAlerts] = useState(true);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
   const [showPolylines, setShowPolylines] = useState(false);
   const [showAltitudeChart, setShowAltitudeChart] = useState(false);
 
@@ -1556,6 +1556,12 @@ export default function PublicEventMonitoringPage() {
           <AltitudeChart
             data={event.altitudeProfile}
             hoveredDistance={hoveredDistance}
+            participants={sortedParticipants}
+            onParticipantClick={(p) => {
+              if (p && typeof p.lat === "number" && typeof p.lng === "number") {
+                mapInstance.current?.flyTo({ center: [p.lng, p.lat], zoom: 18 });
+              }
+            }}
             onHover={(pt) => {
               setHoveredDistance(pt?.distance ?? null);
               if (pt) {

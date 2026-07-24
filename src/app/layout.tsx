@@ -34,7 +34,7 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50"
         suppressHydrationWarning
       >
-        <Providers attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+        <Providers attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           {children}
           <Toaster position="top-right" richColors />
         </Providers>

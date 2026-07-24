@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  ReferenceDot,
 } from "recharts";
 
 export interface AltitudePoint {
@@ -25,6 +26,8 @@ interface AltitudeChartProps {
   data: AltitudePoint[];
   hoveredDistance: number | null; // From map interaction
   onHover: (point: AltitudePoint | null) => void; // To map interaction
+  participants?: any[];
+  onParticipantClick?: (participant: any) => void;
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -54,15 +57,32 @@ export default function AltitudeChart({
   data,
   hoveredDistance,
   onHover,
+  participants = [],
+  onParticipantClick,
 }: AltitudeChartProps) {
   if (!data || data.length === 0) return null;
+
+  // Helper to interpolate elevation at distance
+  const getElevationAtDistance = (targetDist: number): number => {
+    if (data.length === 0) return 0;
+    let closest = data[0];
+    let minDiff = Math.abs(data[0].distance - targetDist);
+    for (let i = 1; i < data.length; i++) {
+      const diff = Math.abs(data[i].distance - targetDist);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = data[i];
+      }
+    }
+    return closest.elevation;
+  };
 
   return (
     <div className="w-full h-full relative" onMouseLeave={() => onHover(null)}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          margin={{ top: 15, right: 15, left: 0, bottom: 0 }}
           onMouseMove={(e: any) => {
             if (e && e.activePayload && e.activePayload.length > 0) {
               onHover(e.activePayload[0].payload);
@@ -94,6 +114,39 @@ export default function AltitudeChart({
           {hoveredDistance !== null && (
             <ReferenceLine x={hoveredDistance} stroke="#f43f5e" strokeDasharray="3 3" />
           )}
+
+          {/* Render markers for all participants on the elevation curve */}
+          {participants
+            .filter((p) => typeof p.lat === "number" && typeof p.lng === "number")
+            .map((p) => {
+              const pDist = ((p.distance || p.totalDistance || 0) * 1000);
+              const pElev = getElevationAtDistance(pDist);
+              const pColor = p.color || "#10b981";
+              const labelName = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.split(" ")[0] : `P-${p.id}`;
+
+              return (
+                <ReferenceDot
+                  key={`participant-chart-${p.id}`}
+                  x={pDist}
+                  y={pElev}
+                  r={7}
+                  fill={pColor}
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => onParticipantClick?.(p)}
+                  label={{
+                    value: labelName,
+                    position: "top",
+                    fill: "#ffffff",
+                    fontSize: 9,
+                    fontWeight: "bold",
+                    className: "bg-slate-900 px-1 rounded shadow cursor-pointer",
+                  }}
+                />
+              );
+            })}
+
           <Area
             type="monotone"
             dataKey="elevation"
