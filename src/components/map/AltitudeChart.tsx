@@ -81,7 +81,7 @@ export default function AltitudeChart({
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{ top: 20, right: 20, left: 0, bottom: 0 }}
+          margin={{ top: 25, right: 20, left: 0, bottom: 0 }}
           onMouseMove={(e: any) => {
             if (e && e.activePayload && e.activePayload.length > 0) {
               onHover(e.activePayload[0].payload);
@@ -114,7 +114,18 @@ export default function AltitudeChart({
             <ReferenceLine x={hoveredDistance} stroke="#f43f5e" strokeDasharray="3 3" />
           )}
 
-          {/* Render real-time markers for all participants on the elevation curve */}
+          {/* Render main elevation profile area FIRST so dots draw ON TOP */}
+          <Area
+            type="monotone"
+            dataKey="elevation"
+            stroke="#10b981"
+            strokeWidth={2.5}
+            fillOpacity={1}
+            fill="url(#colorElevation)"
+            isAnimationActive={false}
+          />
+
+          {/* Render real-time markers for all participants ON TOP of the elevation area */}
           {participants
             .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
@@ -124,7 +135,7 @@ export default function AltitudeChart({
               const routePoint = findClosestRoutePoint(pLat, pLng);
               const pDist = routePoint.distance;
               const pElev = p.altitude != null ? parseFloat(p.altitude) : routePoint.elevation;
-              const pColor = p.color || "#10b981";
+              const pColor = p.color || "#6366f1"; // default indigo
               const labelName = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.split(" ")[0] : `P-${p.id}`;
 
               return (
@@ -135,7 +146,7 @@ export default function AltitudeChart({
                   r={8}
                   fill={pColor}
                   stroke="#ffffff"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   style={{ cursor: "pointer" }}
                   onClick={() => onParticipantClick?.(p)}
                   label={{
@@ -143,22 +154,12 @@ export default function AltitudeChart({
                     position: "top",
                     fill: "#ffffff",
                     fontSize: 10,
-                    fontWeight: "bold",
-                    className: "bg-slate-900 px-1.5 py-0.5 rounded shadow cursor-pointer border border-white/20",
+                    fontWeight: "900",
+                    className: "bg-slate-900 px-1.5 py-0.5 rounded shadow cursor-pointer border border-white/30",
                   }}
                 />
               );
             })}
-
-          <Area
-            type="monotone"
-            dataKey="elevation"
-            stroke="#10b981"
-            strokeWidth={2}
-            fillOpacity={1}
-            fill="url(#colorElevation)"
-            isAnimationActive={false}
-          />
         </AreaChart>
       </ResponsiveContainer>
     </div>
