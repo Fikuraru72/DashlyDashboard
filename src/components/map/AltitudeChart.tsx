@@ -62,7 +62,7 @@ export default function AltitudeChart({
 }: AltitudeChartProps) {
   if (!data || data.length === 0) return null;
 
-  // Fallback Haversine distance calculation in meters (used only if routeDistance is missing)
+  // Fallback Haversine distance calculation in meters (used ONLY if backend routeDistance is absent)
   const haversineMeters = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371000;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -146,8 +146,8 @@ export default function AltitudeChart({
               let pDist = typeof p.routeDistance === "number" ? p.routeDistance : undefined;
               let pElev = typeof p.routeElevation === "number" ? p.routeElevation : undefined;
 
-              // Fallback to spatial matching only if backend routeDistance is absent
-              if (pDist === undefined || pElev === undefined || (pDist === 0 && pElev === 0)) {
+              // Fallback to spatial matching ONLY if backend routeDistance/routeElevation is undefined
+              if (pDist === undefined || pElev === undefined) {
                 const pLat = parseFloat(p.lat);
                 const pLng = parseFloat(p.lng);
                 const routePoint = findClosestRoutePoint(pLat, pLng);
