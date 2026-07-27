@@ -1596,43 +1596,11 @@ export default function PublicEventMonitoringPage() {
     : null;
 
   return (
-    <div className="relative flex h-full w-full overflow-hidden bg-slate-50 font-sans">
-      {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
-      <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
-
-      {/* ── ELEVATION PROFILE CHART (Bottom, Responsive) ── */}
-      {showAltitudeChart && event?.altitudeProfile && (
-        <div className="absolute bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 w-[calc(100%-32px)] sm:w-[92%] max-w-6xl h-[230px] z-40 bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-700/80 shadow-2xl p-4 transition-all duration-300 ease-in-out">
-          <AltitudeChart
-            data={event.altitudeProfile}
-            hoveredDistance={hoveredDistance}
-            participants={sortedParticipants}
-            onParticipantClick={(p) => {
-              if (p && typeof p.lat === "number" && typeof p.lng === "number") {
-                mapInstance.current?.flyTo({ center: [p.lng, p.lat], zoom: 18 });
-              }
-            }}
-            onHover={(pt) => {
-              setHoveredDistance(pt?.distance ?? null);
-              if (pt) {
-                if (!chartMarkerInstance.current) {
-                  const el = document.createElement("div");
-                  el.className =
-                    "w-4 h-4 bg-fuchsia-600 rounded-full border-2 border-white shadow-md";
-                  chartMarkerInstance.current = new maplibregl.Marker({ element: el })
-                    .setLngLat([pt.lng, pt.lat])
-                    .addTo(mapInstance.current!);
-                } else {
-                  if (chartMarkerInstance.current) {
-                    chartMarkerInstance.current.remove();
-                    chartMarkerInstance.current = null;
-                  }
-                }
-              }
-            }}
-          />
-        </div>
-      )}
+    <div className="relative flex flex-col h-full w-full overflow-hidden bg-slate-50 font-sans">
+      {/* ── TOP MAIN AREA: MAP & FLOATING OVERLAYS ── */}
+      <div className="relative flex-1 w-full h-full overflow-hidden">
+        {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
+        <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
       {/* Global HUD Header (Floating Top) */}
       <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-40 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 pointer-events-none">
@@ -1783,7 +1751,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
       <aside
-        className={`absolute left-2 sm:left-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-slate-400/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-slate-400/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
@@ -1916,7 +1884,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
       <aside
-        className={`absolute right-2 sm:right-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/10" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute right-2 sm:right-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/10" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-3xl">
           <div className="flex flex-col">
@@ -2053,6 +2021,42 @@ export default function PublicEventMonitoringPage() {
       <div
         className={`absolute inset-0 pointer-events-none transition-all duration-300 z-40 ${isFlashing ? "bg-rose-500/10 opacity-100 shadow-[inset_0_0_150px_rgba(244,63,94,0.2)] border-[20px] border-rose-500/20" : "bg-transparent opacity-0"}`}
       ></div>
+
+      </div>
+
+      {/* ── DOCKED BOTTOM SECTION: ELEVATION PROFILE CHART (NON-FLOATING) ── */}
+      {showAltitudeChart && event?.altitudeProfile && (
+        <div className="w-full h-[200px] sm:h-[220px] bg-white border-t border-slate-200 shadow-xl z-30 shrink-0 px-4 py-2 relative transition-all">
+          <AltitudeChart
+            data={event.altitudeProfile}
+            hoveredDistance={hoveredDistance}
+            participants={sortedParticipants}
+            onParticipantClick={(p) => {
+              if (p && typeof p.lat === "number" && typeof p.lng === "number") {
+                mapInstance.current?.flyTo({ center: [p.lng, p.lat], zoom: 18 });
+              }
+            }}
+            onHover={(pt) => {
+              setHoveredDistance(pt?.distance ?? null);
+              if (pt) {
+                if (!chartMarkerInstance.current) {
+                  const el = document.createElement("div");
+                  el.className =
+                    "w-4 h-4 bg-fuchsia-600 rounded-full border-2 border-white shadow-md";
+                  chartMarkerInstance.current = new maplibregl.Marker({ element: el })
+                    .setLngLat([pt.lng, pt.lat])
+                    .addTo(mapInstance.current!);
+                } else {
+                  if (chartMarkerInstance.current) {
+                    chartMarkerInstance.current.remove();
+                    chartMarkerInstance.current = null;
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* Participant Detail Modal */}
       {participantDetailModal && (
