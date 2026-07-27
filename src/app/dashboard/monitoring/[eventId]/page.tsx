@@ -2065,8 +2065,20 @@ export default function PublicEventMonitoringPage() {
             hoveredDistance={hoveredDistance}
             participants={sortedParticipants}
             onParticipantClick={(p) => {
-              if (p && typeof p.lat === "number" && typeof p.lng === "number") {
-                mapInstance.current?.flyTo({ center: [p.lng, p.lat], zoom: 18 });
+              if (p) {
+                const lat = parseFloat(p.lat);
+                const lng = parseFloat(p.lng);
+                if (!isNaN(lat) && !isNaN(lng) && mapInstance.current) {
+                  mapInstance.current.flyTo({
+                    center: [lng, lat],
+                    zoom: 17,
+                    duration: 1200,
+                    essential: true,
+                  });
+                  const uId = String(p.id || p.userId || p.participantId);
+                  setSelectedUserId(uId);
+                  setParticipantDetailModal(p);
+                }
               }
             }}
             onHover={(pt) => {

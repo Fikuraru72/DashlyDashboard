@@ -95,12 +95,12 @@ export default function AltitudeChart({
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // High-precision orthogonal segment projection for smooth, meter-by-meter real-time updates
+  // High-precision Haversine segment projection for accurate, meter-by-meter real-time updates
   const findClosestRoutePoint = (pLat: number, pLng: number): { distance: number; elevation: number } => {
     if (!data || data.length === 0) return { distance: 0, elevation: 0 };
     if (data.length === 1) return { distance: data[0].distance, elevation: data[0].elevation };
 
-    let minSqDist = Infinity;
+    let minMeters = Infinity;
     let bestDistance = data[0].distance;
     let bestElevation = data[0].elevation;
 
@@ -108,23 +108,25 @@ export default function AltitudeChart({
       const a = data[i];
       const b = data[i + 1];
 
-      const dx = b.lng - a.lng;
-      const dy = b.lat - a.lat;
-      const lenSq = dx * dx + dy * dy;
+      // Distance from participant to segment endpoints in meters
+      const distToA = haversineMeters(a.lat, a.lng, pLat, pLng);
+      const distToB = haversineMeters(b.lat, b.lng, pLat, pLng);
+      const segMeters = haversineMeters(a.lat, a.lng, b.lat, b.lng);
 
       let t = 0;
-      if (lenSq > 0) {
-        t = ((pLng - a.lng) * dx + (pLat - a.lat) * dy) / lenSq;
-        t = Math.max(0, Math.min(1, t)); // clamp t to segment [0, 1]
+      if (segMeters > 0) {
+        // Projection factor t along segment using law of cosines approximation
+        t = (distToA * distToA - distToB * distToB + segMeters * segMeters) / (2 * segMeters * segMeters);
+        t = Math.max(0, Math.min(1, t));
       }
 
-      const projLng = a.lng + t * dx;
-      const projLat = a.lat + t * dy;
+      // Distance from participant to projected point on segment
+      const interpLat = a.lat + t * (b.lat - a.lat);
+      const interpLng = a.lng + t * (b.lng - a.lng);
+      const perpendicularMeters = haversineMeters(interpLat, interpLng, pLat, pLng);
 
-      const distSq = (pLng - projLng) * (pLng - projLng) + (pLat - projLat) * (pLat - projLat);
-
-      if (distSq < minSqDist) {
-        minSqDist = distSq;
+      if (perpendicularMeters < minMeters) {
+        minMeters = perpendicularMeters;
         const segLength = b.distance - a.distance;
         bestDistance = a.distance + t * segLength;
         bestElevation = a.elevation + t * (b.elevation - a.elevation);
@@ -187,8 +189,11 @@ export default function AltitudeChart({
           onMouseMove={(e: any) => {
             if (e && e.activePayload && e.activePayload.length > 0) {
               onHover(e.activePayload[0].payload);
+            } else {
+              onHover(null);
             }
           }}
+          onMouseLeave={() => onHover(null)}
         >
           <defs>
             {/* Crisp High-Contrast Light Mode Indigo Silhouette Gradient */}
@@ -271,9 +276,9 @@ export default function AltitudeChart({
             }}
           />
 
-          {/* Main High-Contrast Indigo Topo Area Silhouette */}
+          {/* Main High-Contrast Indigo Topo Area Silhouette (LINEAR type for exact slope alignment) */}
           <Area
-            type="monotone"
+            type="linear"
             dataKey="elevation"
             stroke="#4f46e5"
             strokeWidth={3}
@@ -284,7 +289,11 @@ export default function AltitudeChart({
 
           {/* ── REAL-TIME PARTICIPANT RUNNER DOTS & CYAN VERTICAL PIN LINES ── */}
           {participants
-            .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
+            .filter((p) => {
+              const lat = parseFloat(p.lat);
+              const lng = parseFloat(p.lng);
+              return !isNaN(lat) && !isNaN(lng);
+            })
             .map((p) => {
               let pDist: number;
               const rawDist = p.routeDistance !== undefined && p.routeDistance !== null ? parseFloat(p.routeDistance) : NaN;
