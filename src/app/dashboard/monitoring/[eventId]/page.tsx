@@ -54,98 +54,6 @@ const getCookie = (name: string) => {
 };
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 
-// ── Map Themes Configuration (Racemap Topo, Voyager Outdoor, Dark Matter, Satellite) ────────
-export const MAP_THEMES: Record<string, { label: string; style: any }> = {
-  ESRI_CLEAN_TOPO: {
-    label: "Clean Topo (Esri)",
-    style: {
-      version: 8,
-      sources: {
-        "esri-topo-tiles": {
-          type: "raster",
-          tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-          ],
-          tileSize: 256,
-          maxzoom: 18,
-          attribution: "© Esri World Topo Map",
-        },
-      },
-      layers: [
-        {
-          id: "esri-topo-layer",
-          type: "raster",
-          source: "esri-topo-tiles",
-          minzoom: 0,
-          maxzoom: 18,
-        },
-      ],
-    },
-  },
-  RACEMAP_TOPO: {
-    label: "Racemap Topo (OpenTopo)",
-    style: {
-      version: 8,
-      sources: {
-        "opentopo-tiles": {
-          type: "raster",
-          tiles: [
-            "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
-            "https://b.tile.opentopomap.org/{z}/{x}/{y}.png",
-            "https://c.tile.opentopomap.org/{z}/{x}/{y}.png",
-          ],
-          tileSize: 256,
-          maxzoom: 17,
-          attribution: "© OpenTopoMap contributors",
-        },
-      },
-      layers: [
-        {
-          id: "opentopo-layer",
-          type: "raster",
-          source: "opentopo-tiles",
-          minzoom: 0,
-          maxzoom: 18,
-        },
-      ],
-    },
-  },
-  VOYAGER_OUTDOOR: {
-    label: "Outdoor Voyager",
-    style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-  },
-  DARK_MATTER: {
-    label: "Dark Matter",
-    style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-  },
-  SATELLITE: {
-    label: "Satellite Terrain",
-    style: {
-      version: 8,
-      sources: {
-        "esri-satellite": {
-          type: "raster",
-          tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          ],
-          tileSize: 256,
-          maxzoom: 18,
-          attribution: "© Esri World Imagery",
-        },
-      },
-      layers: [
-        {
-          id: "satellite-layer",
-          type: "raster",
-          source: "esri-satellite",
-          minzoom: 0,
-          maxzoom: 18,
-        },
-      ],
-    },
-  },
-};
-
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
 const generateRandomColor = () => {
@@ -376,8 +284,6 @@ export default function PublicEventMonitoringPage() {
   const [showPolylines, setShowPolylines] = useState(false);
   const [showAltitudeChart, setShowAltitudeChart] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
-  const [selectedThemeKey, setSelectedThemeKey] = useState<string>("VOYAGER_OUTDOOR");
-  const [showThemeSelector, setShowThemeSelector] = useState(false);
 
   // Altitude Chart Interactivity
   const [hoveredDistance, setHoveredDistance] = useState<number | null>(null);
@@ -839,11 +745,11 @@ export default function PublicEventMonitoringPage() {
       ? [firstCoord[0], firstCoord[1]]
       : [106.8272, -6.1754];
 
-    const selectedThemeObj = MAP_THEMES[selectedThemeKey] || MAP_THEMES.ESRI_CLEAN_TOPO;
+    const mapStyle = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: selectedThemeObj.style,
+      style: mapStyle,
       center: startCoord,
       zoom: 15,
       pitch: is3DMode ? 55 : 0,
@@ -880,53 +786,35 @@ export default function PublicEventMonitoringPage() {
         console.warn("[Map] ⚠️ Could not load 3D terrain DEM source:", demErr);
       }
 
+      // Add Route Source
       map.addSource("route", { type: "geojson", data: event.routeGeojson });
 
-      // Find the first symbol/label layer to render road names and labels ON TOP of the route
-      const layers = map.getStyle()?.layers;
-      let firstLabelLayerId: string | undefined;
-      if (layers) {
-        for (const layer of layers) {
-          if (
-            layer.type === "symbol" &&
-            (layer.id.includes("label") || layer.id.includes("name") || layer.id.includes("road"))
-          ) {
-            firstLabelLayerId = layer.id;
-            break;
-          }
-        }
-      }
-
-      map.addLayer(
-        {
-          id: "route-glow",
-          type: "line",
-          source: "route",
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": "#4f46e5",
-            "line-width": 8,
-            "line-opacity": 0.3,
-            "line-blur": 5,
-          },
+      // Add Route Glow Layer
+      map.addLayer({
+        id: "route-glow",
+        type: "line",
+        source: "route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#4f46e5",
+          "line-width": 8,
+          "line-opacity": 0.3,
+          "line-blur": 5,
         },
-        firstLabelLayerId,
-      );
+      });
 
-      map.addLayer(
-        {
-          id: "route-main",
-          type: "line",
-          source: "route",
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": "#4f46e5",
-            "line-width": 4,
-            "line-opacity": 0.9,
-          },
+      // Add Main Route Line Layer
+      map.addLayer({
+        id: "route-main",
+        type: "line",
+        source: "route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#4f46e5",
+          "line-width": 4,
+          "line-opacity": 0.9,
         },
-        firstLabelLayerId,
-      );
+      });
 
       // Add kilometer distance badges along the route
       addKilometerMarkers(map, event.routeGeojson);
@@ -1848,97 +1736,6 @@ export default function PublicEventMonitoringPage() {
           >
             3D
           </button>
-
-          {/* Map Theme Switcher Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowThemeSelector(!showThemeSelector)}
-              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-2xl border text-xs font-black transition-all ${
-                showThemeSelector
-                  ? "bg-indigo-600 text-white border-white/20 shadow-lg shadow-indigo-500/20"
-                  : "bg-slate-900/90 text-slate-300 border-white/5 backdrop-blur-md hover:bg-slate-800"
-              }`}
-              title="Change Map Theme"
-            >
-              <LayoutTemplate size={16} />
-              <span className="hidden sm:inline">
-                {MAP_THEMES[selectedThemeKey]?.label || "Racemap Topo"}
-              </span>
-            </button>
-
-            {showThemeSelector && (
-              <div className="absolute right-0 mt-2 w-48 bg-slate-900/95 border border-white/10 backdrop-blur-xl rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1">
-                {Object.entries(MAP_THEMES).map(([key, themeObj]) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setSelectedThemeKey(key);
-                      setShowThemeSelector(false);
-                      if (mapInstance.current) {
-                        const map = mapInstance.current;
-                        map.setStyle(themeObj.style);
-                        map.once("style.load", () => {
-                          try {
-                            if (!map.getSource("maplibre-dem")) {
-                              map.addSource("maplibre-dem", {
-                                type: "raster-dem",
-                                url: "https://demotiles.maplibre.org/terrain-tiles/tiles.json",
-                                tileSize: 256,
-                              });
-                              map.setTerrain({ source: "maplibre-dem", exaggeration: 1.5 });
-                            }
-                          } catch (e) {}
-
-                          if (event?.routeGeojson && !map.getSource("route")) {
-                            map.addSource("route", { type: "geojson", data: event.routeGeojson });
-                            
-                            const layers = map.getStyle()?.layers;
-                            let firstLabelLayerId: string | undefined;
-                            if (layers) {
-                              for (const layer of layers) {
-                                if (
-                                  layer.type === "symbol" &&
-                                  (layer.id.includes("label") || layer.id.includes("name") || layer.id.includes("road"))
-                                ) {
-                                  firstLabelLayerId = layer.id;
-                                  break;
-                                }
-                              }
-                            }
-
-                            map.addLayer({
-                              id: "route-glow",
-                              type: "line",
-                              source: "route",
-                              layout: { "line-join": "round", "line-cap": "round" },
-                              paint: { "line-color": "#4f46e5", "line-width": 8, "line-opacity": 0.3, "line-blur": 5 },
-                            }, firstLabelLayerId);
-                            map.addLayer({
-                              id: "route-main",
-                              type: "line",
-                              source: "route",
-                              layout: { "line-join": "round", "line-cap": "round" },
-                              paint: { "line-color": "#4f46e5", "line-width": 4, "line-opacity": 0.9 },
-                            }, firstLabelLayerId);
-
-                            addKilometerMarkers(map, event.routeGeojson);
-                          }
-                        });
-                      }
-                    }}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
-                      selectedThemeKey === key
-                        ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/30"
-                        : "text-slate-300 hover:bg-white/10"
-                    }`}
-                  >
-                    <span>{themeObj.label}</span>
-                    {selectedThemeKey === key && <CheckCircle2 size={14} className="text-indigo-400" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
           {event?.altitudeProfile && (
             <button
