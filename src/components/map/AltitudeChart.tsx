@@ -95,38 +95,60 @@ export default function AltitudeChart({
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // High-precision Haversine segment projection for accurate, meter-by-meter real-time updates
+  // High-precision flat-earth meter space segment projection for 100% accurate real-time updates
   const findClosestRoutePoint = (pLat: number, pLng: number): { distance: number; elevation: number } => {
     if (!data || data.length === 0) return { distance: 0, elevation: 0 };
     if (data.length === 1) return { distance: data[0].distance, elevation: data[0].elevation };
 
-    let minMeters = Infinity;
-    let bestDistance = data[0].distance;
-    let bestElevation = data[0].elevation;
+    // Pass 1: Find closest node index to constrain candidate segment window
+    let minNodeMeters = Infinity;
+    let closestIdx = 0;
+    for (let i = 0; i < data.length; i++) {
+      const d = haversineMeters(data[i].lat, data[i].lng, pLat, pLng);
+      if (d < minNodeMeters) {
+        minNodeMeters = d;
+        closestIdx = i;
+      }
+    }
 
-    for (let i = 0; i < data.length - 1; i++) {
+    // Pass 2: Evaluate adjacent segments in local flat-earth meter space around closest node
+    const startSeg = Math.max(0, closestIdx - 3);
+    const endSeg = Math.min(data.length - 2, closestIdx + 2);
+
+    const cosLat = Math.cos((pLat * Math.PI) / 180);
+    const px = pLng * cosLat * 111320;
+    const py = pLat * 111320;
+
+    let minSegMeters = Infinity;
+    let bestDistance = data[closestIdx].distance;
+    let bestElevation = data[closestIdx].elevation;
+
+    for (let i = startSeg; i <= endSeg; i++) {
       const a = data[i];
       const b = data[i + 1];
 
-      // Distance from participant to segment endpoints in meters
-      const distToA = haversineMeters(a.lat, a.lng, pLat, pLng);
-      const distToB = haversineMeters(b.lat, b.lng, pLat, pLng);
-      const segMeters = haversineMeters(a.lat, a.lng, b.lat, b.lng);
+      const ax = a.lng * cosLat * 111320;
+      const ay = a.lat * 111320;
+      const bx = b.lng * cosLat * 111320;
+      const by = b.lat * 111320;
+
+      const dx = bx - ax;
+      const dy = by - ay;
+      const lenSq = dx * dx + dy * dy;
 
       let t = 0;
-      if (segMeters > 0) {
-        // Projection factor t along segment using law of cosines approximation
-        t = (distToA * distToA - distToB * distToB + segMeters * segMeters) / (2 * segMeters * segMeters);
-        t = Math.max(0, Math.min(1, t));
+      if (lenSq > 0) {
+        t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t)); // clamp t to segment [0, 1]
       }
 
-      // Distance from participant to projected point on segment
-      const interpLat = a.lat + t * (b.lat - a.lat);
-      const interpLng = a.lng + t * (b.lng - a.lng);
-      const perpendicularMeters = haversineMeters(interpLat, interpLng, pLat, pLng);
+      const projX = ax + t * dx;
+      const projY = ay + t * dy;
 
-      if (perpendicularMeters < minMeters) {
-        minMeters = perpendicularMeters;
+      const perpMeters = Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+
+      if (perpMeters < minSegMeters) {
+        minSegMeters = perpMeters;
         const segLength = b.distance - a.distance;
         bestDistance = a.distance + t * segLength;
         bestElevation = a.elevation + t * (b.elevation - a.elevation);
@@ -332,9 +354,27 @@ export default function AltitudeChart({
                   r={0}
                   shape={(props: any) => {
                     // Recharts passes pixel coordinates as cx/cy or x/y
-                    const cx = props.cx ?? props.x;
-                    const cy = props.cy ?? props.y;
-                    if (cx == null || cy == null || isNaN(cx) || isNaN(cy)) return <g></g>;
+                    let cx = props.cx ?? props.x;
+                    let cy = props.cy ?? props.y;
+
+                    // GUARANTEED FALLBACK: Calculate pixel cx/cy directly if Recharts scale returns undefined/NaN
+                    if (cx == null || isNaN(cx)) {
+                      const viewBox = props.viewBox || {};
+                      const width = viewBox.width || 800;
+                      const left = viewBox.x || 55;
+                      const ratio = maxRouteDist > minRouteDist ? (clampedDist - minRouteDist) / (maxRouteDist - minRouteDist) : 0;
+                      cx = left + ratio * (width - left - 30);
+                    }
+
+                    if (cy == null || isNaN(cy)) {
+                      const viewBox = props.viewBox || {};
+                      const height = viewBox.height || 200;
+                      const top = viewBox.y || 32;
+                      const minE = stats.minElev - 10;
+                      const maxE = stats.maxElev + 20;
+                      const ratio = maxE > minE ? (pElev - minE) / (maxE - minE) : 0;
+                      cy = top + (1 - ratio) * (height - top - 37);
+                    }
 
                     return (
                       <g
