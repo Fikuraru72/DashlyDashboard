@@ -458,6 +458,31 @@ export default function PublicEventMonitoringPage() {
     }
   }, [mapIsReady]);
 
+  const handleDismissAnomaly = async (alertId: string, userId?: string) => {
+    // 1. Optimistic removal from Zustand store and local React state
+    removeAnomaly(alertId);
+
+    try {
+      const token = getCookie("auth_token");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+      // Permanently delete anomaly from PostgreSQL database
+      if (alertId.startsWith("db-anomaly-")) {
+        await authenticatedFetch(`${apiUrl}/events/${eventId}/anomalies/${alertId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } else if (userId) {
+        await authenticatedFetch(`${apiUrl}/events/${eventId}/anomalies/user/${userId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch (err) {
+      console.warn("[Anomaly] Error deleting anomaly from backend:", err);
+    }
+  };
+
   const handleUpdateParticipantState = async (
     userId: string,
     newState: string,
@@ -501,8 +526,16 @@ export default function PublicEventMonitoringPage() {
         return next;
       });
 
+      // Permanently clear anomalies for this participant when unfreezing
+      if (newState === "TRACKING") {
+        await authenticatedFetch(`${apiUrl}/events/${eventId}/anomalies/user/${userId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      }
+
       if (alertId) {
-        removeAnomaly(alertId);
+        handleDismissAnomaly(alertId, userId);
       }
     } catch (e) {
       console.error("Error updating participant state:", e);
@@ -1982,7 +2015,7 @@ export default function PublicEventMonitoringPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          removeAnomaly(alert.id);
+                          void handleDismissAnomaly(alert.id, userIdStr);
                         }}
                         className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-300 rounded text-[9px] font-black uppercase transition-all"
                       >

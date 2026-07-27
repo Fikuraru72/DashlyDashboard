@@ -183,9 +183,31 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
     }),
 
   removeAnomaly: (id) =>
-    set((state) => ({
-      anomalies: state.anomalies.filter((a) => a.id !== id),
-    })),
+    set((state) => {
+      const target = state.anomalies.find((a) => a.id === id);
+      const remaining = state.anomalies.filter((a) => a.id !== id);
+      const participants = { ...state.participants };
+
+      if (target) {
+        const pId = target.userId || target.participantId;
+        if (pId && participants[pId]) {
+          const hasOtherAnomalies = remaining.some(
+            (a) => (a.userId || a.participantId) === pId,
+          );
+          if (!hasOtherAnomalies) {
+            participants[pId] = {
+              ...participants[pId],
+              isAnomaly: false,
+            };
+          }
+        }
+      }
+
+      return {
+        anomalies: remaining,
+        participants,
+      };
+    }),
 
   setAnomalies: (anomalies) =>
     set((state) => {
