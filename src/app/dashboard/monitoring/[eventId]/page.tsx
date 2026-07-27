@@ -77,7 +77,7 @@ const generateRandomColor = () => {
 // Helper to inject HTML into an existing DOM element so we can update colors dynamically
 const updateMarkerElement = (
   el: HTMLElement,
-  name: string,
+  displayName: string,
   status: string = "moving",
   isStale: boolean = false,
   isAnomaly: boolean = false,
@@ -96,66 +96,94 @@ const updateMarkerElement = (
             : userColor || "#10b981"; // Custom User Color or Emerald — Moving
 
   el.innerHTML = `
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
       <div style="
-        width: 20px; height: 20px;
+        width: 16px; height: 16px;
         border-radius: 50%;
-        background: ${coreColor}30;
-        animation: ${!isStale ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
+        background: ${coreColor}35;
+        animation: ${!isStale ? "ping 2s cubic-bezier(0,0,0.2,1) infinite" : "none"};
       "></div>
     </div>
-    <div style="
+    <div class="marker-dot" style="
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       width: 12px; height: 12px;
       border-radius: 50%;
       background: ${coreColor};
-      border: 2px solid white;
-      box-shadow: 0 0 10px ${coreColor}80;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 6px ${coreColor}80;
+      transition: transform 0.2s ease;
     "></div>
-    <div class="marker-label" style="
+    <div class="marker-tooltip" style="
       position: absolute;
       bottom: 100%;
-      margin-bottom: 2px;
+      margin-bottom: 6px;
       left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15,23,42,0.85);
-      color: white;
-      padding: 1.5px 6px;
-      border-radius: 3px;
-      font-size: 8.5px;
-      font-weight: bold;
+      transform: translateX(-50%) translateY(4px);
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(6px);
+      color: #ffffff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 700;
       white-space: nowrap;
-      border: 1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 100;
     ">
-      ${name}
+      ${displayName}
     </div>
   `;
 };
 
 const createPulseMarker = (
-  name: string,
+  displayName: string,
   status: string = "moving",
   isStale: boolean = false,
   isAnomaly: boolean = false,
   userColor?: string,
 ) => {
   const el = document.createElement("div");
-  // Fixed-size marker centered precisely on its map coordinate.
   el.style.cssText = `
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
-    transition: transform 0.3s ease-out;
+    z-index: 10;
+    transition: z-index 0.1s ease;
   `;
-  updateMarkerElement(el, name, status, isStale, isAnomaly, userColor);
+  updateMarkerElement(el, displayName, status, isStale, isAnomaly, userColor);
+
+  el.addEventListener("mouseenter", () => {
+    el.style.zIndex = "99999";
+    const tooltip = el.querySelector(".marker-tooltip") as HTMLElement | null;
+    if (tooltip) {
+      tooltip.style.opacity = "1";
+      tooltip.style.transform = "translateX(-50%) translateY(0px)";
+    }
+    const dot = el.querySelector(".marker-dot") as HTMLElement | null;
+    if (dot) dot.style.transform = "translate(-50%, -50%) scale(1.35)";
+  });
+
+  el.addEventListener("mouseleave", () => {
+    el.style.zIndex = "10";
+    const tooltip = el.querySelector(".marker-tooltip") as HTMLElement | null;
+    if (tooltip) {
+      tooltip.style.opacity = "0";
+      tooltip.style.transform = "translateX(-50%) translateY(4px)";
+    }
+    const dot = el.querySelector(".marker-dot") as HTMLElement | null;
+    if (dot) dot.style.transform = "translate(-50%, -50%) scale(1)";
+  });
+
   return el;
 };
 
@@ -295,132 +323,6 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const clusterMarkers = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const superclusterRef = useRef<Supercluster | null>(null);
-
-  useEffect(() => {
-    superclusterRef.current = new Supercluster({
-      radius: 40,
-      maxZoom: 20,
-    });
-  }, []);
-
-  const updateClusters = useCallback(() => {
-    if (!mapInstance.current || !superclusterRef.current || !mapIsReadyRef.current) return;
-    const map = mapInstance.current;
-
-    const features: any[] = Array.from(participants.values())
-      .filter(
-        (p) =>
-          typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng),
-      )
-      .map((p) => ({
-        type: "Feature",
-        properties: { cluster: false, userId: String(p.id) },
-        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-      }));
-
-    superclusterRef.current.load(features);
-
-    const zoom = Math.round(map.getZoom());
-    const clusters = superclusterRef.current.getClusters([-180, -85, 180, 85], zoom);
-
-    const nextKeys = new Set<string>();
-
-    clusters.forEach((cluster: any) => {
-      const [lng, lat] = cluster.geometry.coordinates;
-      const isCluster = cluster.properties.cluster;
-
-      if (isCluster) {
-        const clusterId = cluster.properties.cluster_id;
-        const pointCount = cluster.properties.point_count;
-        const key = `cluster-${clusterId}`;
-        nextKeys.add(key);
-
-        let marker = clusterMarkers.current.get(key);
-        if (!marker) {
-          const wrapper = document.createElement("div");
-
-          const el = document.createElement("div");
-          el.className = "dashly-cluster";
-          el.style.cssText = `
-            width: 36px; height: 36px;
-            border-radius: 50%;
-            background: rgba(79, 70, 229, 0.9);
-            border: 3px solid white;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-            box-shadow: 0 0 15px rgba(79,70,229,0.5);
-            cursor: pointer;
-            z-index: 10000;
-            transition: transform 0.2s;
-          `;
-          el.innerText = String(pointCount);
-          wrapper.appendChild(el);
-
-          wrapper.addEventListener("click", () => {
-            const expansionZoom = superclusterRef.current!.getClusterExpansionZoom(clusterId);
-            map.flyTo({ center: [lng, lat], zoom: expansionZoom });
-          });
-          wrapper.addEventListener("mouseenter", () => (el.style.transform = "scale(1.15)"));
-          wrapper.addEventListener("mouseleave", () => (el.style.transform = "scale(1)"));
-
-          marker = new maplibregl.Marker({
-            element: wrapper,
-            anchor: "center",
-            pitchAlignment: "viewport",
-          })
-            .setLngLat([lng, lat])
-            .addTo(map);
-          clusterMarkers.current.set(key, marker);
-        } else {
-          marker.setLngLat([lng, lat]);
-          (marker.getElement().firstChild as HTMLDivElement).innerText = String(pointCount);
-          marker.getElement().style.display = "block";
-        }
-      } else {
-        const userId = cluster.properties.userId;
-        const key = `user-${userId}`;
-        nextKeys.add(key);
-
-        const marker = markers.current.get(userId);
-        if (marker) {
-          marker.getElement().style.display = "flex";
-        }
-      }
-    });
-
-    clusterMarkers.current.forEach((marker, key) => {
-      if (!nextKeys.has(key)) {
-        marker.getElement().style.display = "none";
-      }
-    });
-
-    markers.current.forEach((marker, userId) => {
-      if (!nextKeys.has(`user-${userId}`)) {
-        marker.getElement().style.display = "none";
-      }
-    });
-  }, [participants]);
-
-  useEffect(() => {
-    updateClusters();
-  }, [updateClusters]);
-
-  useEffect(() => {
-    if (!mapIsReady) return;
-    const map = mapInstance.current;
-    if (map) {
-      map.on("zoomend", updateClusters);
-      return () => {
-        map.off("zoomend", updateClusters);
-      };
-    }
-  }, [mapIsReady, updateClusters]);
 
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
@@ -1442,12 +1344,12 @@ export default function PublicEventMonitoringPage() {
 
       let marker = markers.current.get(userId);
       const isStale = isParticipantDisconnected(data);
+      const bibText = data.bibNumber && data.bibNumber !== "-" ? `${data.bibNumber} - ` : "";
+      const displayName = `${bibText}${data.name || `User ${String(userId).substring(0, 4)}`}`;
 
       if (!marker) {
-        // PILLAR 5: Create marker ONCE, then only update position
-        // console.log(`[Marker] ➕ Creating new marker for userId=${userId} at [lng=${data.lng}, lat=${data.lat}]`);
         const el = createPulseMarker(
-          data.name || `User ${String(userId).substring(0, 4)}`,
+          displayName,
           data.status,
           isStale,
           data.isAnomaly,
@@ -1465,12 +1367,12 @@ export default function PublicEventMonitoringPage() {
         // High Performance: Update LngLat position directly
         marker.setLngLat([data.lng, data.lat]);
 
-        const stateKey = `${data.name}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}`;
+        const stateKey = `${displayName}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}`;
         if ((marker as any).__stateKey !== stateKey) {
           (marker as any).__stateKey = stateKey;
           const el = marker.getElement();
           const newEl = createPulseMarker(
-            data.name || `User ${String(userId).substring(0, 4)}`,
+            displayName,
             data.status,
             isStale,
             data.isAnomaly,
