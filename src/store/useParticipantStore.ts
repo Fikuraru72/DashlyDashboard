@@ -48,6 +48,7 @@ interface ParticipantStore {
   setSocketConnected: (status: boolean) => void;
   updateParticipant: (id: string, data: Partial<ParticipantData>) => void;
   addAnomaly: (anomaly: Anomaly) => void;
+  setAnomalies: (anomalies: Anomaly[]) => void;
   addSyncBatch: (userId: string | number, points: any[]) => void;
   setEventMetadata: (metadata: EventMetadata) => void;
   setParticipants: (participants: Record<string, ParticipantData>) => void; // helper for mock data
@@ -185,6 +186,25 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
     set((state) => ({
       anomalies: state.anomalies.filter((a) => a.id !== id),
     })),
+
+  setAnomalies: (anomalies) =>
+    set((state) => {
+      const participants = { ...state.participants };
+      for (const a of anomalies) {
+        const pId = a.userId || a.participantId;
+        if (pId && participants[pId]) {
+          participants[pId] = {
+            ...participants[pId],
+            isAnomaly: true,
+            status: "emergency",
+          };
+        }
+      }
+      return {
+        anomalies: anomalies.slice(0, 100),
+        participants,
+      };
+    }),
 
   setEventMetadata: (metadata) =>
     set(() => ({

@@ -717,6 +717,47 @@ export default function PublicEventMonitoringPage() {
         } catch (pathErr) {
           console.warn("[INIT] ⚠️ Path history fetch error (non-fatal):", pathErr);
         }
+
+        // Fetch historical anomalies so incident stream persists on refresh / new admin session
+        try {
+          const anomalyRes = await authenticatedFetch(`${apiUrl}/events/${eventId}/anomalies`, {
+            headers: { Authorization: `Bearer ${getCookie("auth_token")}` },
+          });
+          if (anomalyRes.ok) {
+            const historicalAnomalies = await anomalyRes.json();
+            console.log(
+              "[INIT] 🚨 Loaded",
+              historicalAnomalies.length,
+              "historical anomalies from DB",
+            );
+            if (Array.isArray(historicalAnomalies) && historicalAnomalies.length > 0) {
+              useParticipantStore.getState().setAnomalies(historicalAnomalies);
+              setParticipants((prev) => {
+                const next = new Map(prev);
+                historicalAnomalies.forEach((a: any) => {
+                  const uid = String(a.userId);
+                  const current = next.get(uid);
+                  if (current) {
+                    next.set(uid, {
+                      ...current,
+                      isAnomaly: true,
+                      hasAlert: true,
+                      status:
+                        a.type === "STOP"
+                          ? "stopped"
+                          : a.type === "OFF_ROUTE"
+                            ? "off-route"
+                            : "emergency",
+                    });
+                  }
+                });
+                return next;
+              });
+            }
+          }
+        } catch (anomErr) {
+          console.warn("[INIT] ⚠️ Anomalies fetch error (non-fatal):", anomErr);
+        }
       } catch (err: any) {
         setError(err.message);
         setLoading(false);
