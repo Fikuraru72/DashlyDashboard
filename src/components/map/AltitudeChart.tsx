@@ -294,28 +294,34 @@ export default function AltitudeChart({
               const lng = parseFloat(p.lng);
               return !isNaN(lat) && !isNaN(lng);
             })
-            .map((p) => {
+            .map((p, index) => {
+              const pLat = parseFloat(p.lat);
+              const pLng = parseFloat(p.lng);
+              const maxRouteDist = data[data.length - 1].distance;
+              const minRouteDist = data[0].distance;
+
               let pDist: number;
-              const rawDist = p.routeDistance !== undefined && p.routeDistance !== null ? parseFloat(p.routeDistance) : NaN;
+              const rawDist = p.routeDistance !== undefined && p.routeDistance !== null && p.routeDistance !== "" ? parseFloat(p.routeDistance) : NaN;
+              const routePoint = findClosestRoutePoint(pLat, pLng);
 
               if (!isNaN(rawDist) && rawDist >= 0) {
-                pDist = rawDist;
+                // Smart km-to-meters check (e.g. if rawDist is 1.5 km while routePoint is 1500 meters)
+                if (rawDist > 0 && rawDist <= maxRouteDist / 50 && routePoint.distance > maxRouteDist / 10) {
+                  pDist = rawDist * 1000;
+                } else {
+                  pDist = rawDist;
+                }
               } else {
-                const pLat = parseFloat(p.lat);
-                const pLng = parseFloat(p.lng);
-                const routePoint = findClosestRoutePoint(pLat, pLng);
                 pDist = routePoint.distance;
               }
 
               // Clamp distance to valid route bounds to ensure X-axis domain match
-              const minDist = data[0].distance;
-              const maxDist = data[data.length - 1].distance;
-              const clampedDist = Math.max(minDist, Math.min(maxDist, pDist));
+              const clampedDist = Math.max(minRouteDist, Math.min(maxRouteDist, pDist));
 
               // Derive exact Y height on silhouette line
               const pElev = getElevationAtDistance(clampedDist);
               const pColor = p.color || "#0284c7"; // default sky blue
-              const pId = p.id || p.userId || p.participantId || Math.random();
+              const pId = String(p.userId || p.participantId || p.id || p.bibNumber || `idx-${index}`);
               const bibLabel = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.substring(0, 5) : `P-${pId}`;
 
               return (

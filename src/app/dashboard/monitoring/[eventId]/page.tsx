@@ -1102,8 +1102,18 @@ export default function PublicEventMonitoringPage() {
                 lat,
                 lng,
                 routeIndex: data.routeIndex !== undefined && data.routeIndex !== null ? parseInt(data.routeIndex) : current.routeIndex,
-                routeDistance: data.routeDistance !== undefined && data.routeDistance !== null ? parseFloat(data.routeDistance) : current.routeDistance,
-                routeElevation: data.routeElevation !== undefined && data.routeElevation !== null ? parseFloat(data.routeElevation) : current.routeElevation,
+                routeDistance:
+                  data.routeDistance !== undefined &&
+                  data.routeDistance !== null &&
+                  parseFloat(data.routeDistance) > 0
+                    ? parseFloat(data.routeDistance)
+                    : current.routeDistance,
+                routeElevation:
+                  data.routeElevation !== undefined &&
+                  data.routeElevation !== null &&
+                  parseFloat(data.routeElevation) > 0
+                    ? parseFloat(data.routeElevation)
+                    : current.routeElevation,
                 lastUpdate: Date.now(),
                 pathHistory: newHistory,
               });
