@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -12,6 +12,7 @@ import {
   ReferenceLine,
   ReferenceDot,
 } from "recharts";
+import { Info, Mountain, Footprints, Clock } from "lucide-react";
 
 export interface AltitudePoint {
   distance: number;
@@ -24,8 +25,8 @@ export interface AltitudePoint {
 
 interface AltitudeChartProps {
   data: AltitudePoint[];
-  hoveredDistance: number | null; // From map interaction
-  onHover: (point: AltitudePoint | null) => void; // To map interaction
+  hoveredDistance: number | null;
+  onHover: (point: AltitudePoint | null) => void;
   participants?: any[];
   onParticipantClick?: (participant: any) => void;
 }
@@ -34,19 +35,17 @@ const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload as AltitudePoint;
     return (
-      <div className="bg-slate-800 text-white p-3 rounded-lg shadow-xl border border-slate-700 text-xs z-50 relative">
-        <p className="font-bold text-emerald-400 mb-1">
+      <div className="bg-slate-900/95 text-white p-3 rounded-xl shadow-2xl border border-white/20 text-xs backdrop-blur-md z-50">
+        <p className="font-black text-cyan-400 mb-1">
           Dist: {(data.distance / 1000).toFixed(2)} km
         </p>
-        <p className="text-slate-300">
-          Elev: <span className="font-semibold">{Math.round(data.elevation)}m</span>
+        <p className="text-slate-200 font-bold">
+          Elev: <span className="font-black text-white">{Math.round(data.elevation)} m</span>
         </p>
-        <p className="text-emerald-500">
-          Gain: +{data.cumGain}m
-        </p>
-        <p className="text-rose-500">
-          Loss: -{data.cumLoss}m
-        </p>
+        <div className="flex gap-3 mt-1.5 pt-1.5 border-t border-white/10 text-[10px] font-bold">
+          <span className="text-emerald-400">Gain: +{data.cumGain}m</span>
+          <span className="text-rose-400">Loss: -{data.cumLoss}m</span>
+        </div>
       </div>
     );
   }
@@ -62,7 +61,28 @@ export default function AltitudeChart({
 }: AltitudeChartProps) {
   if (!data || data.length === 0) return null;
 
-  // Fallback Haversine distance calculation in meters (used ONLY if backend routeDistance is absent)
+  // Find max and min elevation for stats display
+  const stats = useMemo(() => {
+    let minE = data[0].elevation;
+    let maxE = data[0].elevation;
+    let peakPoint = data[0];
+
+    data.forEach((pt) => {
+      if (pt.elevation < minE) minE = pt.elevation;
+      if (pt.elevation > maxE) {
+        maxE = pt.elevation;
+        peakPoint = pt;
+      }
+    });
+
+    return {
+      minElev: Math.round(minE),
+      maxElev: Math.round(maxE),
+      gain: Math.round(data[data.length - 1].cumGain || maxE - minE),
+      peakPoint,
+    };
+  }, [data]);
+
   const haversineMeters = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371000;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -89,15 +109,11 @@ export default function AltitudeChart({
     return { distance: closest.distance, elevation: closest.elevation };
   };
 
-  // Find exact elevation Y value on profile data curve for any given X distance (in meters).
-  // Uses binary search to locate the bracketing segment, then linearly interpolates
-  // so the returned elevation sits precisely ON the rendered Recharts curve.
   const getElevationAtDistance = (dist: number): number => {
     if (data.length === 0) return 0;
     if (dist <= data[0].distance) return data[0].elevation;
     if (dist >= data[data.length - 1].distance) return data[data.length - 1].elevation;
 
-    // Binary search for the segment [lo, lo+1] that brackets `dist`
     let lo = 0;
     let hi = data.length - 1;
     while (lo < hi - 1) {
@@ -111,17 +127,44 @@ export default function AltitudeChart({
     const e0 = data[lo].elevation;
     const e1 = data[hi].elevation;
 
-    if (d1 === d0) return e0; // degenerate segment
-    const t = (dist - d0) / (d1 - d0); // interpolation fraction [0..1]
+    if (d1 === d0) return e0;
+    const t = (dist - d0) / (d1 - d0);
     return e0 + (e1 - e0) * t;
   };
 
   return (
-    <div className="w-full h-full relative" onMouseLeave={() => onHover(null)}>
+    <div className="w-full h-full relative flex flex-col" onMouseLeave={() => onHover(null)}>
+      {/* ── RACEMAP TOP CONTROL BAR & ELEVATION STATS ── */}
+      <div className="absolute top-1 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+        {/* Left Stats: Min/Max Altitude */}
+        <div className="flex items-center gap-3 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-xl border border-white/10 text-white font-mono text-[10px] font-black pointer-events-auto shadow-lg">
+          <span className="text-slate-300">{stats.minElev} m</span>
+          <span className="text-cyan-400">↑ {stats.gain} m</span>
+          <span className="text-amber-400">{stats.maxElev} m</span>
+        </div>
+
+        {/* Center Control Pills Bar (Racemap Style) */}
+        <div className="flex items-center gap-1 bg-slate-900/80 backdrop-blur-md p-1 rounded-2xl border border-white/15 shadow-xl pointer-events-auto">
+          <button className="p-1.5 hover:bg-white/15 rounded-xl text-slate-300 hover:text-white transition-colors" title="Info">
+            <Info size={14} />
+          </button>
+          <button className="p-1.5 bg-indigo-600 rounded-xl text-white shadow-md" title="Elevation Profile">
+            <Mountain size={14} />
+          </button>
+          <button className="p-1.5 hover:bg-white/15 rounded-xl text-slate-300 hover:text-white transition-colors" title="Live Runners">
+            <Footprints size={14} />
+          </button>
+          <button className="p-1.5 hover:bg-white/15 rounded-xl text-slate-300 hover:text-white transition-colors" title="Timing">
+            <Clock size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── RECHARTS ELEVATION CANVAS ── */}
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{ top: 25, right: 20, left: 0, bottom: 0 }}
+          margin={{ top: 40, right: 20, left: 10, bottom: 5 }}
           onMouseMove={(e: any) => {
             if (e && e.activePayload && e.activePayload.length > 0) {
               onHover(e.activePayload[0].payload);
@@ -129,88 +172,159 @@ export default function AltitudeChart({
           }}
         >
           <defs>
-            <linearGradient id="colorElevation" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+            {/* Racemap Translucent White Topo Gradient */}
+            <linearGradient id="racemapWhiteGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity={0.65} />
+              <stop offset="60%" stopColor="#e2e8f0" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="#cbd5e1" stopOpacity={0.15} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255, 255, 255, 0.15)" />
+          
           <XAxis
             dataKey="distance"
-            tickFormatter={(val) => `${(val / 1000).toFixed(1)}km`}
-            stroke="#94a3b8"
+            tickFormatter={(val) => `${(val / 1000).toFixed(1)} km`}
+            stroke="#ffffff"
             fontSize={10}
-            minTickGap={30}
+            fontWeight="800"
+            minTickGap={40}
+            axisLine={{ stroke: "#ffffff", strokeWidth: 3 }}
+            tickLine={false}
           />
           <YAxis
-            stroke="#94a3b8"
+            stroke="#ffffff"
             fontSize={10}
-            domain={["dataMin - 10", "dataMax + 10"]}
-            tickFormatter={(val) => `${val}m`}
-            width={40}
+            fontWeight="800"
+            domain={["dataMin - 10", "dataMax + 20"]}
+            tickFormatter={(val) => `${val} m`}
+            width={45}
+            axisLine={false}
+            tickLine={false}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+          
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#00e5ff', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
+
           {hoveredDistance !== null && (
-            <ReferenceLine x={hoveredDistance} stroke="#f43f5e" strokeDasharray="3 3" />
+            <ReferenceLine x={hoveredDistance} stroke="#00e5ff" strokeDasharray="3 3" strokeWidth={2} />
           )}
 
-          {/* Render main elevation profile area FIRST so dots draw ON TOP */}
+          {/* RACEMAP CHECKPOINT / MILESTONE BADGES (Orange Flags) */}
+          <ReferenceDot
+            x={data[0].distance}
+            y={data[0].elevation}
+            r={0}
+            label={{
+              value: "START",
+              position: "top",
+              fill: "#ffffff",
+              fontSize: 9,
+              fontWeight: "900",
+              className: "bg-amber-600 px-2 py-0.5 rounded text-white shadow uppercase border border-amber-400/50",
+            }}
+          />
+          {stats.peakPoint && (
+            <ReferenceDot
+              x={stats.peakPoint.distance}
+              y={stats.peakPoint.elevation}
+              r={0}
+              label={{
+                value: `PEAK ${stats.maxElev}m`,
+                position: "top",
+                fill: "#ffffff",
+                fontSize: 9,
+                fontWeight: "900",
+                className: "bg-orange-500 px-2 py-0.5 rounded text-white shadow uppercase border border-orange-300/50",
+              }}
+            />
+          )}
+          <ReferenceDot
+            x={data[data.length - 1].distance}
+            y={data[data.length - 1].elevation}
+            r={0}
+            label={{
+              value: "FINISH",
+              position: "top",
+              fill: "#ffffff",
+              fontSize: 9,
+              fontWeight: "900",
+              className: "bg-rose-600 px-2 py-0.5 rounded text-white shadow uppercase border border-rose-400/50",
+            }}
+          />
+
+          {/* Main Translucent Silhouette Mountain Area */}
           <Area
             type="monotone"
             dataKey="elevation"
-            stroke="#10b981"
-            strokeWidth={2.5}
+            stroke="#ffffff"
+            strokeWidth={3}
             fillOpacity={1}
-            fill="url(#colorElevation)"
+            fill="url(#racemapWhiteGradient)"
             isAnimationActive={false}
           />
 
-          {/* Render real-time markers for all participants ON TOP of the elevation area */}
+          {/* ── REAL-TIME PARTICIPANT RUNNER DOTS & CYAN VERTICAL PIN LINES ── */}
           {participants
             .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
-              // Determine X-axis position (distance along route in meters)
               let pDist: number;
               const rawDist = p.routeDistance !== undefined && p.routeDistance !== null ? parseFloat(p.routeDistance) : NaN;
 
               if (!isNaN(rawDist) && rawDist >= 0) {
-                // Primary: Use backend-computed routeDistance (O(1))
                 pDist = rawDist;
               } else {
-                // Fallback: Haversine spatial matching against route points
                 const pLat = parseFloat(p.lat);
                 const pLng = parseFloat(p.lng);
                 const routePoint = findClosestRoutePoint(pLat, pLng);
                 pDist = routePoint.distance;
               }
 
-              // Y-axis: ALWAYS derive from the chart's own data curve
-              // This guarantees the dot sits exactly ON the green elevation line
+              // Derive exact Y height on silhouette line
               const pElev = getElevationAtDistance(pDist);
-
-              const pColor = p.color || "#6366f1"; // default indigo
-              const labelName = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.split(" ")[0] : `P-${p.id}`;
+              const pColor = p.color || "#00e5ff"; // default cyan/indigo
+              const bibLabel = p.bibNumber ? `${p.bibNumber}` : p.name ? p.name.substring(0, 4) : `P-${p.id}`;
 
               return (
-                <ReferenceDot
-                  key={`participant-chart-${p.id}`}
-                  x={pDist}
-                  y={pElev}
-                  r={8}
-                  fill={pColor}
-                  stroke="#ffffff"
-                  strokeWidth={2.5}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => onParticipantClick?.(p)}
-                  label={{
-                    value: labelName,
-                    position: "top",
-                    fill: "#ffffff",
-                    fontSize: 10,
-                    fontWeight: "900",
-                    className: "bg-slate-900 px-1.5 py-0.5 rounded shadow cursor-pointer border border-white/30",
-                  }}
-                />
+                <g key={`racemap-participant-${p.id}`}>
+                  {/* Vertical Cyan Pin Line (Racemap Drop Line) */}
+                  <ReferenceLine
+                    segment={[
+                      { x: pDist, y: pElev },
+                      { x: pDist, y: pElev + 35 },
+                    ]}
+                    stroke="#00e5ff"
+                    strokeWidth={2}
+                  />
+
+                  {/* Runner Position Dot on Slope */}
+                  <ReferenceDot
+                    x={pDist}
+                    y={pElev}
+                    r={6}
+                    fill={pColor}
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => onParticipantClick?.(p)}
+                  />
+
+                  {/* White BIB Number Badge above Cyan Pin Line */}
+                  <ReferenceDot
+                    x={pDist}
+                    y={pElev + 38}
+                    r={0}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => onParticipantClick?.(p)}
+                    label={{
+                      value: bibLabel,
+                      position: "top",
+                      fill: "#ffffff",
+                      fontSize: 11,
+                      fontWeight: "900",
+                      className: "text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] cursor-pointer",
+                    }}
+                  />
+                </g>
               );
             })}
         </AreaChart>
