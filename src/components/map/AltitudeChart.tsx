@@ -327,12 +327,7 @@ export default function AltitudeChart({
               const routePoint = findClosestRoutePoint(pLat, pLng);
 
               if (!isNaN(rawDist) && rawDist >= 0) {
-                // Smart km-to-meters check (e.g. if rawDist is 1.5 km while routePoint is 1500 meters)
-                if (rawDist > 0 && rawDist <= maxRouteDist / 50 && routePoint.distance > maxRouteDist / 10) {
-                  pDist = rawDist * 1000;
-                } else {
-                  pDist = rawDist;
-                }
+                pDist = rawDist;
               } else {
                 pDist = routePoint.distance;
               }
