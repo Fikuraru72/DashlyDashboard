@@ -376,7 +376,7 @@ export default function PublicEventMonitoringPage() {
   const [showPolylines, setShowPolylines] = useState(false);
   const [showAltitudeChart, setShowAltitudeChart] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
-  const [selectedThemeKey, setSelectedThemeKey] = useState<string>("ESRI_CLEAN_TOPO");
+  const [selectedThemeKey, setSelectedThemeKey] = useState<string>("VOYAGER_OUTDOOR");
   const [showThemeSelector, setShowThemeSelector] = useState(false);
 
   // Altitude Chart Interactivity
@@ -418,6 +418,70 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
+
+  const addKilometerMarkers = useCallback((map: maplibregl.Map, routeGeojson: any) => {
+    kmMarkersRef.current.forEach((m) => m.remove());
+    kmMarkersRef.current = [];
+
+    const coords = getRouteCoordinates(routeGeojson);
+    if (!coords || coords.length < 2) return;
+
+    const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371e3;
+      const φ1 = (lat1 * Math.PI) / 180;
+      const φ2 = (lat2 * Math.PI) / 180;
+      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+      const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    let accumulatedMeters = 0;
+    let nextKmTarget = 1000;
+
+    for (let i = 1; i < coords.length; i++) {
+      const [prevLng, prevLat] = coords[i - 1];
+      const [currLng, currLat] = coords[i];
+      const segDist = calculateHaversine(prevLat, prevLng, currLat, currLng);
+
+      while (accumulatedMeters + segDist >= nextKmTarget) {
+        const remainingMeters = nextKmTarget - accumulatedMeters;
+        const fraction = segDist > 0 ? remainingMeters / segDist : 0;
+        const kmLat = prevLat + (currLat - prevLat) * fraction;
+        const kmLng = prevLng + (currLng - prevLng) * fraction;
+        const kmNum = Math.round(nextKmTarget / 1000);
+
+        const el = document.createElement("div");
+        el.className = "dashly-km-badge";
+        el.style.cssText = `
+          background: rgba(15, 23, 42, 0.9);
+          color: #818cf8;
+          border: 1.5.px solid #6366f1;
+          border-radius: 9999px;
+          padding: 1px 6px;
+          font-size: 9px;
+          font-weight: 800;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          pointer-events: none;
+          white-space: nowrap;
+          z-index: 5;
+        `;
+        el.innerText = `${kmNum} KM`;
+
+        const m = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([kmLng, kmLat])
+          .addTo(map);
+
+        kmMarkersRef.current.push(m);
+        nextKmTarget += 1000;
+      }
+
+      accumulatedMeters += segDist;
+    }
+  }, []);
 
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
@@ -818,30 +882,54 @@ export default function PublicEventMonitoringPage() {
 
       map.addSource("route", { type: "geojson", data: event.routeGeojson });
 
-      map.addLayer({
-        id: "route-glow",
-        type: "line",
-        source: "route",
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#4f46e5",
-          "line-width": 8,
-          "line-opacity": 0.3,
-          "line-blur": 5,
-        },
-      });
+      // Find the first symbol/label layer to render road names and labels ON TOP of the route
+      const layers = map.getStyle()?.layers;
+      let firstLabelLayerId: string | undefined;
+      if (layers) {
+        for (const layer of layers) {
+          if (
+            layer.type === "symbol" &&
+            (layer.id.includes("label") || layer.id.includes("name") || layer.id.includes("road"))
+          ) {
+            firstLabelLayerId = layer.id;
+            break;
+          }
+        }
+      }
 
-      map.addLayer({
-        id: "route-main",
-        type: "line",
-        source: "route",
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#4f46e5",
-          "line-width": 4,
-          "line-opacity": 0.9,
+      map.addLayer(
+        {
+          id: "route-glow",
+          type: "line",
+          source: "route",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#4f46e5",
+            "line-width": 8,
+            "line-opacity": 0.3,
+            "line-blur": 5,
+          },
         },
-      });
+        firstLabelLayerId,
+      );
+
+      map.addLayer(
+        {
+          id: "route-main",
+          type: "line",
+          source: "route",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#4f46e5",
+            "line-width": 4,
+            "line-opacity": 0.9,
+          },
+        },
+        firstLabelLayerId,
+      );
+
+      // Add kilometer distance badges along the route
+      addKilometerMarkers(map, event.routeGeojson);
 
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
@@ -1803,20 +1891,37 @@ export default function PublicEventMonitoringPage() {
 
                           if (event?.routeGeojson && !map.getSource("route")) {
                             map.addSource("route", { type: "geojson", data: event.routeGeojson });
+                            
+                            const layers = map.getStyle()?.layers;
+                            let firstLabelLayerId: string | undefined;
+                            if (layers) {
+                              for (const layer of layers) {
+                                if (
+                                  layer.type === "symbol" &&
+                                  (layer.id.includes("label") || layer.id.includes("name") || layer.id.includes("road"))
+                                ) {
+                                  firstLabelLayerId = layer.id;
+                                  break;
+                                }
+                              }
+                            }
+
                             map.addLayer({
                               id: "route-glow",
                               type: "line",
                               source: "route",
                               layout: { "line-join": "round", "line-cap": "round" },
                               paint: { "line-color": "#4f46e5", "line-width": 8, "line-opacity": 0.3, "line-blur": 5 },
-                            });
+                            }, firstLabelLayerId);
                             map.addLayer({
                               id: "route-main",
                               type: "line",
                               source: "route",
                               layout: { "line-join": "round", "line-cap": "round" },
                               paint: { "line-color": "#4f46e5", "line-width": 4, "line-opacity": 0.9 },
-                            });
+                            }, firstLabelLayerId);
+
+                            addKilometerMarkers(map, event.routeGeojson);
                           }
                         });
                       }
