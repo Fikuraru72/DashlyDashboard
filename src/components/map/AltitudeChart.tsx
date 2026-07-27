@@ -307,19 +307,27 @@ export default function AltitudeChart({
                 pDist = routePoint.distance;
               }
 
+              // Clamp distance to valid route bounds to ensure X-axis domain match
+              const minDist = data[0].distance;
+              const maxDist = data[data.length - 1].distance;
+              const clampedDist = Math.max(minDist, Math.min(maxDist, pDist));
+
               // Derive exact Y height on silhouette line
-              const pElev = getElevationAtDistance(pDist);
+              const pElev = getElevationAtDistance(clampedDist);
               const pColor = p.color || "#0284c7"; // default sky blue
-              const bibLabel = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.substring(0, 5) : `P-${p.id}`;
+              const pId = p.id || p.userId || p.participantId || Math.random();
+              const bibLabel = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.substring(0, 5) : `P-${pId}`;
 
               return (
                 <ReferenceDot
-                  key={`racemap-participant-${p.id}`}
-                  x={pDist}
+                  key={`racemap-participant-${pId}`}
+                  x={clampedDist}
                   y={pElev}
                   r={0}
                   shape={(props: any) => {
-                    const { cx, cy } = props;
+                    // Recharts passes pixel coordinates as cx/cy or x/y
+                    const cx = props.cx ?? props.x;
+                    const cy = props.cy ?? props.y;
                     if (cx == null || cy == null || isNaN(cx) || isNaN(cy)) return <g></g>;
 
                     return (
@@ -327,7 +335,7 @@ export default function AltitudeChart({
                         style={{ cursor: "pointer" }}
                         onClick={() => onParticipantClick?.(p)}
                       >
-                        {/* Vertical Cyan Pin Line (Racemap Drop Line) */}
+                        {/* Vertical Cyan Drop Pin Line */}
                         <line
                           x1={cx}
                           y1={cy}
@@ -337,7 +345,16 @@ export default function AltitudeChart({
                           strokeWidth={2.5}
                         />
 
-                        {/* Runner Position Dot on Slope */}
+                        {/* Outer Glow Ring for High Visibility */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={10}
+                          fill={pColor}
+                          fillOpacity={0.3}
+                        />
+
+                        {/* Core Runner Position Dot on Slope */}
                         <circle
                           cx={cx}
                           cy={cy}
