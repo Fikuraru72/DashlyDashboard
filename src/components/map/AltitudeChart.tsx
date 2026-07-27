@@ -282,7 +282,7 @@ export default function AltitudeChart({
             isAnimationActive={false}
           />
 
-          {/* ── REAL-TIME PARTICIPANT RUNNER DOTS & SKY BLUE VERTICAL PIN LINES ── */}
+          {/* ── REAL-TIME PARTICIPANT RUNNER DOTS & CYAN VERTICAL PIN LINES ── */}
           {participants
             .filter((p) => typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
             .map((p) => {
@@ -301,49 +301,72 @@ export default function AltitudeChart({
               // Derive exact Y height on silhouette line
               const pElev = getElevationAtDistance(pDist);
               const pColor = p.color || "#0284c7"; // default sky blue
-              const bibLabel = p.bibNumber ? `${p.bibNumber}` : p.name ? p.name.substring(0, 4) : `P-${p.id}`;
+              const bibLabel = p.bibNumber ? `#${p.bibNumber}` : p.name ? p.name.substring(0, 5) : `P-${p.id}`;
 
               return (
-                <g key={`racemap-participant-${p.id}`}>
-                  {/* Vertical Sky Blue Pin Line */}
-                  <ReferenceLine
-                    segment={[
-                      { x: pDist, y: pElev },
-                      { x: pDist, y: pElev + 35 },
-                    ]}
-                    stroke="#0284c7"
-                    strokeWidth={2}
-                  />
+                <ReferenceDot
+                  key={`racemap-participant-${p.id}`}
+                  x={pDist}
+                  y={pElev}
+                  r={0}
+                  isFront={true}
+                  shape={(props: any) => {
+                    const { cx, cy } = props;
+                    if (cx == null || cy == null || isNaN(cx) || isNaN(cy)) return <g></g>;
 
-                  {/* Runner Position Dot on Slope */}
-                  <ReferenceDot
-                    x={pDist}
-                    y={pElev}
-                    r={6}
-                    fill={pColor}
-                    stroke="#ffffff"
-                    strokeWidth={2.5}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => onParticipantClick?.(p)}
-                  />
+                    return (
+                      <g
+                        style={{ cursor: "pointer" }}
+                        onClick={() => onParticipantClick?.(p)}
+                      >
+                        {/* Vertical Cyan Pin Line (Racemap Drop Line) */}
+                        <line
+                          x1={cx}
+                          y1={cy}
+                          x2={cx}
+                          y2={cy - 28}
+                          stroke="#0284c7"
+                          strokeWidth={2.5}
+                        />
 
-                  {/* BIB Number Badge */}
-                  <ReferenceDot
-                    x={pDist}
-                    y={pElev + 38}
-                    r={0}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => onParticipantClick?.(p)}
-                    label={{
-                      value: bibLabel,
-                      position: "top",
-                      fill: "#ffffff",
-                      fontSize: 10,
-                      fontWeight: "900",
-                      className: "bg-slate-900 text-white px-1.5 py-0.5 rounded shadow-md cursor-pointer font-black border border-slate-700",
-                    }}
-                  />
-                </g>
+                        {/* Runner Position Dot on Slope */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={7}
+                          fill={pColor}
+                          stroke="#ffffff"
+                          strokeWidth={2.5}
+                        />
+
+                        {/* White BIB Number Badge Box above Pin Line */}
+                        <g transform={`translate(${cx}, ${cy - 42})`}>
+                          <rect
+                            x="-18"
+                            y="-9"
+                            width="36"
+                            height="18"
+                            rx="4"
+                            fill="#0f172a"
+                            stroke="#0284c7"
+                            strokeWidth="1.5"
+                          />
+                          <text
+                            x="0"
+                            y="1"
+                            fill="#ffffff"
+                            fontSize="10"
+                            fontWeight="900"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                          >
+                            {bibLabel}
+                          </text>
+                        </g>
+                      </g>
+                    );
+                  }}
+                />
               );
             })}
         </AreaChart>
