@@ -309,7 +309,6 @@ export default function AltitudeChart({
                   x={pDist}
                   y={pElev}
                   r={0}
-                  isFront={true}
                   shape={(props: any) => {
                     const { cx, cy } = props;
                     if (cx == null || cy == null || isNaN(cx) || isNaN(cy)) return <g></g>;
