@@ -95,18 +95,28 @@ export default function AltitudeChart({
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // High-precision flat-earth meter space segment projection for 100% accurate real-time updates
+  // High-precision flat-earth meter space segment projection with loop-intersection bias
   const findClosestRoutePoint = (pLat: number, pLng: number): { distance: number; elevation: number } => {
     if (!data || data.length === 0) return { distance: 0, elevation: 0 };
     if (data.length === 1) return { distance: data[0].distance, elevation: data[0].elevation };
+
+    // Distance to official start line (node 0)
+    const distToStart = haversineMeters(data[0].lat, data[0].lng, pLat, pLng);
 
     // Pass 1: Find closest node index to constrain candidate segment window
     let minNodeMeters = Infinity;
     let closestIdx = 0;
     for (let i = 0; i < data.length; i++) {
       const d = haversineMeters(data[i].lat, data[i].lng, pLat, pLng);
-      if (d < minNodeMeters) {
-        minNodeMeters = d;
+
+      // Loop Penalty: If participant is near Start (<150m), penalize distant nodes (>1000m) so loop intersections don't hijack position
+      let effectiveDist = d;
+      if (distToStart < 150 && data[i].distance > 1000) {
+        effectiveDist += 300;
+      }
+
+      if (effectiveDist < minNodeMeters) {
+        minNodeMeters = effectiveDist;
         closestIdx = i;
       }
     }
@@ -348,12 +358,12 @@ export default function AltitudeChart({
                   y={pElev}
                   r={0}
                   shape={(props: any) => {
-                    // Recharts passes pixel coordinates as cx/cy or x/y
-                    let cx = props.cx ?? props.x;
-                    let cy = props.cy ?? props.y;
+                    // Extract exact SVG pixel coordinates from Recharts scale props
+                    let cx = typeof props.cx === "number" && !isNaN(props.cx) ? props.cx : null;
+                    let cy = typeof props.cy === "number" && !isNaN(props.cy) ? props.cy : null;
 
-                    // GUARANTEED FALLBACK: Calculate pixel cx/cy directly if Recharts scale returns undefined/NaN
-                    if (cx == null || isNaN(cx)) {
+                    // Fallback pixel calculation from viewBox if scale prop is pending
+                    if (cx == null) {
                       const viewBox = props.viewBox || {};
                       const width = viewBox.width || 800;
                       const left = viewBox.x || 55;
@@ -361,7 +371,7 @@ export default function AltitudeChart({
                       cx = left + ratio * (width - left - 30);
                     }
 
-                    if (cy == null || isNaN(cy)) {
+                    if (cy == null) {
                       const viewBox = props.viewBox || {};
                       const height = viewBox.height || 200;
                       const top = viewBox.y || 32;
