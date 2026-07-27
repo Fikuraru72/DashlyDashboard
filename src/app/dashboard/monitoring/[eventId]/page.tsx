@@ -56,8 +56,34 @@ import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route
 
 // ── Map Themes Configuration (Racemap Topo, Voyager Outdoor, Dark Matter, Satellite) ────────
 export const MAP_THEMES: Record<string, { label: string; style: any }> = {
+  ESRI_CLEAN_TOPO: {
+    label: "Clean Topo (Esri)",
+    style: {
+      version: 8,
+      sources: {
+        "esri-topo-tiles": {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 18,
+          attribution: "© Esri World Topo Map",
+        },
+      },
+      layers: [
+        {
+          id: "esri-topo-layer",
+          type: "raster",
+          source: "esri-topo-tiles",
+          minzoom: 0,
+          maxzoom: 18,
+        },
+      ],
+    },
+  },
   RACEMAP_TOPO: {
-    label: "Racemap Topo",
+    label: "Racemap Topo (OpenTopo)",
     style: {
       version: 8,
       sources: {
@@ -350,7 +376,7 @@ export default function PublicEventMonitoringPage() {
   const [showPolylines, setShowPolylines] = useState(false);
   const [showAltitudeChart, setShowAltitudeChart] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
-  const [selectedThemeKey, setSelectedThemeKey] = useState<string>("RACEMAP_TOPO");
+  const [selectedThemeKey, setSelectedThemeKey] = useState<string>("ESRI_CLEAN_TOPO");
   const [showThemeSelector, setShowThemeSelector] = useState(false);
 
   // Altitude Chart Interactivity
@@ -749,7 +775,7 @@ export default function PublicEventMonitoringPage() {
       ? [firstCoord[0], firstCoord[1]]
       : [106.8272, -6.1754];
 
-    const selectedThemeObj = MAP_THEMES[selectedThemeKey] || MAP_THEMES.RACEMAP_TOPO;
+    const selectedThemeObj = MAP_THEMES[selectedThemeKey] || MAP_THEMES.ESRI_CLEAN_TOPO;
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
