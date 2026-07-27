@@ -95,17 +95,43 @@ export default function AltitudeChart({
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
+  // High-precision orthogonal segment projection for smooth, meter-by-meter real-time updates
   const findClosestRoutePoint = (pLat: number, pLng: number): { distance: number; elevation: number } => {
-    let closest = data[0];
-    let minMeters = haversineMeters(data[0].lat, data[0].lng, pLat, pLng);
-    for (let i = 1; i < data.length; i++) {
-      const m = haversineMeters(data[i].lat, data[i].lng, pLat, pLng);
-      if (m < minMeters) {
-        minMeters = m;
-        closest = data[i];
+    if (!data || data.length === 0) return { distance: 0, elevation: 0 };
+    if (data.length === 1) return { distance: data[0].distance, elevation: data[0].elevation };
+
+    let minSqDist = Infinity;
+    let bestDistance = data[0].distance;
+    let bestElevation = data[0].elevation;
+
+    for (let i = 0; i < data.length - 1; i++) {
+      const a = data[i];
+      const b = data[i + 1];
+
+      const dx = b.lng - a.lng;
+      const dy = b.lat - a.lat;
+      const lenSq = dx * dx + dy * dy;
+
+      let t = 0;
+      if (lenSq > 0) {
+        t = ((pLng - a.lng) * dx + (pLat - a.lat) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t)); // clamp t to segment [0, 1]
+      }
+
+      const projLng = a.lng + t * dx;
+      const projLat = a.lat + t * dy;
+
+      const distSq = (pLng - projLng) * (pLng - projLng) + (pLat - projLat) * (pLat - projLat);
+
+      if (distSq < minSqDist) {
+        minSqDist = distSq;
+        const segLength = b.distance - a.distance;
+        bestDistance = a.distance + t * segLength;
+        bestElevation = a.elevation + t * (b.elevation - a.elevation);
       }
     }
-    return { distance: closest.distance, elevation: closest.elevation };
+
+    return { distance: bestDistance, elevation: bestElevation };
   };
 
   const getElevationAtDistance = (dist: number): number => {
