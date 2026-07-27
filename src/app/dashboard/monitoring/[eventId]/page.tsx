@@ -283,6 +283,7 @@ export default function PublicEventMonitoringPage() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [showPolylines, setShowPolylines] = useState(false);
   const [showAltitudeChart, setShowAltitudeChart] = useState(false);
+  const [is3DMode, setIs3DMode] = useState(true);
 
   // Altitude Chart Interactivity
   const [hoveredDistance, setHoveredDistance] = useState<number | null>(null);
@@ -690,7 +691,9 @@ export default function PublicEventMonitoringPage() {
       style: styleUrl,
       center: startCoord,
       zoom: 15,
-      pitch: 45,
+      pitch: is3DMode ? 55 : 0,
+      bearing: is3DMode ? -15 : 0,
+      maxPitch: 85,
     });
 
     // PILLAR 2: Store the map instance immediately (before load)
@@ -698,6 +701,30 @@ export default function PublicEventMonitoringPage() {
     mapInstance.current = map;
 
     map.on("load", () => {
+      // Add Navigation control with pitch visualization
+      map.addControl(
+        new maplibregl.NavigationControl({
+          visualizePitch: true,
+          showCompass: true,
+          showZoom: true,
+        }),
+        "top-right",
+      );
+
+      // Add 3D Terrain DEM Elevation Source
+      try {
+        if (!map.getSource("maplibre-dem")) {
+          map.addSource("maplibre-dem", {
+            type: "raster-dem",
+            url: "https://demotiles.maplibre.org/terrain-tiles/tiles.json",
+            tileSize: 256,
+          });
+          map.setTerrain({ source: "maplibre-dem", exaggeration: 1.5 });
+        }
+      } catch (demErr) {
+        console.warn("[Map] ⚠️ Could not load 3D terrain DEM source:", demErr);
+      }
+
       map.addSource("route", { type: "geojson", data: event.routeGeojson });
 
       map.addLayer({
@@ -1623,6 +1650,24 @@ export default function PublicEventMonitoringPage() {
             title="Toggle Polylines"
           >
             <Navigation size={20} />
+          </button>
+
+          <button
+            onClick={() => {
+              const next3D = !is3DMode;
+              setIs3DMode(next3D);
+              if (mapInstance.current) {
+                mapInstance.current.easeTo({
+                  pitch: next3D ? 55 : 0,
+                  bearing: next3D ? -15 : 0,
+                  duration: 800,
+                });
+              }
+            }}
+            className={`px-3 py-2.5 rounded-2xl border text-xs font-black transition-all ${is3DMode ? "bg-indigo-600 text-white border-white/20 shadow-lg shadow-indigo-500/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
+            title="Toggle 3D Terrain View"
+          >
+            3D
           </button>
 
           {event?.altitudeProfile && (
