@@ -106,6 +106,18 @@ export function useSocket(eventId: string) {
                 pos.elevationGain != null && !isNaN(parseFloat(pos.elevationGain))
                   ? parseFloat(pos.elevationGain)
                   : undefined,
+              routeDistance:
+                pos.routeDistance != null && !isNaN(parseFloat(pos.routeDistance))
+                  ? parseFloat(pos.routeDistance)
+                  : undefined,
+              routeElevation:
+                pos.routeElevation != null && !isNaN(parseFloat(pos.routeElevation))
+                  ? parseFloat(pos.routeElevation)
+                  : undefined,
+              routeIndex:
+                pos.routeIndex != null && !isNaN(parseInt(pos.routeIndex))
+                  ? parseInt(pos.routeIndex)
+                  : undefined,
               status: pos.isOffline ? "inactive" : "active",
             });
           }
@@ -224,6 +236,19 @@ export function useSocket(eventId: string) {
       if (pId) {
         const { updateParticipant } = useParticipantStore.getState();
         updateParticipant(String(pId), { status: "inactive" });
+      }
+    });
+
+    socketInstance.on("ranking_update", (data) => {
+      const pId = data.participantId || data.userId;
+      if (pId && data.intelligence) {
+        const { updateParticipant } = useParticipantStore.getState();
+        updateParticipant(String(pId), {
+          rank: data.intelligence.rank,
+          progressPercent: data.intelligence.progressPercentage,
+          routeDistance: data.intelligence.routeDistance,
+          routeElevation: data.intelligence.routeElevation,
+        });
       }
     });
 

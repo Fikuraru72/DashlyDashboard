@@ -39,7 +39,7 @@ import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
 import { isParticipantDisconnected } from "@/lib/realtime-position";
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
-import AltitudeChart from "@/components/map/AltitudeChart";
+import { ElevationProfile } from "@/components/elevation/ElevationProfile";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
@@ -1514,35 +1514,19 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── ELEVATION PROFILE CHART (Bottom, Responsive) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div
-          className="absolute bottom-0 left-0 right-0 z-30 h-32 sm:h-40 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 flex flex-col transition-all duration-300"
-        >
-          {/* Header bar */}
-          <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 shrink-0">
-            <div className="flex items-center gap-2">
-              <Mountain size={12} className="text-emerald-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-                Elevation Profile
-              </span>
-              {event.totalElevationMeters != null && (
-                <span className="text-[10px] text-emerald-400 font-bold ml-2">
-                  +{Math.round(event.totalElevationMeters)}m gain
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setShowAltitudeChart(false)}
-              className="p-1 hover:bg-white/10 rounded-lg text-slate-400 transition-colors"
-            >
-              <X size={12} />
-            </button>
-          </div>
-          {/* Chart area */}
-          <div className="flex-1 min-h-0 px-2 py-1">
-            <AltitudeChart
-              data={event.altitudeProfile}
-              hoveredDistance={hoveredElevationDistance}
-              onHover={(pt) => setHoveredElevationDistance(pt ? pt.distance : null)}
+        <div className="absolute bottom-0 left-0 right-0 z-30 h-44 sm:h-52 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 flex flex-col transition-all duration-300">
+          <div className="flex-1 min-h-0 p-2">
+            <ElevationProfile
+              altitudeProfile={event.altitudeProfile}
+              onChartClick={(lat, lng) => {
+                if (mapInstance.current) {
+                  mapInstance.current.flyTo({
+                    center: [lng, lat],
+                    zoom: 16,
+                    duration: 1000,
+                  });
+                }
+              }}
             />
           </div>
         </div>

@@ -14,7 +14,7 @@ const isParticipantOffline = (val: any): boolean => {
 import "maplibre-gl/dist/maplibre-gl.css";
 import Supercluster from "supercluster";
 import { io } from "socket.io-client";
-import AltitudeChart, { AltitudePoint } from "@/components/map/AltitudeChart";
+import { ElevationProfile } from "@/components/elevation/ElevationProfile";
 import { useTheme } from "next-themes";
 import {
   Activity,
@@ -2067,46 +2067,18 @@ export default function PublicEventMonitoringPage() {
 
       </div>
 
-      {/* ── DOCKED BOTTOM SECTION: ELEVATION PROFILE CHART (NON-FLOATING) ── */}
+      {/* ── DOCKED BOTTOM SECTION: ELEVATION PROFILE CHART ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="w-full h-[200px] sm:h-[220px] bg-white border-t border-slate-200 shadow-xl z-30 shrink-0 px-4 py-2 relative transition-all">
-          <AltitudeChart
-            data={event.altitudeProfile}
-            hoveredDistance={hoveredDistance}
-            participants={sortedParticipants}
-            onParticipantClick={(p) => {
-              if (p) {
-                const lat = parseFloat(p.lat);
-                const lng = parseFloat(p.lng);
-                if (!isNaN(lat) && !isNaN(lng) && mapInstance.current) {
-                  mapInstance.current.flyTo({
-                    center: [lng, lat],
-                    zoom: 17,
-                    duration: 1200,
-                    essential: true,
-                  });
-                  const uId = String(p.id || p.userId || p.participantId);
-                  setSelectedUserId(uId);
-                  setParticipantDetailModal(p);
-                }
-              }
-            }}
-            onHover={(pt) => {
-              setHoveredDistance(pt?.distance ?? null);
-              if (pt) {
-                if (!chartMarkerInstance.current) {
-                  const el = document.createElement("div");
-                  el.className =
-                    "w-4 h-4 bg-fuchsia-600 rounded-full border-2 border-white shadow-md";
-                  chartMarkerInstance.current = new maplibregl.Marker({ element: el })
-                    .setLngLat([pt.lng, pt.lat])
-                    .addTo(mapInstance.current!);
-                } else {
-                  if (chartMarkerInstance.current) {
-                    chartMarkerInstance.current.remove();
-                    chartMarkerInstance.current = null;
-                  }
-                }
+        <div className="w-full h-[200px] sm:h-[220px] bg-slate-900 border-t border-slate-800 shadow-xl z-30 shrink-0 p-2 relative transition-all">
+          <ElevationProfile
+            altitudeProfile={event.altitudeProfile}
+            onChartClick={(lat, lng) => {
+              if (mapInstance.current) {
+                mapInstance.current.flyTo({
+                  center: [lng, lat],
+                  zoom: 17,
+                  duration: 1200,
+                });
               }
             }}
           />

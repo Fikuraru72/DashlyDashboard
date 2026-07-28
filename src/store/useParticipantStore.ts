@@ -19,6 +19,13 @@ export interface ParticipantData {
   capturedAt?: string;
   captured_at?: string;
   pathHistory: [number, number][];
+
+  // Realtime Geospatial Engine fields (pre-computed by NestJS backend)
+  routeDistance?: number;
+  routeElevation?: number;
+  routeIndex?: number;
+  progressPercent?: number;
+  rank?: number;
 }
 
 export interface Anomaly {
