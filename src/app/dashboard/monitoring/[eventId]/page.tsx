@@ -284,7 +284,8 @@ export default function PublicEventMonitoringPage() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showPolylines, setShowPolylines] = useState(false);
-  const [showAltitudeChart, setShowAltitudeChart] = useState(false);
+  const [showAltitudeChart, setShowAltitudeChart] = useState(true);
+  const [showKmMarkers, setShowKmMarkers] = useState(true);
   const [is3DMode, setIs3DMode] = useState(true);
 
   // Altitude Chart Interactivity
@@ -364,40 +365,43 @@ export default function PublicEventMonitoringPage() {
         const kmLng = prevLng + (currLng - prevLng) * fraction;
         const kmNum = Math.round(nextKmTarget / 1000);
 
-        const el = document.createElement("div");
-        el.className = "dashly-km-badge";
-        el.style.cssText = `
-          background: rgba(255, 255, 255, 0.95);
-          color: #4f46e5;
-          border: 1.5px solid #4f46e5;
-          border-radius: 9999px;
-          padding: 1px 6px;
-          font-size: 9px;
-          font-weight: 800;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-          pointer-events: none;
-          white-space: nowrap;
-          z-index: 5;
-          transition: opacity 0.2s ease, transform 0.2s ease;
-        `;
-        el.innerText = `${kmNum} KM`;
+        if (!isNaN(kmLng) && !isNaN(kmLat)) {
+          const el = document.createElement("div");
+          el.className = "dashly-km-badge";
+          el.style.cssText = `
+            background: rgba(255, 255, 255, 0.95);
+            color: #4f46e5;
+            border: 1.5px solid #4f46e5;
+            border-radius: 9999px;
+            padding: 1px 6px;
+            font-size: 9px;
+            font-weight: 800;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 5;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+          `;
+          el.innerText = `${kmNum} KM`;
 
-        const m = new maplibregl.Marker({ element: el, anchor: "center" })
-          .setLngLat([kmLng, kmLat])
-          .addTo(map);
+          const m = new maplibregl.Marker({ element: el, anchor: "center" })
+            .setLngLat([kmLng, kmLat])
+            .addTo(map);
 
-        kmMarkersRef.current.push(m);
+          kmMarkersRef.current.push(m);
+        }
         nextKmTarget += 1000;
       }
 
       accumulatedMeters += segDist;
     }
 
-    // Dynamic zoom opacity listener for KM markers
+    // Dynamic zoom & toggle visibility listener for KM markers
     const updateKmZoomVisibility = () => {
       const zoom = map.getZoom();
       kmMarkersRef.current.forEach((m) => {
         const markerEl = m.getElement();
+        if (!markerEl) return;
         if (zoom < 11) {
           markerEl.style.display = "none";
         } else if (zoom < 13.5) {
@@ -414,6 +418,16 @@ export default function PublicEventMonitoringPage() {
     updateKmZoomVisibility();
     map.on("zoom", updateKmZoomVisibility);
   }, []);
+
+  // Sync KM markers toggle state
+  useEffect(() => {
+    kmMarkersRef.current.forEach((m) => {
+      const el = m.getElement();
+      if (el) {
+        el.style.display = showKmMarkers ? "block" : "none";
+      }
+    });
+  }, [showKmMarkers]);
 
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
@@ -896,9 +910,6 @@ export default function PublicEventMonitoringPage() {
 
       // Add kilometer distance badges along the route
       addKilometerMarkers(map, event.routeGeojson);
-
-      // Reposition navigation (+ / - zoom) control to bottom-right
-      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-right");
 
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
@@ -1698,10 +1709,10 @@ export default function PublicEventMonitoringPage() {
         {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
         <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
-      {/* Global HUD Header (Floating Top - Minimalist & Consolidated) */}
-      <div className="absolute top-3 sm:top-5 left-3 sm:left-5 right-3 sm:right-5 z-40 flex items-center justify-between gap-3 pointer-events-none">
-        {/* Left: Event Branding (Minimalist) */}
-        <div className="flex items-center gap-2 bg-white/95 backdrop-blur-xl p-1.5 pr-4 rounded-2xl border border-slate-200/80 shadow-lg pointer-events-auto max-w-full overflow-hidden">
+      {/* Global HUD Header (Floating Top - Minimalist, Left-Aligned & Consolidated) */}
+      <div className="absolute top-3 sm:top-5 left-3 sm:left-5 right-3 sm:right-5 z-40 flex items-center justify-start gap-2.5 flex-wrap pointer-events-none">
+        {/* Left: Event Branding + Merged Live Active Info */}
+        <div className="flex items-center gap-2.5 bg-white/95 backdrop-blur-xl p-1.5 pr-3.5 rounded-2xl border border-slate-200/80 shadow-lg pointer-events-auto max-w-full overflow-hidden">
           <Link
             href={`/events/${eventId}`}
             className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors shrink-0"
@@ -1713,7 +1724,7 @@ export default function PublicEventMonitoringPage() {
             <span className="text-[8px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-0.5">
               Telemetry Monitor
             </span>
-            <h1 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight truncate max-w-[120px] sm:max-w-[200px] leading-none">
+            <h1 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight truncate max-w-[120px] sm:max-w-[180px] leading-none">
               {event.name}
             </h1>
           </div>
@@ -1728,126 +1739,127 @@ export default function PublicEventMonitoringPage() {
             {event.category === "CYCLING" ? <Bike size={10} /> : <Footprints size={10} />}
             {event.category || "RUNNING"}
           </div>
-        </div>
 
-        {/* Center: Minimalist Live Status Pill */}
-        <div className="hidden md:flex items-center gap-2 pointer-events-auto">
+          {/* Merged Live Active Status Pill */}
           {currentStatus && (
-            <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl border backdrop-blur-md shadow-md bg-white/95 border-slate-200">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100/90 border border-slate-200/80 rounded-md text-[8.5px] font-black text-slate-800 uppercase tracking-widest shrink-0">
               <div
-                className={`w-2 h-2 rounded-full ${currentStatus.dotColor} ${monitoringStatus === "START" ? "animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" : ""}`}
+                className={`w-2 h-2 rounded-full ${currentStatus.dotColor} ${monitoringStatus === "START" ? "animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]" : ""}`}
               />
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">
-                  {currentStatus.label}
-                </span>
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">
-                  • {participants.size} Active
-                </span>
-              </div>
+              <span>{currentStatus.label}</span>
+              <span className="text-slate-400 font-bold">•</span>
+              <span className="text-indigo-600 font-black">{participants.size} Active</span>
             </div>
           )}
         </div>
 
-        {/* Right: Consolidated Map Tools Dropdown & Standalone Incident Stream Button */}
-        <div className="flex items-center gap-2 pointer-events-auto ml-auto sm:ml-0">
-          {/* Consolidated Map Tools Dropdown Button */}
-          <div className="relative">
-            <button
-              onClick={() => setShowMapToolsMenu(!showMapToolsMenu)}
-              className="flex items-center gap-2 px-3 py-2 bg-white/95 text-slate-700 font-black text-xs border border-slate-200 rounded-2xl shadow-md hover:bg-slate-50 transition-all"
-            >
-              <LayoutTemplate size={16} className="text-indigo-600" />
-              <span>Map Tools</span>
-              <ChevronDown size={14} className={`text-slate-400 transition-transform ${showMapToolsMenu ? "rotate-180" : ""}`} />
-            </button>
-
-            {/* Map Tools Dropdown Menu */}
-            {showMapToolsMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-2xl shadow-2xl p-2 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-1 text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                  Features & Panels
-                </div>
-
-                <button
-                  onClick={() => { setShowLeaderboard(!showLeaderboard); setShowMapToolsMenu(false); }}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                    showLeaderboard ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <PanelLeft size={15} /> Live Leaderboard
-                  </span>
-                  {showLeaderboard && <CheckCircle2 size={14} className="text-indigo-600" />}
-                </button>
-
-                <button
-                  onClick={() => { setShowPolylines(!showPolylines); setShowMapToolsMenu(false); }}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                    showPolylines ? "bg-emerald-50 text-emerald-700" : "hover:bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Navigation size={15} /> Participant Paths
-                  </span>
-                  {showPolylines && <CheckCircle2 size={14} className="text-emerald-600" />}
-                </button>
-
-                {event?.altitudeProfile && (
-                  <button
-                    onClick={() => { setShowAltitudeChart(!showAltitudeChart); setShowMapToolsMenu(false); }}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                      showAltitudeChart ? "bg-fuchsia-50 text-fuchsia-700" : "hover:bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Mountain size={15} /> Elevation Profile
-                    </span>
-                    {showAltitudeChart && <CheckCircle2 size={14} className="text-fuchsia-600" />}
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    const next3D = !is3DMode;
-                    setIs3DMode(next3D);
-                    if (mapInstance.current) {
-                      mapInstance.current.easeTo({ pitch: next3D ? 55 : 0, bearing: next3D ? -15 : 0, duration: 800 });
-                    }
-                    setShowMapToolsMenu(false);
-                  }}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                    is3DMode ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Activity size={15} /> 3D Terrain Mode
-                  </span>
-                  {is3DMode && <CheckCircle2 size={14} className="text-indigo-600" />}
-                </button>
-
-              </div>
-            )}
-          </div>
-
-          {/* Standalone Incident Stream Toggle Button with Notification Counter Badge */}
+        {/* Map Tools Dropdown Button (Left-Aligned next to event card) */}
+        <div className="relative pointer-events-auto">
           <button
-            onClick={() => setShowAlerts(!showAlerts)}
-            className={`relative p-2.5 rounded-2xl border transition-all ${
-              showAlerts
-                ? "bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20"
-                : "bg-white/95 text-slate-700 border-slate-200 shadow-md hover:bg-slate-50"
-            }`}
-            title="Incident Stream"
+            onClick={() => setShowMapToolsMenu(!showMapToolsMenu)}
+            className="flex items-center gap-2 px-3 py-2 bg-white/95 text-slate-700 font-black text-xs border border-slate-200 rounded-2xl shadow-md hover:bg-slate-50 transition-all"
           >
-            <AlertTriangle size={18} />
-            {anomalies.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9.5px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse">
-                {anomalies.length}
-              </span>
-            )}
+            <LayoutTemplate size={16} className="text-indigo-600" />
+            <span>Map Tools</span>
+            <ChevronDown size={14} className={`text-slate-400 transition-transform ${showMapToolsMenu ? "rotate-180" : ""}`} />
           </button>
+
+          {/* Map Tools Dropdown Menu */}
+          {showMapToolsMenu && (
+            <div className="absolute left-0 mt-2 w-60 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-2xl shadow-2xl p-2 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3 py-1 text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                Features & Panels
+              </div>
+
+              <button
+                onClick={() => { setShowLeaderboard(!showLeaderboard); setShowMapToolsMenu(false); }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  showLeaderboard ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <PanelLeft size={15} /> Live Leaderboard
+                </span>
+                {showLeaderboard && <CheckCircle2 size={14} className="text-indigo-600" />}
+              </button>
+
+              <button
+                onClick={() => { setShowPolylines(!showPolylines); setShowMapToolsMenu(false); }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  showPolylines ? "bg-emerald-50 text-emerald-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Navigation size={15} /> Participant Paths
+                </span>
+                {showPolylines && <CheckCircle2 size={14} className="text-emerald-600" />}
+              </button>
+
+              {event?.altitudeProfile && (
+                <button
+                  onClick={() => { setShowAltitudeChart(!showAltitudeChart); setShowMapToolsMenu(false); }}
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    showAltitudeChart ? "bg-fuchsia-50 text-fuchsia-700" : "hover:bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Mountain size={15} /> Elevation Profile
+                  </span>
+                  {showAltitudeChart && <CheckCircle2 size={14} className="text-fuchsia-600" />}
+                </button>
+              )}
+
+              <button
+                onClick={() => { setShowKmMarkers(!showKmMarkers); setShowMapToolsMenu(false); }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  showKmMarkers ? "bg-blue-50 text-blue-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Route size={15} /> KM Badges / Distance Markers
+                </span>
+                {showKmMarkers && <CheckCircle2 size={14} className="text-blue-600" />}
+              </button>
+
+              <button
+                onClick={() => {
+                  const next3D = !is3DMode;
+                  setIs3DMode(next3D);
+                  if (mapInstance.current) {
+                    mapInstance.current.easeTo({ pitch: next3D ? 55 : 0, bearing: next3D ? -15 : 0, duration: 800 });
+                  }
+                  setShowMapToolsMenu(false);
+                }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  is3DMode ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Activity size={15} /> 3D Terrain Mode
+                </span>
+                {is3DMode && <CheckCircle2 size={14} className="text-indigo-600" />}
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Standalone Incident Stream Toggle Button (Left-aligned beside Map Tools) */}
+        <button
+          onClick={() => setShowAlerts(!showAlerts)}
+          className={`relative p-2.5 rounded-2xl border transition-all pointer-events-auto ${
+            showAlerts
+              ? "bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20"
+              : "bg-white/95 text-slate-700 border-slate-200 shadow-md hover:bg-slate-50"
+          }`}
+          title="Incident Stream"
+        >
+          <AlertTriangle size={18} />
+          {anomalies.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9.5px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse">
+              {anomalies.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Status Error Toast */}
