@@ -35,6 +35,8 @@ import {
   Bike,
   Footprints,
   Mountain,
+  Plus,
+  Minus,
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
@@ -68,7 +70,7 @@ const generateRandomColor = () => {
 // Helper to inject HTML into an existing DOM element so we can update colors dynamically
 const updateMarkerElement = (
   el: HTMLElement,
-  name: string,
+  formattedName: string,
   status: string = "moving",
   isStale: boolean = false,
   isAnomaly: boolean = false,
@@ -86,67 +88,73 @@ const updateMarkerElement = (
             ? "#f59e0b" // Amber — Stopped
             : userColor || "#10b981"; // Custom User Color or Emerald — Moving
 
+  el.className = "dashly-marker";
   el.innerHTML = `
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
       <div style="
-        width: 32px; height: 32px;
+        width: 16px; height: 16px;
         border-radius: 50%;
-        background: ${coreColor}30;
-        animation: ${!isStale ? "ping 1.5s cubic-bezier(0,0,0.2,1) infinite" : "none"};
+        background: ${coreColor}35;
+        animation: ${!isStale ? "ping 2s cubic-bezier(0,0,0.2,1) infinite" : "none"};
       "></div>
     </div>
-    <div style="
+    <div class="marker-dot" style="
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 20px; height: 20px;
+      width: 12px; height: 12px;
       border-radius: 50%;
       background: ${coreColor};
-      border: 3px solid white;
-      box-shadow: 0 0 15px ${coreColor}80;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 6px ${coreColor}80;
+      transition: transform 0.2s ease;
     "></div>
-    <div class="marker-label" style="
+    <div class="marker-tooltip" style="
       position: absolute;
       bottom: 100%;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
       left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15,23,42,0.9);
-      color: white;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: bold;
+      transform: translateX(-50%) translateY(4px);
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(8px);
+      color: #ffffff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 800;
       white-space: nowrap;
-      border: 1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 100;
     ">
-      ${name}
+      ${formattedName}
     </div>
   `;
 };
 
 const createPulseMarker = (
-  name: string,
+  formattedName: string,
   status: string = "moving",
   isStale: boolean = false,
   isAnomaly: boolean = false,
   userColor?: string,
 ) => {
   const el = document.createElement("div");
-  // PILLAR 3: Inline styles + z-index force
+  el.className = "dashly-marker";
   el.style.cssText = `
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     z-index: 9999 !important;
-    border-radius: 50%;
     cursor: pointer;
   `;
-  updateMarkerElement(el, name, status, isStale, isAnomaly, userColor);
+  updateMarkerElement(el, formattedName, status, isStale, isAnomaly, userColor);
   return el;
 };
 
@@ -601,17 +609,26 @@ export default function PublicEventMonitoringPage() {
             const partsData = await partsRes.json();
             if (partsData.success && partsData.data) {
               partsData.data.forEach((p: any) => {
-                const firstName = p.name ? p.name.split(" ")[0] : "Runner";
-                const bibNumber = p.bibNumber || "-";
-                participantsInfo.current.set(String(p.id), {
-                  name: p.name,
+                const userId = String(p.userId || p.user?.id || p.id);
+                const partId = String(p.id);
+                const rawName = p.user?.name || p.name || p.fullName;
+                const fullName =
+                  rawName && rawName.trim() !== "" && rawName !== "undefined"
+                    ? rawName.trim()
+                    : `Participant ${userId.substring(0, 4)}`;
+                const firstName = fullName.split(" ")[0];
+                const bibNumber = p.bibNumber || p.bib || "-";
+                const info = {
+                  name: fullName,
                   firstName: firstName,
                   bibNumber: bibNumber,
-                  formattedName: `${bibNumber} - ${firstName}`,
-                  healthInfo: p.healthInfo,
-                  email: p.email,
-                  phone: p.phone,
-                });
+                  formattedName: `${bibNumber}_${fullName}`,
+                  healthInfo: p.healthInfo || p.user?.healthInfo,
+                  email: p.email || p.user?.email,
+                  phone: p.phone || p.user?.phone,
+                };
+                participantsInfo.current.set(userId, info);
+                participantsInfo.current.set(partId, info);
               });
               console.log("[INIT] 👥 Loaded participants mapping:", participantsInfo.current.size);
             }
@@ -1346,11 +1363,17 @@ export default function PublicEventMonitoringPage() {
       let marker = markers.current.get(userId);
       const isStale = isParticipantDisconnected(data);
 
+      const pInfo = participantsInfo.current.get(String(userId));
+      const displayName =
+        pInfo?.formattedName ||
+        pInfo?.name ||
+        (data.name && data.name !== "undefined" ? data.name : null) ||
+        `Participant ${String(userId).substring(0, 4)}`;
+
       if (!marker) {
-        // PILLAR 5: Create marker ONCE, then only update position
-        // console.log(`[Marker] ➕ Creating new marker for userId=${userId} at [lng=${data.lng}, lat=${data.lat}]`);
+        // Create marker ONCE
         const el = createPulseMarker(
-          data.name || `User ${String(userId).substring(0, 4)}`,
+          displayName,
           data.status,
           isStale,
           data.isAnomaly,
@@ -1360,19 +1383,16 @@ export default function PublicEventMonitoringPage() {
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
       } else {
-        // PILLAR 5: Efficient update — no new DOM elements
-        console.log(
-          `[Marker] 🔄 Updating existing marker for userId: ${userId} to [${data.lng}, ${data.lat}]`,
-        );
+        // Efficient update
         marker.setLngLat([data.lng, data.lat]);
         const el = marker.getElement();
-        const newEl = createPulseMarker(
-          data.name || `User ${String(userId).substring(0, 4)}`,
+        updateMarkerElement(
+          el,
+          displayName,
           data.status,
           isStale,
           data.isAnomaly,
         );
-        el.innerHTML = newEl.innerHTML;
       }
     });
 
@@ -1634,7 +1654,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD (Minimalist Compact Light Mode) ── */}
       <aside
-        className={`absolute left-2 sm:left-4 top-[80px] sm:top-[88px] w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showLeaderboard ? "translate-x-0 opacity-100 shadow-xl shadow-slate-400/15" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-4 top-[80px] sm:top-[88px] w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[190px] sm:bottom-[210px]' : 'bottom-4 sm:bottom-6'} transition-all duration-300 ease-out ${showLeaderboard ? "translate-x-0 opacity-100 shadow-xl shadow-slate-400/15" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2">
@@ -1842,6 +1862,28 @@ export default function PublicEventMonitoringPage() {
         </div>
       )}
 
+      {/* Floating Map Zoom Controls (+ / -) */}
+      <div
+        className={`absolute right-3 sm:right-5 z-40 flex flex-col gap-1.5 transition-all duration-300 pointer-events-auto ${
+          showAltitudeChart && event?.altitudeProfile ? "bottom-[195px] sm:bottom-[215px]" : "bottom-6"
+        }`}
+      >
+        <button
+          onClick={() => mapInstance.current?.zoomIn()}
+          className="p-2.5 bg-white/95 text-slate-700 hover:bg-white hover:text-indigo-600 rounded-2xl border border-slate-200/90 shadow-md font-black transition-all"
+          title="Zoom In (+)"
+        >
+          <Plus size={16} />
+        </button>
+        <button
+          onClick={() => mapInstance.current?.zoomOut()}
+          className="p-2.5 bg-white/95 text-slate-700 hover:bg-white hover:text-indigo-600 rounded-2xl border border-slate-200/90 shadow-md font-black transition-all"
+          title="Zoom Out (-)"
+        >
+          <Minus size={16} />
+        </button>
+      </div>
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
@@ -1856,7 +1898,17 @@ export default function PublicEventMonitoringPage() {
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(255, 255, 255, 0.2);
         }
-        /* PILLAR 3: Keyframe for pulse animation in marker (replaces Tailwind animate-ping) */
+        /* Marker hover tooltip & pulse animations */
+        .dashly-marker {
+          cursor: pointer;
+        }
+        .dashly-marker:hover .marker-tooltip {
+          opacity: 1 !important;
+          transform: translateX(-50%) translateY(0) !important;
+        }
+        .dashly-marker:hover .marker-dot {
+          transform: translate(-50%, -50%) scale(1.35) !important;
+        }
         @keyframes ping {
           75%,
           100% {
