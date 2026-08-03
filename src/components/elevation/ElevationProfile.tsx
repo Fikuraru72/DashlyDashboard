@@ -384,6 +384,42 @@ export function ElevationProfile({
           yScale={yScale}
         />
       </div>
+
+      {/* Interactive Landscape Scrollbar Bar when Zoomed */}
+      {isZoomed && totalDistance > 0 && (
+        <div
+          className="w-full bg-slate-200/90 h-3.5 relative cursor-pointer border-t border-slate-300 select-none shrink-0"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickRatio = Math.max(0, Math.min(1, clickX / rect.width));
+            const domainRange = effectiveDomain[1] - effectiveDomain[0];
+            let newCenter = clickRatio * totalDistance;
+            let newMin = newCenter - domainRange / 2;
+            let newMax = newCenter + domainRange / 2;
+            if (newMin < 0) {
+              newMin = 0;
+              newMax = domainRange;
+            }
+            if (newMax > totalDistance) {
+              newMax = totalDistance;
+              newMin = Math.max(0, totalDistance - domainRange);
+            }
+            setZoomDomain([newMin, newMax]);
+          }}
+        >
+          <div
+            className="absolute top-0 bottom-0 bg-indigo-500 hover:bg-indigo-600 rounded-sm shadow-sm transition-colors flex items-center justify-center"
+            style={{
+              left: `${Math.max(0, Math.min(99, (effectiveDomain[0] / totalDistance) * 100))}%`,
+              width: `${Math.max(1, Math.min(100, ((effectiveDomain[1] - effectiveDomain[0]) / totalDistance) * 100))}%`,
+            }}
+            title="Horizontal Route Scrollbar — Click to navigate"
+          >
+            <div className="w-5 h-1 bg-white/70 rounded-full"></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

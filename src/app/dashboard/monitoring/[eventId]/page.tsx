@@ -41,6 +41,7 @@ import {
   Bike,
   Footprints,
   Route,
+  Flag,
 } from "lucide-react";
 import Link from "next/link";
 import { useParticipantStore } from "@/store/useParticipantStore";
@@ -333,6 +334,18 @@ export default function PublicEventMonitoringPage() {
   const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
   const elevationHoverMarker = useRef<maplibregl.Marker | null>(null);
 
+  // Start & Finish Marker Visibility State & Refs
+  const [showStartFinish, setShowStartFinish] = useState(true);
+  const startMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const finishMarkerRef = useRef<maplibregl.Marker | null>(null);
+
+  useEffect(() => {
+    const startEl = startMarkerRef.current?.getElement();
+    const finishEl = finishMarkerRef.current?.getElement();
+    if (startEl) startEl.style.display = showStartFinish ? "block" : "none";
+    if (finishEl) finishEl.style.display = showStartFinish ? "block" : "none";
+  }, [showStartFinish]);
+
   const handleElevationHover = useCallback((lat: number, lng: number, distance: number | null) => {
     if (!mapInstance.current) return;
 
@@ -341,13 +354,11 @@ export default function PublicEventMonitoringPage() {
         const el = document.createElement("div");
         el.className = "elevation-hover-arrow";
         el.style.cssText = `
-          position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
           pointer-events: none;
           z-index: 99999;
-          transform: translateY(-100%);
         `;
         el.innerHTML = `
           <div class="hover-km-badge" style="
@@ -999,7 +1010,7 @@ export default function PublicEventMonitoringPage() {
             <span style="font-size: 7px;">🟢</span> START
           </div>
         `;
-        new maplibregl.Marker({ element: startEl, anchor: "center" })
+        startMarkerRef.current = new maplibregl.Marker({ element: startEl, anchor: "center" })
           .setLngLat([startPoint[0], startPoint[1]])
           .addTo(map);
 
@@ -1024,7 +1035,7 @@ export default function PublicEventMonitoringPage() {
             <span style="font-size: 7px;">🏁</span> FINISH
           </div>
         `;
-        new maplibregl.Marker({ element: finishEl, anchor: "center" })
+        finishMarkerRef.current = new maplibregl.Marker({ element: finishEl, anchor: "center" })
           .setLngLat([finishPoint[0], finishPoint[1]])
           .addTo(map);
       }
@@ -1929,6 +1940,21 @@ export default function PublicEventMonitoringPage() {
                   <Activity size={15} /> 3D Terrain Mode
                 </span>
                 {is3DMode && <CheckCircle2 size={14} className="text-indigo-600" />}
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowStartFinish(!showStartFinish);
+                  setShowMapToolsMenu(false);
+                }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  showStartFinish ? "bg-emerald-50 text-emerald-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Flag size={15} /> Start & Finish Markers
+                </span>
+                {showStartFinish && <CheckCircle2 size={14} className="text-emerald-600" />}
               </button>
             </div>
           )}
