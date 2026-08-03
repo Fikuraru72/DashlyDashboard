@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import maplibregl from "maplibre-gl";
+import { useMapMarkerAnimation } from "@/hooks/useMapMarkerAnimation";
 
 // ── Helper to normalize boolean/string isOffline values ──
 const isParticipantOffline = (val: any): boolean => {
@@ -324,6 +325,7 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const { updateTarget: updateMarkerTarget } = useMapMarkerAnimation(markers);
   const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
 
   const addKilometerMarkers = useCallback((map: maplibregl.Map, routeGeojson: any) => {
@@ -1501,8 +1503,8 @@ export default function PublicEventMonitoringPage() {
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
       } else {
-        // High Performance: Update LngLat position directly
-        marker.setLngLat([data.lng, data.lat]);
+        // High Performance: Smooth 60fps lerp animation via rAF
+        updateMarkerTarget(userId, data.lng, data.lat);
 
         const stateKey = `${displayName}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}`;
         if ((marker as any).__stateKey !== stateKey) {

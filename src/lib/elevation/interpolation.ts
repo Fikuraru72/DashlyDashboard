@@ -39,3 +39,29 @@ export function interpolateAtDistance(
 
   return { lat, lng, elevation, grade };
 }
+
+/**
+ * Fallback helper: find nearest route distance (in meters) for a given lat/lng
+ * when pre-calculated routeDistance is missing.
+ */
+export function findNearestProfileDistance(
+  altitudeProfile: AltitudePoint[],
+  lat: number,
+  lng: number,
+): number {
+  if (!altitudeProfile || altitudeProfile.length === 0) return 0;
+  let minDist = Infinity;
+  let bestRouteDistance = 0;
+
+  for (const pt of altitudeProfile) {
+    const dLat = pt.lat - lat;
+    const dLng = pt.lng - lng;
+    const distSq = dLat * dLat + dLng * dLng;
+    if (distSq < minDist) {
+      minDist = distSq;
+      bestRouteDistance = pt.distance;
+    }
+  }
+
+  return bestRouteDistance;
+}

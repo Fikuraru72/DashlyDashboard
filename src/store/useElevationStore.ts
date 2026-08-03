@@ -13,6 +13,9 @@ interface ElevationState {
   minElevation: number;
   isReady: boolean;
 
+  // Zoom state
+  zoomDomain: [number, number] | null; // [minDistance, maxDistance] in meters, null = full view
+
   // Interactions
   hoveredDistance: number | null;
   hoveredPoint: { lat: number; lng: number; elevation: number; grade: number } | null;
@@ -24,6 +27,8 @@ interface ElevationState {
   setHoveredDistance: (distance: number | null) => void;
   setClickedDistance: (distance: number | null) => void;
   setSelectedParticipantId: (id: string | null) => void;
+  setZoomDomain: (domain: [number, number] | null) => void;
+  resetZoom: () => void;
   reset: () => void;
 }
 
@@ -35,6 +40,8 @@ export const useElevationStore = create<ElevationState>((set, get) => ({
   maxElevation: 0,
   minElevation: 0,
   isReady: false,
+
+  zoomDomain: null,
 
   hoveredDistance: null,
   hoveredPoint: null,
@@ -96,6 +103,14 @@ export const useElevationStore = create<ElevationState>((set, get) => ({
     set({ selectedParticipantId: id });
   },
 
+  setZoomDomain: (domain: [number, number] | null) => {
+    set({ zoomDomain: domain });
+  },
+
+  resetZoom: () => {
+    set({ zoomDomain: null });
+  },
+
   reset: () => {
     set({
       altitudeProfile: null,
@@ -105,6 +120,7 @@ export const useElevationStore = create<ElevationState>((set, get) => ({
       maxElevation: 0,
       minElevation: 0,
       isReady: false,
+      zoomDomain: null,
       hoveredDistance: null,
       hoveredPoint: null,
       clickedDistance: null,

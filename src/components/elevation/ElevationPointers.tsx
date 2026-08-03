@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { ParticipantData } from "@/store/useParticipantStore";
 import { ScaleLinear } from "@/lib/elevation/scales";
+import { useElevationStore } from "@/store/useElevationStore";
+import { findNearestProfileDistance, interpolateAtDistance } from "@/lib/elevation/interpolation";
 
 interface ElevationPointersProps {
   participants: Record<string, ParticipantData>;
@@ -42,15 +44,24 @@ export function ElevationPointers({
   const animStatesRef = useRef<Map<string, PointerAnimationState>>(new Map());
   const rAfIdRef = useRef<number | null>(null);
 
+  const altitudeProfile = useElevationStore((state) => state.altitudeProfile);
+
   // Synchronize incoming participant store targets into internal animation state
   useEffect(() => {
     const animMap = animStatesRef.current;
 
     for (const [id, p] of Object.entries(participants)) {
-      if (p.routeDistance == null || p.routeElevation == null) continue;
+      let targetDist = p.routeDistance;
+      let targetElev = p.routeElevation;
 
-      const targetDist = p.routeDistance;
-      const targetElev = p.routeElevation;
+      // Fallback interpolation if pre-calculated routeDistance is missing but lat/lng exist
+      if ((targetDist == null || targetElev == null) && p.lat && p.lng && altitudeProfile && altitudeProfile.length > 0) {
+        targetDist = findNearestProfileDistance(altitudeProfile, p.lat, p.lng);
+        const interpolated = interpolateAtDistance(altitudeProfile, targetDist);
+        targetElev = interpolated?.elevation ?? altitudeProfile[0].elevation;
+      }
+
+      if (targetDist == null || targetElev == null) continue;
 
       const existing = animMap.get(id);
       if (!existing) {
@@ -78,7 +89,7 @@ export function ElevationPointers({
         animMap.delete(id);
       }
     }
-  }, [participants]);
+  }, [participants, altitudeProfile]);
 
   // Main 60fps requestAnimationFrame loop
   useEffect(() => {

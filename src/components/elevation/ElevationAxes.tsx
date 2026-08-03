@@ -6,15 +6,18 @@ import { ScaleLinear } from "@/lib/elevation/scales";
 interface ElevationAxesProps {
   width: number;
   height: number;
-  totalDistance: number; // meters
+  totalDistance: number; // visible distance range (meters)
   minElevation: number;  // meters
   maxElevation: number;  // meters
   xScale: ScaleLinear;
   yScale: ScaleLinear;
+  domainStart?: number; // start of visible domain (meters), default 0
+  isZoomed?: boolean;
 }
 
 /**
  * SVG Overlay Layer: X/Y axes, distance/elevation labels, horizontal gridlines.
+ * When zoomed, displays absolute distance labels (e.g., 12.5 km instead of 0.0 km).
  */
 export function ElevationAxes({
   width,
@@ -24,6 +27,8 @@ export function ElevationAxes({
   maxElevation,
   xScale,
   yScale,
+  domainStart = 0,
+  isZoomed = false,
 }: ElevationAxesProps) {
   // Generate X-axis distance ticks (5-8 ticks)
   const xTicks = useMemo(() => {
@@ -33,16 +38,17 @@ export function ElevationAxes({
     const ticks: { distanceMeters: number; label: string; x: number }[] = [];
 
     for (let i = 0; i <= count; i++) {
-      const dist = i * step;
-      const km = (dist / 1000).toFixed(1);
+      const relativeDist = i * step;
+      const absoluteDist = domainStart + relativeDist;
+      const km = (absoluteDist / 1000).toFixed(1);
       ticks.push({
-        distanceMeters: dist,
+        distanceMeters: absoluteDist,
         label: `${km} km`,
-        x: xScale(dist),
+        x: xScale(absoluteDist),
       });
     }
     return ticks;
-  }, [totalDistance, width, xScale]);
+  }, [totalDistance, width, xScale, domainStart]);
 
   // Generate Y-axis elevation ticks (4-5 ticks)
   const yTicks = useMemo(() => {
@@ -64,6 +70,10 @@ export function ElevationAxes({
     }
     return ticks;
   }, [minElevation, maxElevation, height, yScale]);
+
+  // Compute full-route start/finish positions for badge rendering
+  const startX = xScale(0);
+  const fullRouteEnd = domainStart + totalDistance; // approximate total route distance
 
   return (
     <svg
@@ -125,25 +135,27 @@ export function ElevationAxes({
         </g>
       ))}
 
-      {/* Start Line Badge */}
-      <g transform={`translate(${xScale(0)}, 16)`}>
-        <rect
-          x={4}
-          y={0}
-          width={42}
-          height={16}
-          rx={4}
-          fill="rgba(16, 185, 129, 0.2)"
-          stroke="rgba(16, 185, 129, 0.4)"
-        />
-        <text x={25} y={11} textAnchor="middle" fill="#10b981" fontSize={9} fontWeight="bold">
-          START
-        </text>
-      </g>
+      {/* Start Line Badge — only shown when start (0m) is visible */}
+      {domainStart <= 0 && (
+        <g transform={`translate(${startX}, 16)`}>
+          <rect
+            x={4}
+            y={0}
+            width={42}
+            height={16}
+            rx={4}
+            fill="rgba(16, 185, 129, 0.2)"
+            stroke="rgba(16, 185, 129, 0.4)"
+          />
+          <text x={25} y={11} textAnchor="middle" fill="#10b981" fontSize={9} fontWeight="bold">
+            START
+          </text>
+        </g>
+      )}
 
-      {/* Finish Line Badge */}
-      {totalDistance > 0 && (
-        <g transform={`translate(${xScale(totalDistance) - 48}, 16)`}>
+      {/* Finish Line Badge — only shown when finish is visible */}
+      {!isZoomed && totalDistance > 0 && (
+        <g transform={`translate(${xScale(domainStart + totalDistance) - 48}, 16)`}>
           <rect
             x={0}
             y={0}
@@ -157,6 +169,22 @@ export function ElevationAxes({
             FINISH
           </text>
         </g>
+      )}
+
+      {/* Zoom indicator overlay */}
+      {isZoomed && (
+        <text
+          x={width - 8}
+          y={14}
+          textAnchor="end"
+          fill="#6366f1"
+          fontSize={9}
+          fontWeight="600"
+          fontFamily="Inter, sans-serif"
+          opacity={0.7}
+        >
+          🔍 {((domainStart + totalDistance) / 1000).toFixed(1)} km — Zoomed
+        </text>
       )}
     </svg>
   );
