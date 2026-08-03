@@ -106,22 +106,23 @@ const updateMarkerElement = (
       <div style="
         position: absolute;
         bottom: 100%;
-        margin-bottom: 22px;
+        margin-bottom: 6px;
         left: 50%;
         transform: translateX(-50%);
         background: linear-gradient(135deg, #fbbf24, #f59e0b);
         color: #78350f;
-        padding: 2px 7px;
+        padding: 1.5px 6.5px;
         border-radius: 9999px;
-        font-size: 9px;
+        font-size: 8.5px;
         font-weight: 900;
         white-space: nowrap;
         border: 1.5px solid #ffffff;
         box-shadow: 0 2px 8px rgba(245, 158, 11, 0.7);
-        z-index: 120;
+        z-index: 100;
         display: flex;
         align-items: center;
         gap: 3px;
+        pointer-events: none;
       ">
         👑 #1 LEAD
       </div>
@@ -152,7 +153,7 @@ const updateMarkerElement = (
     <div class="marker-tooltip" style="
       position: absolute;
       bottom: 100%;
-      margin-bottom: 6px;
+      margin-bottom: ${isLeader ? "30px" : "6px"};
       left: 50%;
       transform: translateX(-50%) translateY(4px);
       background: ${isLeader ? "rgba(245, 158, 11, 0.95)" : "rgba(15, 23, 42, 0.92)"};
@@ -168,7 +169,7 @@ const updateMarkerElement = (
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.15s ease, transform 0.15s ease;
-      z-index: 100;
+      z-index: 120;
     ">
       ${isLeader ? "👑 #1 " : ""}${displayName}
     </div>
