@@ -1872,48 +1872,43 @@ export default function PublicEventMonitoringPage() {
         </div>
       )}
 
-      {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
+      {/* ── LEFT FLOATING PANEL: LEADERBOARD (Minimalist Compact) ── */}
       <aside
-        className={`absolute left-2 sm:left-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-slate-400/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-4 top-20 sm:top-16 w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showLeaderboard ? "translate-x-0 opacity-100 shadow-xl shadow-slate-400/15" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
-        <div className="p-5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-3xl">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-3 mb-1">
-              <Trophy className="w-4 h-4 text-amber-500" />
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-900">
-                Live Ranking
-              </h2>
-            </div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">
-              Sorted by performance
-            </p>
+        <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+              Live Ranking
+            </h2>
           </div>
           <button
             onClick={() => setShowLeaderboard(false)}
-            className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+            className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
           >
-            <X size={14} />
+            <X size={13} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
           {sortedParticipants.map((p, idx) => (
             <div
               key={p.id}
               onClick={() => goToParticipant(p.id)}
-              className={`p-3 rounded-2xl border transition-all cursor-pointer group relative overflow-hidden
+              className={`p-2 rounded-xl border transition-all cursor-pointer group relative overflow-hidden
                 ${
                   selectedUserId === p.id
-                    ? "bg-indigo-50 border-indigo-300 shadow-md text-slate-900"
+                    ? "bg-indigo-50 border-indigo-300 shadow-sm text-slate-900"
                     : "bg-slate-50/80 border-slate-200/80 hover:bg-indigo-50/50 text-slate-900"
                 }
                 ${p.hasAlert ? "border-rose-300 bg-rose-50/90 text-rose-950" : ""}
               `}
             >
               <div className="flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0
                     ${
                       idx === 0
                         ? "bg-amber-500 text-amber-950"
@@ -2005,36 +2000,31 @@ export default function PublicEventMonitoringPage() {
         </div>
       </aside>
 
-      {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
+      {/* ── RIGHT FLOATING PANEL: ALERTS (Minimalist Compact) ── */}
       <aside
-        className={`absolute right-2 sm:right-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/10" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute right-2 sm:right-4 top-20 sm:top-16 w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showAlerts ? "translate-x-0 opacity-100 shadow-xl shadow-rose-950/10" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
-        <div className="p-5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-3xl">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-3 mb-1">
-              <AlertTriangle className="w-4 h-4 text-rose-500" />
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-900">
-                Incident Stream
-              </h2>
-            </div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">
-              Active Anomalies
-            </p>
+        <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+              Incident Stream
+            </h2>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="px-2 py-0.5 bg-rose-100 border border-rose-200 rounded-md text-rose-600 text-[10px] font-black">
+          <div className="flex items-center gap-2">
+            <div className="px-1.5 py-0.5 bg-rose-100 border border-rose-200 rounded-md text-rose-600 text-[9px] font-black">
               {anomalies.length}
             </div>
             <button
               onClick={() => setShowAlerts(false)}
-              className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+              className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
           {anomalies.map((alert) => {
             const alertAny = alert as any;
             // CRITICAL: Use userId (users.id), not participantId (event_participants.id)

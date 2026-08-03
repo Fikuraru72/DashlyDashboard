@@ -48,14 +48,14 @@ export function ElevationCanvas({
 
     // ── 2. Draw Area Fill Path ───────────────────────────────────
     ctx.beginPath();
-    ctx.moveTo(xScale(data[0].distance), height);
+    ctx.moveTo(xScale(data[0].distance), height - 10);
     ctx.lineTo(xScale(data[0].distance), yScale(data[0].elevation));
 
     for (let i = 1; i < data.length; i++) {
       ctx.lineTo(xScale(data[i].distance), yScale(data[i].elevation));
     }
 
-    ctx.lineTo(xScale(data[data.length - 1].distance), height);
+    ctx.lineTo(xScale(data[data.length - 1].distance), height - 10);
     ctx.closePath();
 
     ctx.fillStyle = gradient;

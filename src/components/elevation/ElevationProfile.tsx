@@ -121,19 +121,21 @@ export function ElevationProfile({
     return { min: zMin, max: zMax };
   }, [chartData, zoomDomain, minElevation, maxElevation]);
 
-  // Compute D3 linear scales for chart (respecting zoom domain)
+  const CHART_PADDING = useMemo(() => ({ top: 22, bottom: 22, left: 35, right: 15 }), []);
+
+  // Compute D3 linear scales for chart (respecting zoom domain and inner padding)
   const xScale = useMemo(() => {
-    return createLinearScale(effectiveDomain, [0, dimensions.width]);
-  }, [effectiveDomain, dimensions.width]);
+    return createLinearScale(effectiveDomain, [CHART_PADDING.left, dimensions.width - CHART_PADDING.right]);
+  }, [effectiveDomain, dimensions.width, CHART_PADDING]);
 
   const yScale = useMemo(() => {
     const { min, max } = zoomedElevationRange;
     const pad = (max - min) * 0.1 || 20;
     return createLinearScale(
       [min - pad, max + pad],
-      [dimensions.height, 0],
+      [dimensions.height - CHART_PADDING.bottom, CHART_PADDING.top],
     );
-  }, [zoomedElevationRange, dimensions.height]);
+  }, [zoomedElevationRange, dimensions.height, CHART_PADDING]);
 
   // ── Native Non-Passive Wheel Listener (Fixes page zoom/scroll issue) ──
   useEffect(() => {
