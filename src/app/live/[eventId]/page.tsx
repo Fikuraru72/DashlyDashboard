@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   Navigation,
   ChevronLeft,
+  ChevronDown,
   Zap,
   AlertTriangle,
   Trophy,
@@ -240,11 +241,12 @@ export default function PublicEventMonitoringPage() {
   const [statusError] = useState("");
   const [participantDetailModal, setParticipantDetailModal] = useState<any>(null);
 
-  // HUD Visibility
-  const [showLeaderboard, setShowLeaderboard] = useState(true);
-  const [showAlerts, setShowAlerts] = useState(true);
-  const [showPolylines, setShowPolylines] = useState(false);
-  const [showAltitudeChart, setShowAltitudeChart] = useState(false);
+  // HUD Visibility (Guest Mode — No Incident Stream, No Polylines)
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAltitudeChart, setShowAltitudeChart] = useState(true);
+  const [showKmMarkers, setShowKmMarkers] = useState(false);
+  const [is3DMode, setIs3DMode] = useState(true);
+  const [showMapToolsMenu, setShowMapToolsMenu] = useState(false);
   const [hoveredElevationDistance, setHoveredElevationDistance] = useState<number | null>(null);
 
   // Timer for monitoring window countdown
@@ -408,6 +410,93 @@ export default function PublicEventMonitoringPage() {
       };
     }
   }, [mapIsReady, updateClusters]);
+
+  const addKilometerMarkers = useCallback((map: maplibregl.Map, routeGeojson: any, isVisible: boolean) => {
+    const coords = getRouteCoordinates(routeGeojson);
+    if (!coords || coords.length < 2) return;
+
+    const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371e3;
+      const φ1 = (lat1 * Math.PI) / 180;
+      const φ2 = (lat2 * Math.PI) / 180;
+      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+      const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    let accumulatedMeters = 0;
+    let nextKmTarget = 1000;
+    const kmFeatures: any[] = [];
+
+    for (let i = 1; i < coords.length; i++) {
+      const [prevLng, prevLat] = coords[i - 1];
+      const [currLng, currLat] = coords[i];
+      const segDist = calculateHaversine(prevLat, prevLng, currLat, currLng);
+
+      while (accumulatedMeters + segDist >= nextKmTarget) {
+        const remainingMeters = nextKmTarget - accumulatedMeters;
+        const fraction = segDist > 0 ? remainingMeters / segDist : 0;
+        const kmLat = prevLat + (currLat - prevLat) * fraction;
+        const kmLng = prevLng + (currLng - prevLng) * fraction;
+        const kmNum = Math.round(nextKmTarget / 1000);
+
+        if (!isNaN(kmLng) && !isNaN(kmLat)) {
+          kmFeatures.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [kmLng, kmLat] },
+            properties: { title: `${kmNum} KM` },
+          });
+        }
+        nextKmTarget += 1000;
+      }
+      accumulatedMeters += segDist;
+    }
+
+    const geojson = {
+      type: "FeatureCollection",
+      features: kmFeatures,
+    };
+
+    if (map.getSource("km-markers-source")) {
+      (map.getSource("km-markers-source") as maplibregl.GeoJSONSource).setData(geojson as any);
+    } else {
+      map.addSource("km-markers-source", { type: "geojson", data: geojson as any });
+      map.addLayer({
+        id: "km-markers-layer",
+        type: "symbol",
+        source: "km-markers-source",
+        minzoom: 11,
+        layout: {
+          "text-field": ["get", "title"],
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+          "text-size": 11,
+          "text-anchor": "center",
+          "text-allow-overlap": false,
+          "visibility": isVisible ? "visible" : "none",
+        },
+        paint: {
+          "text-color": "#4f46e5",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 2.5,
+          "text-halo-blur": 0.5,
+        },
+      });
+    }
+  }, []);
+
+  // Sync KM markers toggle state with MapLibre WebGL Layer
+  useEffect(() => {
+    if (mapInstance.current && mapInstance.current.getLayer("km-markers-layer")) {
+      mapInstance.current.setLayoutProperty(
+        "km-markers-layer",
+        "visibility",
+        showKmMarkers ? "visible" : "none",
+      );
+    }
+  }, [showKmMarkers]);
 
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
@@ -644,8 +733,10 @@ export default function PublicEventMonitoringPage() {
       container: mapContainer.current,
       style: styleUrl,
       center: startCoord,
-      zoom: 15,
-      pitch: 45,
+      zoom: 12.5,
+      pitch: is3DMode ? 55 : 0,
+      bearing: is3DMode ? -15 : 0,
+      maxPitch: 85,
     });
 
     // PILLAR 2: Store the map instance immediately (before load)
@@ -679,6 +770,17 @@ export default function PublicEventMonitoringPage() {
           "line-opacity": 0.9,
         },
       });
+
+      // Add kilometer distance badges along the route (WebGL Layer)
+      addKilometerMarkers(map, event.routeGeojson, showKmMarkers);
+
+      // Auto fit route bounds zoomed out
+      const coords = getRouteCoordinates(event.routeGeojson);
+      if (coords && coords.length > 0) {
+        const bounds = new maplibregl.LngLatBounds();
+        coords.forEach((c) => bounds.extend([c[0], c[1]]));
+        map.fitBounds(bounds, { padding: 70, maxZoom: 14 });
+      }
 
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
@@ -1321,7 +1423,7 @@ export default function PublicEventMonitoringPage() {
           layout: {
             "line-join": "round",
             "line-cap": "round",
-            visibility: showPolylines ? "visible" : "none",
+            visibility: "none",
           },
           paint: {
             "line-color": ["get", "color"], // Dynamic colored paths
@@ -1332,18 +1434,7 @@ export default function PublicEventMonitoringPage() {
         });
       }
     }
-  }, [participants, mapIsReady, now, showPolylines]);
-
-  // Effect to toggle polyline visibility instantly
-  useEffect(() => {
-    if (mapInstance.current && mapInstance.current.getLayer("participants-paths-layer")) {
-      mapInstance.current.setLayoutProperty(
-        "participants-paths-layer",
-        "visibility",
-        showPolylines ? "visible" : "none",
-      );
-    }
-  }, [showPolylines]);
+  }, [participants, mapIsReady, now]);
 
   // ── Interaction ─────────────────────────────────────────────
   const goToParticipant = (userId: string) => {
@@ -1397,124 +1488,132 @@ export default function PublicEventMonitoringPage() {
       {/* ── MAP INTERFACE (FULL SCREEN BASE) ── */}
       <div ref={mapContainer} className="absolute inset-0 w-full h-full z-0" />
 
-      {/* Global HUD Header (Floating Top) */}
-      <div className="absolute top-4 sm:top-6 left-4 sm:left-6 right-4 sm:right-6 z-40 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 pointer-events-none">
-        {/* Left: Event Branding */}
-        <div className="flex items-center gap-2 sm:gap-4 bg-slate-900/90 backdrop-blur-xl p-2 pr-4 sm:pr-6 rounded-3xl border border-white/10 shadow-2xl pointer-events-auto max-w-full overflow-hidden">
+      {/* Global HUD Header (Floating Top - Minimalist, Left-Aligned & Consolidated) */}
+      <div className="absolute top-3 sm:top-5 left-3 sm:left-5 right-3 sm:right-5 z-40 flex items-center justify-start gap-2.5 flex-wrap pointer-events-none">
+        {/* Left: Event Branding + Merged Live Active Info */}
+        <div className="flex items-center gap-2.5 bg-white/95 backdrop-blur-xl p-1.5 pr-3.5 rounded-2xl border border-slate-200/80 shadow-lg pointer-events-auto max-w-full overflow-hidden">
           <Link
             href={`/events/${eventId}`}
-            className="p-2 sm:p-3 bg-slate-800 hover:bg-slate-700 rounded-xl sm:rounded-2xl transition-colors shrink-0"
+            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors shrink-0"
+            title="Back to Event"
           >
-            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            <ChevronLeft className="w-4 h-4 text-slate-700" />
           </Link>
           <div className="flex flex-col min-w-0">
-            <span className="text-[8px] sm:text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">
+            <span className="text-[8px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-0.5">
               Telemetry Monitor
             </span>
-            <h1 className="text-sm sm:text-lg font-black text-white uppercase tracking-tight truncate max-w-[120px] sm:max-w-[200px] leading-none">
+            <h1 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight truncate max-w-[120px] sm:max-w-[180px] leading-none">
               {event.name}
             </h1>
           </div>
           {/* Category Badge */}
           <div
-            className={`hidden sm:flex px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest items-center gap-1 shrink-0 ${
+            className={`hidden sm:flex px-2 py-0.5 rounded-md text-[8.5px] font-black uppercase tracking-widest items-center gap-1 shrink-0 ${
               event.category === "CYCLING"
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "bg-emerald-50 text-emerald-700 border border-emerald-200"
             }`}
           >
             {event.category === "CYCLING" ? <Bike size={10} /> : <Footprints size={10} />}
             {event.category || "RUNNING"}
           </div>
-        </div>
 
-        {/* Center: Status Indicator */}
-        <div className="hidden md:flex items-center gap-3 pointer-events-auto">
+          {/* Merged Live Active Status Pill */}
           {currentStatus && (
-            <div
-              className={`flex items-center gap-3 px-5 py-3 rounded-2xl border backdrop-blur-md shadow-2xl ${currentStatus.bgColor}`}
-            >
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100/90 border border-slate-200/80 rounded-md text-[8.5px] font-black text-slate-800 uppercase tracking-widest shrink-0">
               <div
-                className={`w-2.5 h-2.5 rounded-full ${currentStatus.dotColor} ${monitoringStatus === "START" ? "animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" : ""}`}
-              ></div>
-              <div className="flex flex-col">
-                <span
-                  className={`text-[10px] font-black uppercase tracking-widest ${currentStatus.color}`}
-                >
-                  {currentStatus.label}
-                </span>
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tight">
-                  {currentStatus.description}
-                </span>
-              </div>
-              {countdown && monitoringStatus === "READY" && (
-                <div className="ml-2 px-2 py-1 bg-slate-800 rounded-lg">
-                  <span className="text-xs font-mono font-black text-white tracking-widest">
-                    {countdown}
-                  </span>
-                </div>
-              )}
+                className={`w-2 h-2 rounded-full ${currentStatus.dotColor} ${monitoringStatus === "START" ? "animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]" : ""}`}
+              />
+              <span>{currentStatus.label}</span>
+              <span className="text-slate-400 font-bold">•</span>
+              <span className="text-indigo-600 font-black">{participants.size} Active</span>
             </div>
           )}
         </div>
 
-        {/* HUD Controls (Toggle Sidebars) */}
-        <div className="flex items-center gap-2 pointer-events-auto ml-auto sm:ml-0">
+        {/* Map Tools Dropdown Button (Guest Mode — No Participant Paths, No Incident Stream) */}
+        <div className="relative pointer-events-auto">
           <button
-            onClick={() => setShowLeaderboard(!showLeaderboard)}
-            className={`p-3 rounded-2xl border transition-all ${showLeaderboard ? "bg-indigo-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
-            title="Toggle Leaderboard"
+            onClick={() => setShowMapToolsMenu(!showMapToolsMenu)}
+            className="flex items-center gap-2 px-3 py-2 bg-white/95 text-slate-700 font-black text-xs border border-slate-200 rounded-2xl shadow-md hover:bg-slate-50 transition-all"
           >
-            <PanelLeft size={20} />
+            <LayoutTemplate size={16} className="text-indigo-600" />
+            <span>Map Tools</span>
+            <ChevronDown size={14} className={`text-slate-400 transition-transform ${showMapToolsMenu ? "rotate-180" : ""}`} />
           </button>
 
-          <button
-            onClick={() => setShowPolylines(!showPolylines)}
-            className={`p-3 rounded-2xl border transition-all ${showPolylines ? "bg-emerald-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
-            title="Toggle Polylines"
-          >
-            <Navigation size={20} />
-          </button>
+          {/* Map Tools Dropdown Menu (Guest Filtering) */}
+          {showMapToolsMenu && (
+            <div className="absolute left-0 mt-2 w-60 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-2xl shadow-2xl p-2 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3 py-1 text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                Features & Panels
+              </div>
 
-          {/* Elevation Chart Toggle — only if altitudeProfile is available */}
-          {event?.altitudeProfile && (
-            <button
-              onClick={() => setShowAltitudeChart(!showAltitudeChart)}
-              className={`p-3 rounded-2xl border transition-all ${showAltitudeChart ? "bg-emerald-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
-              title="Toggle Elevation Profile"
-            >
-              <Mountain size={20} />
-            </button>
+              <button
+                onClick={() => { setShowLeaderboard(!showLeaderboard); setShowMapToolsMenu(false); }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  showLeaderboard ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <PanelLeft size={15} /> Live Leaderboard
+                </span>
+                {showLeaderboard && <CheckCircle2 size={14} className="text-indigo-600" />}
+              </button>
+
+              {event?.altitudeProfile && (
+                <button
+                  onClick={() => { setShowAltitudeChart(!showAltitudeChart); setShowMapToolsMenu(false); }}
+                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    showAltitudeChart ? "bg-fuchsia-50 text-fuchsia-700" : "hover:bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Mountain size={15} /> Elevation Profile
+                  </span>
+                  {showAltitudeChart && <CheckCircle2 size={14} className="text-fuchsia-600" />}
+                </button>
+              )}
+
+              <button
+                onClick={() => { setShowKmMarkers(!showKmMarkers); setShowMapToolsMenu(false); }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  showKmMarkers ? "bg-blue-50 text-blue-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Activity size={15} /> KM Badges / Distance Markers
+                </span>
+                {showKmMarkers && <CheckCircle2 size={14} className="text-blue-600" />}
+              </button>
+
+              <button
+                onClick={() => {
+                  const next3D = !is3DMode;
+                  setIs3DMode(next3D);
+                  if (mapInstance.current) {
+                    mapInstance.current.easeTo({ pitch: next3D ? 55 : 0, bearing: next3D ? -15 : 0, duration: 800 });
+                  }
+                  setShowMapToolsMenu(false);
+                }}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  is3DMode ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Activity size={15} /> 3D Terrain Mode
+                </span>
+                {is3DMode && <CheckCircle2 size={14} className="text-indigo-600" />}
+              </button>
+            </div>
           )}
-
-          <div className="hidden md:flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-white/5 shadow-2xl px-6">
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${monitoringStatus === "START" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" : "bg-slate-600"}`}
-              ></div>
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                {monitoringStatus === "START" ? "Live Link" : currentStatus?.label || "Standby"}
-              </span>
-            </div>
-            <div className="w-px h-4 bg-slate-800"></div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {participants.size} Active Tracking(s)
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowAlerts(!showAlerts)}
-            className={`p-3 rounded-2xl border transition-all ${showAlerts ? "bg-rose-600 text-white border-white/20" : "bg-slate-900/90 text-slate-400 border-white/5 backdrop-blur-md"}`}
-            title="Toggle Alerts"
-          >
-            <PanelRight size={20} />
-          </button>
         </div>
       </div>
 
       {/* ── ELEVATION PROFILE CHART (Bottom, Responsive - Light Mode) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 h-44 sm:h-52 bg-slate-100/90 backdrop-blur-xl border-t border-slate-200 flex flex-col transition-all duration-300">
+        <div className="absolute bottom-0 left-0 right-0 z-30 h-[180px] sm:h-[200px] bg-slate-100/90 backdrop-blur-xl border-t border-slate-200 flex flex-col transition-all duration-300">
           <div className="flex-1 min-h-0 p-2">
             <ElevationProfile
               altitudeProfile={event.altitudeProfile}
@@ -1671,127 +1770,7 @@ export default function PublicEventMonitoringPage() {
         </div>
       </aside>
 
-      {/* ── RIGHT FLOATING PANEL: ALERTS ── */}
-      <aside
-        className={`absolute right-2 sm:right-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showAlerts ? "translate-x-0 opacity-100 shadow-2xl shadow-rose-950/20" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
-      >
-        <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-3 mb-1">
-              <AlertTriangle className="w-4 h-4 text-rose-500" />
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-100">
-                Incident Stream
-              </h2>
-            </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-              Active Anomalies
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="px-2 py-0.5 bg-rose-500/20 border border-rose-500/30 rounded-md text-rose-500 text-[10px] font-black">
-              {anomalies.length}
-            </div>
-            <button
-              onClick={() => setShowAlerts(false)}
-              className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 transition-colors"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          {anomalies.map((alert) => {
-            const alertAny = alert as any;
-            // CRITICAL: Use userId (users.id), not participantId (event_participants.id)
-            const userIdStr = String(alertAny.userId || "");
-            // Resolve name: first from participantsInfo (most reliable), then from alert payload, then from participants Map
-            const pInfo = participantsInfo.current.get(userIdStr);
-            const participantData = participants.get(userIdStr);
-            const pName =
-              pInfo?.formattedName ||
-              alertAny.name ||
-              participantData?.name ||
-              `User ${userIdStr.substring(0, 4)}`;
-
-            // Determine color based on alert type
-            let colorAccent = "bg-rose-500";
-            let textColorAccent = "text-rose-400";
-
-            if (alert.type === "STOP") {
-              colorAccent = "bg-amber-500";
-              textColorAccent = "text-amber-400";
-            } else if (alert.type === "OFF_ROUTE") {
-              colorAccent = "bg-orange-500";
-              textColorAccent = "text-orange-400";
-            } else if (alert.type === "SOS_EMERGENCY") {
-              colorAccent = "bg-rose-600";
-              textColorAccent = "text-rose-500";
-            }
-
-            return (
-              <div
-                key={alert.id}
-                onClick={() => goToParticipant(userIdStr)}
-                className="relative overflow-hidden p-4 rounded-2xl bg-white/5 border border-white/5 shadow-sm hover:bg-white/10 transition-all cursor-pointer group animate-in slide-in-from-right-10 duration-300"
-              >
-                <div className={`absolute top-0 left-0 w-1 h-full ${colorAccent}`}></div>
-                <div className="flex justify-between items-start mb-2">
-                  <span
-                    className={`text-[10px] font-black uppercase tracking-widest ${textColorAccent}`}
-                  >
-                    {alert.type?.replace("_", " ") || "WARN"}
-                  </span>
-                  <span className="text-[9px] font-mono text-slate-500 bg-black/40 px-1.5 py-0.5 rounded">
-                    {new Date(alert.timestamp || Date.now()).toLocaleTimeString()}
-                  </span>
-                </div>
-                <p className="text-[13px] font-bold text-slate-200 leading-snug mb-3">
-                  {alertAny.message || alert.message || "Unusual telemetry patterns detected."}
-                </p>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-black text-white uppercase tracking-tight">
-                      {pName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeAnomaly(alert.id);
-                      }}
-                      className="px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-400 border border-white/10 rounded text-[9px] font-black uppercase transition-all"
-                    >
-                      Dismiss ✕
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goToParticipant(userIdStr);
-                      }}
-                      className="ml-auto text-[10px] font-black text-indigo-400 uppercase hover:text-indigo-300 transition-colors"
-                    >
-                      Inspect ➔
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {anomalies.length === 0 && (
-            <div className="flex flex-col items-center justify-center p-12 text-center opacity-30">
-              <ShieldAlert className="w-12 h-12 text-emerald-500 mb-4" />
-              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                Normal Ops
-              </p>
-              <p className="text-[9px] text-slate-600 font-bold uppercase mt-1">No alerts found</p>
-            </div>
-          )}
-        </div>
-      </aside>
 
       {/* Alert Flash Overlay */}
       <div

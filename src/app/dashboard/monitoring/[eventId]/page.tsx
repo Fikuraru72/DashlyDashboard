@@ -285,7 +285,7 @@ export default function PublicEventMonitoringPage() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [showPolylines, setShowPolylines] = useState(false);
   const [showAltitudeChart, setShowAltitudeChart] = useState(true);
-  const [showKmMarkers, setShowKmMarkers] = useState(true);
+  const [showKmMarkers, setShowKmMarkers] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
 
   // Altitude Chart Interactivity
@@ -832,7 +832,7 @@ export default function PublicEventMonitoringPage() {
       container: mapContainer.current,
       style: mapStyle,
       center: startCoord,
-      zoom: 15,
+      zoom: 12.5,
       pitch: is3DMode ? 55 : 0,
       bearing: is3DMode ? -15 : 0,
       maxPitch: 85,
@@ -903,9 +903,13 @@ export default function PublicEventMonitoringPage() {
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
 
-      // ADD START AND FINISH MARKERS
+      // ADD START AND FINISH MARKERS & AUTO-FIT ROUTE BOUNDS
       const coords = getRouteCoordinates(event.routeGeojson);
       if (coords && coords.length > 0) {
+        const bounds = new maplibregl.LngLatBounds();
+        coords.forEach((c) => bounds.extend([c[0], c[1]]));
+        map.fitBounds(bounds, { padding: 70, maxZoom: 14 });
+
         const startPoint = coords[0];
         const finishPoint = coords[coords.length - 1];
 
@@ -1832,19 +1836,20 @@ export default function PublicEventMonitoringPage() {
           )}
         </div>
 
-        {/* Standalone Incident Stream Toggle Button (Left-aligned beside Map Tools) */}
+        {/* Standalone Incident Stream Toggle Button with Label (Left-aligned beside Map Tools) */}
         <button
           onClick={() => setShowAlerts(!showAlerts)}
-          className={`relative p-2.5 rounded-2xl border transition-all pointer-events-auto ${
+          className={`relative flex items-center gap-2 px-3.5 py-2 rounded-2xl border transition-all pointer-events-auto ${
             showAlerts
               ? "bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/20"
               : "bg-white/95 text-slate-700 border-slate-200 shadow-md hover:bg-slate-50"
           }`}
           title="Incident Stream"
         >
-          <AlertTriangle size={18} />
+          <AlertTriangle size={16} className={showAlerts ? "text-white" : "text-rose-600"} />
+          <span className="text-xs font-black tracking-tight">Incident Stream</span>
           {anomalies.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9.5px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse">
+            <span className="min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9.5px] font-black rounded-full flex items-center justify-center border border-white shadow-md animate-pulse">
               {anomalies.length}
             </span>
           )}
@@ -2128,7 +2133,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── DOCKED BOTTOM SECTION: ELEVATION PROFILE CHART (Light Mode Container) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="w-full h-[260px] sm:h-[280px] bg-slate-100/90 border-t border-slate-200 shadow-xl z-30 shrink-0 p-2 relative transition-all">
+        <div className="w-full h-[180px] sm:h-[200px] bg-slate-100/90 border-t border-slate-200 shadow-xl z-30 shrink-0 p-2 relative transition-all">
           <ElevationProfile
             altitudeProfile={event.altitudeProfile}
             participants={participants}
