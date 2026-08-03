@@ -75,6 +75,7 @@ const updateMarkerElement = (
   isStale: boolean = false,
   isAnomaly: boolean = false,
   userColor?: string,
+  isLeader: boolean = false,
 ) => {
   let coreColor = isAnomaly
     ? "#e11d48" // Bright RED — Stationary Incident
@@ -90,11 +91,40 @@ const updateMarkerElement = (
 
   el.className = "dashly-marker";
   el.innerHTML = `
+    ${
+      isLeader
+        ? `
+      <div style="
+        position: absolute;
+        bottom: 100%;
+        margin-bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        color: #78350f;
+        padding: 2px 7px;
+        border-radius: 9999px;
+        font-size: 9px;
+        font-weight: 900;
+        white-space: nowrap;
+        border: 1.5px solid #ffffff;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.7);
+        z-index: 120;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      ">
+        👑 #1 LEAD
+      </div>
+    `
+        : ""
+    }
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
       <div style="
-        width: 16px; height: 16px;
+        width: ${isLeader ? "22px" : "16px"};
+        height: ${isLeader ? "22px" : "16px"};
         border-radius: 50%;
-        background: ${coreColor}35;
+        background: ${isLeader ? "#f59e0b50" : `${coreColor}35`};
         animation: ${!isStale ? "ping 2s cubic-bezier(0,0,0.2,1) infinite" : "none"};
       "></div>
     </div>
@@ -102,11 +132,12 @@ const updateMarkerElement = (
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 12px; height: 12px;
+      width: ${isLeader ? "14px" : "12px"};
+      height: ${isLeader ? "14px" : "12px"};
       border-radius: 50%;
-      background: ${coreColor};
+      background: ${isLeader ? "#f59e0b" : coreColor};
       border: 2px solid #ffffff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 6px ${coreColor}80;
+      box-shadow: ${isLeader ? "0 0 12px rgba(245, 158, 11, 0.9), 0 2px 5px rgba(0,0,0,0.4)" : `0 2px 5px rgba(0,0,0,0.4), 0 0 6px ${coreColor}80`};
       transition: transform 0.2s ease;
     "></div>
     <div class="marker-tooltip" style="
@@ -115,22 +146,22 @@ const updateMarkerElement = (
       margin-bottom: 6px;
       left: 50%;
       transform: translateX(-50%) translateY(4px);
-      background: rgba(15, 23, 42, 0.92);
+      background: ${isLeader ? "rgba(245, 158, 11, 0.95)" : "rgba(15, 23, 42, 0.92)"};
       backdrop-filter: blur(8px);
-      color: #ffffff;
+      color: ${isLeader ? "#78350f" : "#ffffff"};
       padding: 3px 8px;
       border-radius: 6px;
       font-size: 10.5px;
       font-weight: 800;
       white-space: nowrap;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid ${isLeader ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.15)"};
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.15s ease, transform 0.15s ease;
       z-index: 100;
     ">
-      ${formattedName}
+      ${isLeader ? "👑 #1 " : ""}${formattedName}
     </div>
   `;
 };
@@ -141,6 +172,7 @@ const createPulseMarker = (
   isStale: boolean = false,
   isAnomaly: boolean = false,
   userColor?: string,
+  isLeader: boolean = false,
 ) => {
   const el = document.createElement("div");
   el.className = "dashly-marker";
@@ -151,10 +183,10 @@ const createPulseMarker = (
     justify-content: center;
     width: 28px;
     height: 28px;
-    z-index: 9999 !important;
+    z-index: ${isLeader ? "10000" : "9999"} !important;
     cursor: pointer;
   `;
-  updateMarkerElement(el, formattedName, status, isStale, isAnomaly, userColor);
+  updateMarkerElement(el, formattedName, status, isStale, isAnomaly, userColor, isLeader);
   return el;
 };
 
@@ -509,11 +541,16 @@ export default function PublicEventMonitoringPage() {
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
     return Array.from(participants.values()).sort((a, b) => {
-      if (a.hasAlert && !b.hasAlert) return -1;
-      if (!a.hasAlert && b.hasAlert) return 1;
+      const distA = a.distanceKm ?? a.progressKm ?? 0;
+      const distB = b.distanceKm ?? b.progressKm ?? 0;
+      if (distA !== distB) return distB - distA;
       return (b.speed || 0) - (a.speed || 0);
     });
   }, [participants]);
+
+  const leaderUserId = useMemo(() => {
+    return sortedParticipants.length > 0 ? String(sortedParticipants[0].id) : null;
+  }, [sortedParticipants]);
 
   // Compute monitoring status
   const monitoringStatus = useMemo(() => {
@@ -1360,15 +1397,17 @@ export default function PublicEventMonitoringPage() {
         return;
       }
 
+      const isLeader = leaderUserId !== null && String(userId) === String(leaderUserId);
       let marker = markers.current.get(userId);
       const isStale = isParticipantDisconnected(data);
 
       const pInfo = participantsInfo.current.get(String(userId));
-      const displayName =
-        pInfo?.formattedName ||
+      const rawName =
         pInfo?.name ||
-        (data.name && data.name !== "undefined" ? data.name : null) ||
+        (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) ||
         `Participant ${String(userId).substring(0, 4)}`;
+      const bibNum = pInfo?.bibNumber || data.bibNumber || "-";
+      const displayName = `No. ${bibNum} - ${rawName}`;
 
       if (!marker) {
         // Create marker ONCE
@@ -1377,6 +1416,8 @@ export default function PublicEventMonitoringPage() {
           data.status,
           isStale,
           data.isAnomaly,
+          data.color,
+          isLeader,
         );
         marker = new maplibregl.Marker({ element: el, anchor: "center" })
           .setLngLat([data.lng, data.lat])
@@ -1392,6 +1433,8 @@ export default function PublicEventMonitoringPage() {
           data.status,
           isStale,
           data.isAnomaly,
+          data.color,
+          isLeader,
         );
       }
     });
@@ -1672,52 +1715,63 @@ export default function PublicEventMonitoringPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
-          {sortedParticipants.map((p, idx) => (
-            <div
-              key={p.id}
-              onClick={() => goToParticipant(p.id)}
-              className={`p-2 rounded-xl border transition-all cursor-pointer group relative overflow-hidden
-                ${
-                  selectedUserId === p.id
-                    ? "bg-indigo-50 border-indigo-300 shadow-sm text-slate-900"
-                    : "bg-slate-50/80 border-slate-200/80 hover:bg-indigo-50/50 text-slate-900"
-                }
-                ${p.hasAlert ? "border-rose-300 bg-rose-50/90 text-rose-950" : ""}
-              `}
-            >
-              <div className="flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0
-                    ${
-                      idx === 0
-                        ? "bg-amber-500 text-amber-950"
-                        : idx === 1
-                          ? "bg-slate-300 text-slate-900"
-                          : idx === 2
-                            ? "bg-orange-400 text-orange-950"
-                            : "bg-slate-200 text-slate-800"
-                    }
-                  `}
-                  >
-                    {idx + 1}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate w-28">
-                      {p.name || `User ${String(p.id).substring(0, 4)}`}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`text-[8.5px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline ? "text-slate-400" : "text-slate-500"}`}
-                      >
-                        <Signal
-                          className={`w-2.5 h-2.5 ${p.isOffline ? "text-slate-400" : "text-emerald-500"}`}
-                        />
-                        {p.isOffline ? "Offline" : "Connected"}
+          {sortedParticipants.map((p, idx) => {
+            const pInfo = participantsInfo.current.get(String(p.id)) || participantsInfo.current.get(String(p.userId));
+            const rawName =
+              pInfo?.name ||
+              (p.name && p.name !== "undefined" && !p.name.startsWith("User ") ? p.name : null) ||
+              `Participant ${String(p.id).substring(0, 4)}`;
+            const bibNum = pInfo?.bibNumber || p.bibNumber || "-";
+
+            return (
+              <div
+                key={p.id}
+                onClick={() => goToParticipant(p.id)}
+                className={`p-2 rounded-xl border transition-all cursor-pointer group relative overflow-hidden
+                  ${
+                    selectedUserId === p.id
+                      ? "bg-indigo-50 border-indigo-300 shadow-sm text-slate-900"
+                      : "bg-slate-50/80 border-slate-200/80 hover:bg-indigo-50/50 text-slate-900"
+                  }
+                  ${p.hasAlert ? "border-rose-300 bg-rose-50/90 text-rose-950" : ""}
+                `}
+              >
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0
+                      ${
+                        idx === 0
+                          ? "bg-amber-400 text-amber-950 shadow-sm border border-amber-300"
+                          : idx === 1
+                            ? "bg-slate-300 text-slate-900"
+                            : idx === 2
+                              ? "bg-orange-400 text-orange-950"
+                              : "bg-slate-200 text-slate-800"
+                      }
+                    `}
+                    >
+                      {idx === 0 ? "👑 1" : idx + 1}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate w-28" title={`${bibNum} - ${rawName}`}>
+                        {rawName}
                       </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[8.5px] font-extrabold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200/60">
+                          BIB #{bibNum}
+                        </span>
+                        <span
+                          className={`text-[8.5px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline ? "text-slate-400" : "text-slate-500"}`}
+                        >
+                          <Signal
+                            className={`w-2.5 h-2.5 ${p.isOffline ? "text-slate-400" : "text-emerald-500"}`}
+                          />
+                          {p.isOffline ? "Offline" : "Connected"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 <div className="text-right flex flex-col items-end">
                   <div className="text-[12px] font-black text-slate-900">
@@ -1757,7 +1811,8 @@ export default function PublicEventMonitoringPage() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
 
           {sortedParticipants.length === 0 && (
             <div className="flex flex-col items-center justify-center p-8 text-center opacity-50">
