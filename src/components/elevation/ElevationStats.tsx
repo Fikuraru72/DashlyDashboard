@@ -1,14 +1,16 @@
 "use client";
 
-import { Activity, ArrowUpRight, Mountain, TrendingUp } from "lucide-react";
-
 interface ElevationStatsProps {
-  totalDistance: number;    // meters
-  totalElevationGain: number; // meters
-  maxElevation: number;     // meters
-  minElevation: number;     // meters
+  totalDistance: number;       // meters
+  totalElevationGain: number;   // meters
+  maxElevation: number;         // meters
+  minElevation: number;         // meters
 }
 
+/**
+ * Top Header Stats Bar (Light Mode).
+ * Displays key route metrics (Total Distance, Climb Gain, Peak, Lowest point).
+ */
 export function ElevationStats({
   totalDistance,
   totalElevationGain,
@@ -21,35 +23,35 @@ export function ElevationStats({
   const min = Math.round(minElevation);
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-slate-950/70 border-b border-white/10 text-xs backdrop-blur-md">
-      <div className="flex items-center space-x-4 overflow-x-auto no-scrollbar">
-        {/* Total Distance */}
-        <div className="flex items-center space-x-1.5 shrink-0">
-          <Activity className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="text-slate-400">Distance:</span>
-          <span className="font-semibold text-slate-100">{km} km</span>
-        </div>
+    <div className="flex items-center gap-4 px-4 py-2 bg-slate-50/90 border-b border-slate-200/80 text-[11px] text-slate-600 font-medium overflow-x-auto select-none">
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className="text-slate-400">📏</span>
+        <span>Distance:</span>
+        <span className="font-bold text-slate-900">{km} km</span>
+      </div>
 
-        {/* Total Climb */}
-        <div className="flex items-center space-x-1.5 shrink-0">
-          <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-slate-400">Climb:</span>
-          <span className="font-semibold text-slate-100">+{gain} m</span>
-        </div>
+      <div className="h-3 w-[1px] bg-slate-200" />
 
-        {/* Peak Altitude */}
-        <div className="flex items-center space-x-1.5 shrink-0">
-          <Mountain className="w-3.5 h-3.5 text-sky-400" />
-          <span className="text-slate-400">Peak:</span>
-          <span className="font-semibold text-slate-100">{max} m</span>
-        </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className="text-emerald-500 font-bold">▲</span>
+        <span>Climb Gain:</span>
+        <span className="font-bold text-slate-900">+{gain} m</span>
+      </div>
 
-        {/* Min Altitude */}
-        <div className="flex items-center space-x-1.5 shrink-0 hidden sm:flex">
-          <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-slate-400">Lowest:</span>
-          <span className="font-semibold text-slate-100">{min} m</span>
-        </div>
+      <div className="h-3 w-[1px] bg-slate-200" />
+
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className="text-indigo-500">⛰️</span>
+        <span>Peak:</span>
+        <span className="font-bold text-slate-900">{max} m</span>
+      </div>
+
+      <div className="h-3 w-[1px] bg-slate-200" />
+
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <span className="text-sky-500">📉</span>
+        <span>Lowest:</span>
+        <span className="font-bold text-slate-900">{min} m</span>
       </div>
     </div>
   );

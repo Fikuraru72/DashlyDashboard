@@ -2069,11 +2069,12 @@ export default function PublicEventMonitoringPage() {
 
       </div>
 
-      {/* ── DOCKED BOTTOM SECTION: ELEVATION PROFILE CHART ── */}
+      {/* ── DOCKED BOTTOM SECTION: ELEVATION PROFILE CHART (Light Mode Container) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="w-full h-[200px] sm:h-[220px] bg-slate-900 border-t border-slate-800 shadow-xl z-30 shrink-0 p-2 relative transition-all">
+        <div className="w-full h-[200px] sm:h-[220px] bg-slate-100/90 border-t border-slate-200 shadow-xl z-30 shrink-0 p-2 relative transition-all">
           <ElevationProfile
             altitudeProfile={event.altitudeProfile}
+            participants={participants}
             onChartClick={(lat, lng) => {
               if (mapInstance.current) {
                 mapInstance.current.flyTo({

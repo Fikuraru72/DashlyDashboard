@@ -1512,12 +1512,13 @@ export default function PublicEventMonitoringPage() {
         </div>
       </div>
 
-      {/* ── ELEVATION PROFILE CHART (Bottom, Responsive) ── */}
+      {/* ── ELEVATION PROFILE CHART (Bottom, Responsive - Light Mode) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="absolute bottom-0 left-0 right-0 z-30 h-44 sm:h-52 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 flex flex-col transition-all duration-300">
+        <div className="absolute bottom-0 left-0 right-0 z-30 h-44 sm:h-52 bg-slate-100/90 backdrop-blur-xl border-t border-slate-200 flex flex-col transition-all duration-300">
           <div className="flex-1 min-h-0 p-2">
             <ElevationProfile
               altitudeProfile={event.altitudeProfile}
+              participants={participants}
               onChartClick={(lat, lng) => {
                 if (mapInstance.current) {
                   mapInstance.current.flyTo({

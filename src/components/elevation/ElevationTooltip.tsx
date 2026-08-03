@@ -12,7 +12,7 @@ interface ElevationTooltipProps {
 }
 
 /**
- * SVG Tooltip & Hover Crosshair overlay.
+ * SVG Overlay Layer: Interactive hover crosshairs and detail tooltip card (Light Mode).
  */
 export function ElevationTooltip({
   hoveredDistance,
@@ -22,20 +22,30 @@ export function ElevationTooltip({
   xScale,
   yScale,
 }: ElevationTooltipProps) {
-  if (hoveredDistance == null || !hoveredPoint) return null;
+  if (hoveredDistance === null || !hoveredPoint || width <= 0 || height <= 0) {
+    return null;
+  }
 
-  const x = xScale(hoveredDistance);
-  const y = yScale(hoveredPoint.elevation);
+  const px = xScale(hoveredDistance);
+  const py = yScale(hoveredPoint.elevation);
 
   const km = (hoveredDistance / 1000).toFixed(2);
   const ele = Math.round(hoveredPoint.elevation);
   const grade = hoveredPoint.grade.toFixed(1);
 
-  // Position tooltip box to avoid overflow
-  const tooltipWidth = 140;
-  const tooltipHeight = 58;
-  const boxX = Math.max(10, Math.min(width - tooltipWidth - 10, x > width / 2 ? x - tooltipWidth - 12 : x + 12));
-  const boxY = Math.max(10, Math.min(height - tooltipHeight - 10, y - tooltipHeight / 2));
+  // Position tooltip card cleanly
+  const cardWidth = 145;
+  const cardHeight = 65;
+  let cardX = px + 12;
+  if (cardX + cardWidth > width - 10) {
+    cardX = px - cardWidth - 12;
+  }
+
+  let cardY = py - cardHeight / 2;
+  if (cardY < 10) cardY = 10;
+  if (cardY + cardHeight > height - 10) cardY = height - cardHeight - 10;
+
+  const isSteep = hoveredPoint.grade > 6;
 
   return (
     <svg
@@ -49,59 +59,78 @@ export function ElevationTooltip({
         zIndex: 4,
       }}
     >
-      {/* Vertical Crosshair Line */}
+      {/* Vertical Crosshair Line (Light Mode) */}
       <line
-        x1={x}
+        x1={px}
         y1={0}
-        x2={x}
+        x2={px}
         y2={height}
-        stroke="rgba(255, 255, 255, 0.4)"
+        stroke="rgba(71, 85, 105, 0.4)"
+        strokeDasharray="3,3"
+        strokeWidth={1.5}
+      />
+
+      {/* Horizontal Crosshair Line */}
+      <line
+        x1={0}
+        y1={py}
+        x2={width}
+        y2={py}
+        stroke="rgba(71, 85, 105, 0.25)"
         strokeDasharray="3,3"
         strokeWidth={1}
       />
 
-      {/* Point Marker */}
-      <circle cx={x} cy={y} r={5} fill="#38bdf8" stroke="#ffffff" strokeWidth={2} />
+      {/* Hover Intersection Dot */}
+      <circle cx={px} cy={py} r={6} fill="#4f46e5" stroke="#ffffff" strokeWidth={2.5} />
 
-      {/* Tooltip Card */}
-      <g transform={`translate(${boxX}, ${boxY})`}>
+      {/* Tooltip Floating Card (Light Mode) */}
+      <g transform={`translate(${cardX}, ${cardY})`}>
+        {/* Card Shadow + Background */}
         <rect
-          width={tooltipWidth}
-          height={tooltipHeight}
+          x={0}
+          y={0}
+          width={cardWidth}
+          height={cardHeight}
           rx={8}
-          fill="rgba(15, 23, 42, 0.92)"
-          stroke="rgba(255, 255, 255, 0.15)"
+          fill="rgba(255, 255, 255, 0.96)"
+          stroke="rgba(203, 213, 225, 0.8)"
           strokeWidth={1}
-          filter="drop-shadow(0 4px 12px rgba(0,0,0,0.5))"
+          filter="drop-shadow(0 4px 6px rgba(0, 0, 0, 0.08))"
         />
 
-        {/* Distance & Elevation */}
-        <text x={10} y={18} fill="#38bdf8" fontSize={11} fontWeight="bold" fontFamily="Inter, sans-serif">
+        {/* Distance (km) */}
+        <text x={10} y={18} fill="#0f172a" fontSize={12} fontWeight="bold" fontFamily="Inter, sans-serif">
           {km} km
         </text>
-        <text x={tooltipWidth - 10} y={18} textAnchor="end" fill="#f8fafc" fontSize={11} fontWeight="600" fontFamily="Inter, sans-serif">
-          {ele} m ASL
+
+        {/* Elevation (m) */}
+        <text x={10} y={35} fill="#475569" fontSize={11} fontWeight="500" fontFamily="Inter, sans-serif">
+          Alt: <tspan fill="#0f172a" fontWeight="bold">{ele} m</tspan>
         </text>
 
-        {/* Slope grade */}
-        <text x={10} y={36} fill="#94a3b8" fontSize={10} fontFamily="Inter, sans-serif">
-          Gradient:
-        </text>
+        {/* Grade (%) */}
         <text
-          x={tooltipWidth - 10}
-          y={36}
-          textAnchor="end"
-          fill={parseFloat(grade) > 5 ? "#f43f5e" : parseFloat(grade) < 0 ? "#10b981" : "#cbd5e1"}
-          fontSize={10}
-          fontWeight="bold"
+          x={10}
+          y={52}
+          fill={isSteep ? "#e11d48" : "#475569"}
+          fontSize={10.5}
+          fontWeight={isSteep ? "bold" : "500"}
           fontFamily="Inter, sans-serif"
         >
-          {grade}%
+          Grade: {grade}% {isSteep && "⛰️"}
         </text>
 
-        {/* Coordinates */}
-        <text x={10} y={50} fill="#64748b" fontSize={9} fontFamily="Inter, sans-serif">
-          {hoveredPoint.lat.toFixed(4)}°, {hoveredPoint.lng.toFixed(4)}°
+        {/* Lat/Lng Subtext */}
+        <text
+          x={cardWidth - 8}
+          y={18}
+          textAnchor="end"
+          fill="#94a3b8"
+          fontSize={9}
+          fontFamily="Inter, sans-serif"
+        >
+          {hoveredPoint.lat.toFixed(4)}, {hoveredPoint.lng.toFixed(4)}
         </text>
       </g>
     </svg>

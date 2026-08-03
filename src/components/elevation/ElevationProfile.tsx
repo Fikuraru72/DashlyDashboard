@@ -14,6 +14,7 @@ import { ElevationTooltip } from "./ElevationTooltip";
 
 interface ElevationProfileProps {
   altitudeProfile: AltitudePoint[];
+  participants?: Record<string, any> | Map<string, any>;
   onChartClick?: (lat: number, lng: number, distance: number) => void;
   onChartHover?: (lat: number, lng: number, distance: number | null) => void;
 }
@@ -23,6 +24,7 @@ const ZOOM_FACTOR = 0.15; // 15% zoom per wheel tick
 
 export function ElevationProfile({
   altitudeProfile,
+  participants: participantsProp,
   onChartClick,
   onChartHover,
 }: ElevationProfileProps) {
@@ -51,8 +53,11 @@ export function ElevationProfile({
     resetZoom,
   } = useElevationStore();
 
-  const participants = useParticipantStore((state) => state.participants);
+  const storeParticipants = useParticipantStore((state) => state.participants);
   const selectedParticipantId = useParticipantStore((state) => state.selectedParticipantId);
+
+  // Fallback to store participants if prop is omitted
+  const activeParticipants = participantsProp ?? storeParticipants;
 
   // Initialize route data in store on mount/change
   useEffect(() => {
@@ -92,12 +97,10 @@ export function ElevationProfile({
       return { min: minElevation, max: maxElevation };
     }
 
-    // If not zoomed, use global min/max
     if (!zoomDomain) {
       return { min: minElevation, max: maxElevation };
     }
 
-    // Find min/max elevation within zoom window
     let zMin = Infinity;
     let zMax = -Infinity;
     for (const pt of chartData) {
@@ -126,44 +129,41 @@ export function ElevationProfile({
     );
   }, [zoomedElevationRange, dimensions.height]);
 
-  // ── Wheel Zoom Handler ────────────────────────────────────
-  const handleWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
+  // ── Native Non-Passive Wheel Listener (Fixes page zoom/scroll issue) ──
+  useEffect(() => {
+    const el = chartAreaRef.current;
+    if (!el) return;
+
+    const onWheelNative = (e: WheelEvent) => {
       e.preventDefault();
+      e.stopPropagation();
+
       if (dimensions.width <= 0 || totalDistance <= 0) return;
 
-      const rect = chartAreaRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      // Mouse position as distance on the route
+      const rect = el.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseDist = xScale.invert(mouseX);
 
       const [domMin, domMax] = effectiveDomain;
       const domRange = domMax - domMin;
 
-      // Zoom direction: scroll up = zoom in, scroll down = zoom out
       const zoomIn = e.deltaY < 0;
       const factor = zoomIn ? (1 - ZOOM_FACTOR) : (1 + ZOOM_FACTOR);
       let newRange = domRange * factor;
 
-      // Clamp minimum zoom range
       if (newRange < MIN_ZOOM_RANGE_METERS) {
         newRange = MIN_ZOOM_RANGE_METERS;
       }
 
-      // If zooming out past full range, reset
       if (newRange >= totalDistance) {
         resetZoom();
         return;
       }
 
-      // Maintain mouse position ratio within the domain
       const mouseRatio = (mouseDist - domMin) / domRange;
       let newMin = mouseDist - mouseRatio * newRange;
       let newMax = newMin + newRange;
 
-      // Clamp to [0, totalDistance]
       if (newMin < 0) {
         newMin = 0;
         newMax = newRange;
@@ -174,9 +174,13 @@ export function ElevationProfile({
       }
 
       setZoomDomain([newMin, newMax]);
-    },
-    [dimensions.width, totalDistance, xScale, effectiveDomain, resetZoom, setZoomDomain],
-  );
+    };
+
+    el.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheelNative);
+    };
+  }, [dimensions.width, totalDistance, xScale, effectiveDomain, resetZoom, setZoomDomain]);
 
   // Mouse / Touch Interaction Handlers
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -216,7 +220,7 @@ export function ElevationProfile({
     return (
       <div
         ref={containerRef}
-        className="w-full h-full min-h-[140px] flex flex-col bg-slate-900/90 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl"
+        className="w-full h-full min-h-[140px] flex flex-col bg-white/95 border border-slate-200/80 rounded-2xl overflow-hidden backdrop-blur-xl shadow-lg shadow-slate-200/50"
       >
         <div className="flex-1 flex items-center justify-center text-xs text-slate-400">
           Initializing elevation profile...
@@ -230,10 +234,10 @@ export function ElevationProfile({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full min-h-[140px] flex flex-col bg-slate-900/90 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl shadow-2xl transition-all duration-300"
+      className="w-full h-full min-h-[140px] flex flex-col bg-white/95 border border-slate-200/80 rounded-2xl overflow-hidden backdrop-blur-xl shadow-lg shadow-slate-200/50 transition-all duration-300"
     >
-      {/* Top Stats Header + Zoom Controls */}
-      <div className="flex items-center justify-between">
+      {/* Top Stats Header + Zoom Controls (Light Mode) */}
+      <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/90">
         <ElevationStats
           totalDistance={totalDistance}
           totalElevationGain={totalElevationGain}
@@ -246,17 +250,17 @@ export function ElevationProfile({
           {isZoomed && (
             <button
               onClick={resetZoom}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-400/20 rounded-md transition-all duration-150"
+              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-all duration-150 shadow-sm"
               title="Reset Zoom"
             >
               <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M1 1l5 5M15 1l-5 5M1 15l5-5M15 15l-5-5" strokeLinecap="round" />
                 <rect x="5" y="5" width="6" height="6" rx="1" />
               </svg>
-              Reset
+              Reset Zoom
             </button>
           )}
-          <span className="text-[9px] text-slate-500 hidden sm:inline">
+          <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
             Scroll to zoom
           </span>
         </div>
@@ -265,11 +269,10 @@ export function ElevationProfile({
       {/* Main Multi-Layer Chart Canvas Container */}
       <div
         ref={chartAreaRef}
-        className="relative flex-1 w-full cursor-crosshair overflow-hidden"
+        className="relative flex-1 w-full cursor-crosshair overflow-hidden bg-white"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
-        onWheel={handleWheel}
       >
         {/* Layer 1: Canvas Static Area Fill */}
         <ElevationCanvas
@@ -282,7 +285,7 @@ export function ElevationProfile({
 
         {/* Layer 2: Canvas Animated Participant Pointers (60fps rAF) */}
         <ElevationPointers
-          participants={participants}
+          participants={activeParticipants}
           width={dimensions.width}
           height={dimensions.height}
           xScale={xScale}
