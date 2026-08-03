@@ -84,7 +84,6 @@ const updateMarkerElement = (
   isStale: boolean = false,
   isAnomaly: boolean = false,
   userColor?: string,
-  isLeader: boolean = false,
 ) => {
   let coreColor = isAnomaly
     ? "#e11d48" // Bright RED — Stationary Incident
@@ -100,41 +99,11 @@ const updateMarkerElement = (
 
   el.className = "dashly-marker";
   el.innerHTML = `
-    ${
-      isLeader
-        ? `
-      <div style="
-        position: absolute;
-        bottom: 100%;
-        margin-bottom: 6px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: linear-gradient(135deg, #fbbf24, #f59e0b);
-        color: #78350f;
-        padding: 1.5px 6.5px;
-        border-radius: 9999px;
-        font-size: 8.5px;
-        font-weight: 900;
-        white-space: nowrap;
-        border: 1.5px solid #ffffff;
-        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.7);
-        z-index: 100;
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        pointer-events: none;
-      ">
-        👑 #1 LEAD
-      </div>
-    `
-        : ""
-    }
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
       <div style="
-        width: ${isLeader ? "22px" : "16px"};
-        height: ${isLeader ? "22px" : "16px"};
+        width: 16px; height: 16px;
         border-radius: 50%;
-        background: ${isLeader ? "#f59e0b50" : `${coreColor}35`};
+        background: ${coreColor}35;
         animation: ${!isStale ? "ping 2s cubic-bezier(0,0,0.2,1) infinite" : "none"};
       "></div>
     </div>
@@ -142,36 +111,35 @@ const updateMarkerElement = (
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: ${isLeader ? "14px" : "12px"};
-      height: ${isLeader ? "14px" : "12px"};
+      width: 12px; height: 12px;
       border-radius: 50%;
-      background: ${isLeader ? "#f59e0b" : coreColor};
+      background: ${coreColor};
       border: 2px solid #ffffff;
-      box-shadow: ${isLeader ? "0 0 12px rgba(245, 158, 11, 0.9), 0 2px 5px rgba(0,0,0,0.4)" : `0 2px 5px rgba(0,0,0,0.4), 0 0 6px ${coreColor}80`};
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 6px ${coreColor}80;
       transition: transform 0.2s ease;
     "></div>
     <div class="marker-tooltip" style="
       position: absolute;
       bottom: 100%;
-      margin-bottom: ${isLeader ? "30px" : "6px"};
+      margin-bottom: 6px;
       left: 50%;
       transform: translateX(-50%) translateY(4px);
-      background: ${isLeader ? "rgba(245, 158, 11, 0.95)" : "rgba(15, 23, 42, 0.92)"};
+      background: rgba(15, 23, 42, 0.92);
       backdrop-filter: blur(8px);
-      color: ${isLeader ? "#78350f" : "#ffffff"};
+      color: #ffffff;
       padding: 3px 8px;
       border-radius: 6px;
       font-size: 10.5px;
       font-weight: 800;
       white-space: nowrap;
-      border: 1px solid ${isLeader ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.15)"};
+      border: 1px solid rgba(255, 255, 255, 0.15);
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.15s ease, transform 0.15s ease;
       z-index: 120;
     ">
-      ${isLeader ? "👑 #1 " : ""}${displayName}
+      ${displayName}
     </div>
   `;
 };
@@ -182,7 +150,6 @@ const createPulseMarker = (
   isStale: boolean = false,
   isAnomaly: boolean = false,
   userColor?: string,
-  isLeader: boolean = false,
 ) => {
   const el = document.createElement("div");
   el.className = "dashly-marker";
@@ -191,12 +158,12 @@ const createPulseMarker = (
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    z-index: ${isLeader ? "10000" : "9999"} !important;
+    width: 24px;
+    height: 24px;
+    z-index: 9999 !important;
     cursor: pointer;
   `;
-  updateMarkerElement(el, displayName, status, isStale, isAnomaly, userColor, isLeader);
+  updateMarkerElement(el, displayName, status, isStale, isAnomaly, userColor);
 
   el.addEventListener("mouseenter", () => {
     el.style.zIndex = "99999";
@@ -210,7 +177,7 @@ const createPulseMarker = (
   });
 
   el.addEventListener("mouseleave", () => {
-    el.style.zIndex = "10";
+    el.style.zIndex = "9999";
     const tooltip = el.querySelector(".marker-tooltip") as HTMLElement | null;
     if (tooltip) {
       tooltip.style.opacity = "0";
@@ -364,6 +331,65 @@ export default function PublicEventMonitoringPage() {
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
   const { updateTarget: updateMarkerTarget } = useMapMarkerAnimation(markers);
   const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const elevationHoverMarker = useRef<maplibregl.Marker | null>(null);
+
+  const handleElevationHover = useCallback((lat: number, lng: number, distance: number | null) => {
+    if (!mapInstance.current) return;
+
+    if (distance !== null && lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng)) {
+      if (!elevationHoverMarker.current) {
+        const el = document.createElement("div");
+        el.className = "elevation-hover-arrow";
+        el.style.cssText = `
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          pointer-events: none;
+          z-index: 99999;
+          transform: translateY(-100%);
+        `;
+        el.innerHTML = `
+          <div class="hover-km-badge" style="
+            background: #2563eb;
+            color: #ffffff;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 9.5px;
+            font-weight: 900;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+            border: 1.5px solid #ffffff;
+            margin-bottom: 2px;
+          ">
+            📍 ${(distance / 1000).toFixed(2)} KM
+          </div>
+          <div style="
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 9px solid #2563eb;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+          "></div>
+        `;
+        elevationHoverMarker.current = new maplibregl.Marker({ element: el, anchor: "bottom" })
+          .setLngLat([lng, lat])
+          .addTo(mapInstance.current);
+      } else {
+        elevationHoverMarker.current.setLngLat([lng, lat]);
+        const badge = elevationHoverMarker.current.getElement().querySelector(".hover-km-badge");
+        if (badge) {
+          badge.textContent = `📍 ${(distance / 1000).toFixed(2)} KM`;
+        }
+      }
+    } else {
+      if (elevationHoverMarker.current) {
+        elevationHoverMarker.current.remove();
+        elevationHoverMarker.current = null;
+      }
+    }
+  }, []);
 
   const addKilometerMarkers = useCallback((map: maplibregl.Map, routeGeojson: any, isVisible: boolean) => {
     const coords = getRouteCoordinates(routeGeojson);
@@ -952,19 +978,53 @@ export default function PublicEventMonitoringPage() {
         const startPoint = coords[0];
         const finishPoint = coords[coords.length - 1];
 
+        // Start Marker (Compact Emerald Pill)
         const startEl = document.createElement("div");
-        startEl.className =
-          "flex items-center justify-center font-bold text-white text-xs bg-emerald-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
-        startEl.innerText = "START";
-        new maplibregl.Marker({ element: startEl })
+        startEl.innerHTML = `
+          <div style="
+            background: #10b981;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 900;
+            padding: 1.5px 5.5px;
+            border-radius: 9999px;
+            border: 1.5px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 2.5px;
+            pointer-events: none;
+          ">
+            <span style="font-size: 7px;">🟢</span> START
+          </div>
+        `;
+        new maplibregl.Marker({ element: startEl, anchor: "center" })
           .setLngLat([startPoint[0], startPoint[1]])
           .addTo(map);
 
+        // Finish Marker (Compact Rose Pill)
         const finishEl = document.createElement("div");
-        finishEl.className =
-          "flex items-center justify-center font-bold text-white text-xs bg-rose-500 rounded px-2 py-1 shadow-lg border border-white z-10 relative";
-        finishEl.innerText = "FINISH";
-        new maplibregl.Marker({ element: finishEl })
+        finishEl.innerHTML = `
+          <div style="
+            background: #e11d48;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 900;
+            padding: 1.5px 5.5px;
+            border-radius: 9999px;
+            border: 1.5px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 2.5px;
+            pointer-events: none;
+          ">
+            <span style="font-size: 7px;">🏁</span> FINISH
+          </div>
+        `;
+        new maplibregl.Marker({ element: finishEl, anchor: "center" })
           .setLngLat([finishPoint[0], finishPoint[1]])
           .addTo(map);
       }
@@ -1570,13 +1630,14 @@ export default function PublicEventMonitoringPage() {
         return;
       }
 
-      const isLeader = leaderUserId !== null && String(userId) === String(leaderUserId);
+      const rank = sortedParticipants.findIndex((p) => String(p.id) === String(userId)) + 1;
+      const rankStr = rank > 0 ? `${rank}` : "-";
       let marker = markers.current.get(userId);
       const isStale = isParticipantDisconnected(data);
       const pInfo = participantsInfo.current.get(String(userId));
       const rawName = pInfo?.name || (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) || `Participant ${String(userId).substring(0, 4)}`;
       const bibNum = pInfo?.bibNumber || data.bibNumber || "-";
-      const displayName = `No. ${bibNum} - ${rawName}`;
+      const displayName = `${rankStr}_${bibNum}_${rawName}`;
 
       if (!marker) {
         const el = createPulseMarker(
@@ -1585,7 +1646,6 @@ export default function PublicEventMonitoringPage() {
           isStale,
           data.isAnomaly,
           data.color,
-          isLeader,
         );
         marker = new maplibregl.Marker({
           element: el,
@@ -1599,7 +1659,7 @@ export default function PublicEventMonitoringPage() {
         // High Performance: Smooth 60fps lerp animation via rAF
         updateMarkerTarget(userId, data.lng, data.lat);
 
-        const stateKey = `${displayName}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}_${isLeader}`;
+        const stateKey = `${displayName}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}`;
         if ((marker as any).__stateKey !== stateKey) {
           (marker as any).__stateKey = stateKey;
           const el = marker.getElement();
@@ -1610,7 +1670,6 @@ export default function PublicEventMonitoringPage() {
             isStale,
             data.isAnomaly,
             data.color,
-            isLeader,
           );
         }
       }
@@ -2197,6 +2256,7 @@ export default function PublicEventMonitoringPage() {
                 });
               }
             }}
+            onChartHover={handleElevationHover}
           />
         </div>
       )}

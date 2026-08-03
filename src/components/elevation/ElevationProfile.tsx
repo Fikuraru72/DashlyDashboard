@@ -5,6 +5,7 @@ import { AltitudePoint } from "@/types/elevation";
 import { useElevationStore } from "@/store/useElevationStore";
 import { useParticipantStore } from "@/store/useParticipantStore";
 import { createLinearScale } from "@/lib/elevation/scales";
+import { interpolateAtDistance } from "@/lib/elevation/interpolation";
 
 import { ElevationStats } from "./ElevationStats";
 import { ElevationCanvas } from "./ElevationCanvas";
@@ -232,8 +233,13 @@ export function ElevationProfile({
 
     setHoveredDistance(dist);
 
-    if (onChartHover && hoveredPoint) {
-      onChartHover(hoveredPoint.lat, hoveredPoint.lng, dist);
+    if (onChartHover) {
+      const point = altitudeProfile ? interpolateAtDistance(altitudeProfile, dist) : null;
+      if (point) {
+        onChartHover(point.lat, point.lng, dist);
+      } else {
+        onChartHover(0, 0, null);
+      }
     }
   };
 
