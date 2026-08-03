@@ -1632,58 +1632,43 @@ export default function PublicEventMonitoringPage() {
         </div>
       )}
 
-      {/* Status Error Toast */}
-      {statusError && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-auto animate-in fade-in slide-in-from-top-5 duration-300">
-          <div className="bg-rose-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 font-bold text-xs border border-rose-400/30">
-            <AlertTriangle size={16} />
-            {statusError}
-          </div>
-        </div>
-      )}
-
-      {/* ── LEFT FLOATING PANEL: LEADERBOARD ── */}
+      {/* ── LEFT FLOATING PANEL: LEADERBOARD (Minimalist Compact Light Mode) ── */}
       <aside
-        className={`absolute left-2 sm:left-6 top-32 sm:top-24 w-[calc(100%-16px)] sm:w-80 flex flex-col rounded-3xl border border-white/10 bg-slate-900/90 sm:bg-slate-900/70 backdrop-blur-2xl z-30 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${showAltitudeChart && event?.altitudeProfile ? 'bottom-[136px] sm:bottom-[184px]' : 'bottom-20 sm:bottom-6'} ${showLeaderboard ? "translate-x-0 opacity-100 shadow-2xl shadow-indigo-950/20" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-4 top-[80px] sm:top-[88px] w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showLeaderboard ? "translate-x-0 opacity-100 shadow-xl shadow-slate-400/15" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
-        <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between rounded-t-3xl">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-3 mb-1">
-              <Trophy className="w-4 h-4 text-amber-500" />
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-100">
-                Live Ranking
-              </h2>
-            </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-              Sorted by performance
-            </p>
+        <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+              Live Ranking
+            </h2>
           </div>
           <button
             onClick={() => setShowLeaderboard(false)}
-            className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 transition-colors"
+            className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
           >
-            <X size={14} />
+            <X size={13} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
           {sortedParticipants.map((p, idx) => (
             <div
               key={p.id}
               onClick={() => goToParticipant(p.id)}
-              className={`p-3 rounded-2xl border transition-all cursor-pointer group relative overflow-hidden
+              className={`p-2 rounded-xl border transition-all cursor-pointer group relative overflow-hidden
                 ${
                   selectedUserId === p.id
-                    ? "bg-indigo-600/40 border-indigo-400/50 shadow-lg"
-                    : "bg-white/5 border-white/5 hover:bg-white/10"
+                    ? "bg-indigo-50 border-indigo-300 shadow-sm text-slate-900"
+                    : "bg-slate-50/80 border-slate-200/80 hover:bg-indigo-50/50 text-slate-900"
                 }
-                ${p.hasAlert ? "border-rose-500/50 bg-rose-500/10" : ""}
+                ${p.hasAlert ? "border-rose-300 bg-rose-50/90 text-rose-950" : ""}
               `}
             >
               <div className="flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0
                     ${
                       idx === 0
                         ? "bg-amber-500 text-amber-950"
@@ -1691,51 +1676,46 @@ export default function PublicEventMonitoringPage() {
                           ? "bg-slate-300 text-slate-900"
                           : idx === 2
                             ? "bg-orange-400 text-orange-950"
-                            : "bg-slate-800 text-white"
+                            : "bg-slate-200 text-slate-800"
                     }
                   `}
                   >
                     {idx + 1}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[13px] font-black text-white uppercase tracking-tight truncate w-32">
+                    <span className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate w-28">
                       {p.name || `User ${String(p.id).substring(0, 4)}`}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span
-                        className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline ? "text-slate-500" : "text-slate-400"}`}
+                        className={`text-[8.5px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline ? "text-slate-400" : "text-slate-500"}`}
                       >
                         <Signal
-                          className={`w-2.5 h-2.5 ${p.isOffline ? "text-slate-500" : "text-emerald-500"}`}
+                          className={`w-2.5 h-2.5 ${p.isOffline ? "text-slate-400" : "text-emerald-500"}`}
                         />
                         {p.isOffline ? "Offline" : "Connected"}
                       </span>
-                      {p.hasAlert && (
-                        <span className="text-[9px] font-black text-rose-400 animate-pulse uppercase">
-                          Incident!
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="text-right flex flex-col items-end">
-                  <div className="text-[13px] font-black text-white">
+                  <div className="text-[12px] font-black text-slate-900">
                     {(p.speed || 0).toFixed(1)}{" "}
-                    <span className="text-[8px] font-bold text-slate-400 uppercase">KM/H</span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase">KM/H</span>
                   </div>
                   <div className="flex items-center justify-end gap-1 mt-0.5">
                     <Zap
-                      className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-600" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
+                      className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-400" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">
+                    <span className="text-[9px] font-bold text-slate-500">
                       {p.battery != null ? `${p.battery}%` : "--%"}
                     </span>
                   </div>
-                  <div className="mt-1">
+                  <div className="mt-0.5">
                     <button
                       type="button"
-                      className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-[9px] font-bold text-white uppercase transition-colors"
+                      className="px-1.5 py-0.5 bg-slate-200/80 hover:bg-slate-300 rounded text-[8.5px] font-bold text-slate-800 uppercase transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         const pInfo = participantsInfo.current.get(String(p.id));
@@ -1760,9 +1740,9 @@ export default function PublicEventMonitoringPage() {
           ))}
 
           {sortedParticipants.length === 0 && (
-            <div className="flex flex-col items-center justify-center p-12 text-center opacity-50">
-              <Radio className="w-12 h-12 text-slate-600 mb-4 animate-pulse" />
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            <div className="flex flex-col items-center justify-center p-8 text-center opacity-50">
+              <Radio className="w-8 h-8 text-slate-400 mb-2 animate-pulse" />
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
                 Listening for Telemetry...
               </p>
             </div>
