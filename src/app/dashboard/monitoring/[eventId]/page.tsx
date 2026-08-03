@@ -331,10 +331,7 @@ export default function PublicEventMonitoringPage() {
   const { updateTarget: updateMarkerTarget } = useMapMarkerAnimation(markers);
   const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
 
-  const addKilometerMarkers = useCallback((map: maplibregl.Map, routeGeojson: any) => {
-    kmMarkersRef.current.forEach((m) => m.remove());
-    kmMarkersRef.current = [];
-
+  const addKilometerMarkers = useCallback((map: maplibregl.Map, routeGeojson: any, isVisible: boolean) => {
     const coords = getRouteCoordinates(routeGeojson);
     if (!coords || coords.length < 2) return;
 
@@ -352,6 +349,7 @@ export default function PublicEventMonitoringPage() {
 
     let accumulatedMeters = 0;
     let nextKmTarget = 1000;
+    const kmFeatures: any[] = [];
 
     for (let i = 1; i < coords.length; i++) {
       const [prevLng, prevLat] = coords[i - 1];
@@ -366,67 +364,58 @@ export default function PublicEventMonitoringPage() {
         const kmNum = Math.round(nextKmTarget / 1000);
 
         if (!isNaN(kmLng) && !isNaN(kmLat)) {
-          const el = document.createElement("div");
-          el.className = "dashly-km-badge";
-          el.style.cssText = `
-            background: rgba(255, 255, 255, 0.95);
-            color: #4f46e5;
-            border: 1.5px solid #4f46e5;
-            border-radius: 9999px;
-            padding: 1px 6px;
-            font-size: 9px;
-            font-weight: 800;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            pointer-events: none;
-            white-space: nowrap;
-            z-index: 5;
-            transition: opacity 0.2s ease, transform 0.2s ease;
-          `;
-          el.innerText = `${kmNum} KM`;
-
-          const m = new maplibregl.Marker({ element: el, anchor: "center" })
-            .setLngLat([kmLng, kmLat])
-            .addTo(map);
-
-          kmMarkersRef.current.push(m);
+          kmFeatures.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [kmLng, kmLat] },
+            properties: { title: `${kmNum} KM` },
+          });
         }
         nextKmTarget += 1000;
       }
-
       accumulatedMeters += segDist;
     }
 
-    // Dynamic zoom & toggle visibility listener for KM markers
-    const updateKmZoomVisibility = () => {
-      const zoom = map.getZoom();
-      kmMarkersRef.current.forEach((m) => {
-        const markerEl = m.getElement();
-        if (!markerEl) return;
-        if (zoom < 11) {
-          markerEl.style.display = "none";
-        } else if (zoom < 13.5) {
-          markerEl.style.display = "block";
-          markerEl.style.opacity = "0.35";
-          markerEl.style.transform = "scale(0.75)";
-        } else {
-          markerEl.style.display = "block";
-          markerEl.style.opacity = "1";
-          markerEl.style.transform = "scale(1)";
-        }
-      });
+    const geojson = {
+      type: "FeatureCollection",
+      features: kmFeatures,
     };
-    updateKmZoomVisibility();
-    map.on("zoom", updateKmZoomVisibility);
+
+    if (map.getSource("km-markers-source")) {
+      (map.getSource("km-markers-source") as maplibregl.GeoJSONSource).setData(geojson as any);
+    } else {
+      map.addSource("km-markers-source", { type: "geojson", data: geojson as any });
+      map.addLayer({
+        id: "km-markers-layer",
+        type: "symbol",
+        source: "km-markers-source",
+        minzoom: 11,
+        layout: {
+          "text-field": ["get", "title"],
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+          "text-size": 11,
+          "text-anchor": "center",
+          "text-allow-overlap": false,
+          "visibility": isVisible ? "visible" : "none",
+        },
+        paint: {
+          "text-color": "#4f46e5",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 2.5,
+          "text-halo-blur": 0.5,
+        },
+      });
+    }
   }, []);
 
-  // Sync KM markers toggle state
+  // Sync KM markers toggle state with MapLibre WebGL Layer
   useEffect(() => {
-    kmMarkersRef.current.forEach((m) => {
-      const el = m.getElement();
-      if (el) {
-        el.style.display = showKmMarkers ? "block" : "none";
-      }
-    });
+    if (mapInstance.current && mapInstance.current.getLayer("km-markers-layer")) {
+      mapInstance.current.setLayoutProperty(
+        "km-markers-layer",
+        "visibility",
+        showKmMarkers ? "visible" : "none",
+      );
+    }
   }, [showKmMarkers]);
 
   // ── Derived Data ────────────────────────────────────────────
@@ -908,8 +897,8 @@ export default function PublicEventMonitoringPage() {
         },
       });
 
-      // Add kilometer distance badges along the route
-      addKilometerMarkers(map, event.routeGeojson);
+      // Add kilometer distance badges along the route (WebGL Layer)
+      addKilometerMarkers(map, event.routeGeojson, showKmMarkers);
 
       // PILLAR 2: Signal map is ready — triggers Marker Sync useEffect
       setMapIsReady(true);
@@ -1874,7 +1863,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── LEFT FLOATING PANEL: LEADERBOARD (Minimalist Compact) ── */}
       <aside
-        className={`absolute left-2 sm:left-4 top-20 sm:top-16 w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showLeaderboard ? "translate-x-0 opacity-100 shadow-xl shadow-slate-400/15" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute left-2 sm:left-4 top-[80px] sm:top-[88px] w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showLeaderboard ? "translate-x-0 opacity-100 shadow-xl shadow-slate-400/15" : "-translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2">
@@ -2002,7 +1991,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── RIGHT FLOATING PANEL: ALERTS (Minimalist Compact) ── */}
       <aside
-        className={`absolute right-2 sm:right-4 top-20 sm:top-16 w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showAlerts ? "translate-x-0 opacity-100 shadow-xl shadow-rose-950/10" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
+        className={`absolute right-2 sm:right-4 top-[80px] sm:top-[88px] w-[calc(100%-16px)] sm:w-64 flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl z-30 bottom-4 sm:bottom-6 transition-all duration-300 ease-out ${showAlerts ? "translate-x-0 opacity-100 shadow-xl shadow-rose-950/10" : "translate-x-[calc(100%+24px)] opacity-0 pointer-events-none"}`}
       >
         <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2">
@@ -2139,7 +2128,7 @@ export default function PublicEventMonitoringPage() {
 
       {/* ── DOCKED BOTTOM SECTION: ELEVATION PROFILE CHART (Light Mode Container) ── */}
       {showAltitudeChart && event?.altitudeProfile && (
-        <div className="w-full h-[200px] sm:h-[220px] bg-slate-100/90 border-t border-slate-200 shadow-xl z-30 shrink-0 p-2 relative transition-all">
+        <div className="w-full h-[260px] sm:h-[280px] bg-slate-100/90 border-t border-slate-200 shadow-xl z-30 shrink-0 p-2 relative transition-all">
           <ElevationProfile
             altitudeProfile={event.altitudeProfile}
             participants={participants}
