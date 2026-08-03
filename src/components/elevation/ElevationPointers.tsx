@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScaleLinear } from "@/lib/elevation/scales";
 import { useElevationStore } from "@/store/useElevationStore";
 import { findNearestProfileDistance, interpolateAtDistance } from "@/lib/elevation/interpolation";
@@ -31,6 +31,7 @@ interface PointerAnimationState {
  * Canvas Layer 2: Dynamic participant pointers animated at 60fps via rAF.
  * Mutates internal lerp states in refs to avoid React re-render thrashing.
  * Supports both Map<string, any> and Record<string, any> for participants.
+ * Renders tooltip on pointer hover displaying [BIB Number] - [Full Name].
  */
 export function ElevationPointers({
   participants,
@@ -43,6 +44,7 @@ export function ElevationPointers({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animStatesRef = useRef<Map<string, PointerAnimationState>>(new Map());
   const rAfIdRef = useRef<number | null>(null);
+  const hoveredPointerIdRef = useRef<string | null>(null);
 
   const altitudeProfile = useElevationStore((state) => state.altitudeProfile);
 
@@ -82,11 +84,19 @@ export function ElevationPointers({
 
       if (targetDist == null || targetElev == null) continue;
 
+      const bibText = p.bibNumber && p.bibNumber !== "-" ? p.bibNumber : "";
+      const rawName = p.name || `User ${id.substring(0, 4)}`;
+      // Ensure clean name without duplicate BIB
+      const cleanName = bibText && rawName.startsWith(`${bibText} - `)
+        ? rawName.replace(`${bibText} - `, "")
+        : rawName;
+
       const existing = animMap.get(id);
       if (!existing) {
         animMap.set(id, {
           id,
-          name: p.name || `User ${id.substring(0, 4)}`,
+          name: cleanName,
+          bibNumber: bibText,
           targetDistance: targetDist,
           targetElevation: targetElev,
           displayDistance: targetDist,
@@ -95,6 +105,8 @@ export function ElevationPointers({
           rank: p.rank,
         });
       } else {
+        existing.name = cleanName;
+        existing.bibNumber = bibText;
         existing.targetDistance = targetDist;
         existing.targetElevation = targetElev;
         existing.status = p.status || "active";
@@ -128,6 +140,7 @@ export function ElevationPointers({
       ctx.clearRect(0, 0, width, height);
 
       const animMap = animStatesRef.current;
+      const hoveredId = hoveredPointerIdRef.current;
 
       // ── 1. Update lerp positions ─────────────────────────────
       for (const p of animMap.values()) {
@@ -152,58 +165,64 @@ export function ElevationPointers({
         }
       }
 
-      // ── 3. Batch render unselected pointers (Light Mode: Sky-600 dot with crisp white border) ─
+      // ── 3. Batch render unselected pointers ─────────────────
       ctx.beginPath();
       for (const p of activePointers) {
-        if (p.id === selectedParticipantId) continue;
+        if (p.id === selectedParticipantId || p.id === hoveredId) continue;
         const px = xScale(p.displayDistance);
         const py = yScale(p.displayElevation);
 
         ctx.moveTo(px + 5, py);
         ctx.arc(px, py, 5, 0, Math.PI * 2);
       }
-      ctx.fillStyle = "#0284c7"; // Sky-600 (vibrant cyan/blue in light mode)
+      ctx.fillStyle = "#0284c7"; // Sky-600
       ctx.fill();
-      ctx.strokeStyle = "#ffffff"; // Crisp white border
+      ctx.strokeStyle = "#ffffff"; // White border
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // ── 4. Render selected participant pointer + halo label ─
-      if (selectedParticipantId) {
-        const selected = animMap.get(selectedParticipantId);
-        if (selected) {
-          const px = xScale(selected.displayDistance);
-          const py = yScale(selected.displayElevation);
+      // ── 4. Render hovered/selected participant pointer + label ─
+      const highlightId = hoveredId || selectedParticipantId;
+      if (highlightId) {
+        const targetPtr = animMap.get(highlightId);
+        if (targetPtr) {
+          const px = xScale(targetPtr.displayDistance);
+          const py = yScale(targetPtr.displayElevation);
+
+          const isSelected = highlightId === selectedParticipantId;
+          const color = isSelected ? "#e11d48" : "#0284c7";
 
           // Pulsing halo
           ctx.beginPath();
           ctx.arc(px, py, 13, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(225, 29, 72, 0.18)"; // Rose halo
+          ctx.fillStyle = isSelected ? "rgba(225, 29, 72, 0.2)" : "rgba(2, 132, 199, 0.2)";
           ctx.fill();
 
-          // Selected Dot
+          // Highlighted Dot
           ctx.beginPath();
           ctx.arc(px, py, 7.5, 0, Math.PI * 2);
-          ctx.fillStyle = "#e11d48"; // Rose-600
+          ctx.fillStyle = color;
           ctx.fill();
           ctx.strokeStyle = "#ffffff";
           ctx.lineWidth = 2.5;
           ctx.stroke();
 
-          // Label tooltip above pointer (Light Mode card)
-          const labelText = selected.name || `User ${selected.id}`;
+          // Label tooltip format: BIB - Full Name
+          const bibPrefix = targetPtr.bibNumber ? `${targetPtr.bibNumber} - ` : "";
+          const labelText = `${bibPrefix}${targetPtr.name}`;
+
           ctx.font = "bold 11px Inter, sans-serif";
           const textWidth = ctx.measureText(labelText).width;
 
           const labelX = Math.max(10, Math.min(width - textWidth - 18, px - textWidth / 2 - 9));
           const labelY = Math.max(20, py - 20);
 
-          // Label pill background
-          ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+          // Label pill background (Light Mode)
+          ctx.fillStyle = "rgba(255, 255, 255, 0.96)";
           ctx.beginPath();
           ctx.roundRect(labelX, labelY, textWidth + 18, 22, 6);
           ctx.fill();
-          ctx.strokeStyle = "rgba(225, 29, 72, 0.4)";
+          ctx.strokeStyle = isSelected ? "rgba(225, 29, 72, 0.5)" : "rgba(2, 132, 199, 0.5)";
           ctx.lineWidth = 1.5;
           ctx.stroke();
 
@@ -226,16 +245,47 @@ export function ElevationPointers({
     };
   }, [width, height, xScale, yScale, selectedParticipantId]);
 
+  // Proximity mouse hover detection for participant pointer tooltip
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || width <= 0 || height <= 0) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    let closestId: string | null = null;
+    let closestDistSq = 14 * 14; // 14px hit radius
+
+    for (const p of animStatesRef.current.values()) {
+      const px = xScale(p.displayDistance);
+      const py = yScale(p.displayElevation);
+      const dx = px - mx;
+      const dy = py - my;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= closestDistSq) {
+        closestDistSq = distSq;
+        closestId = p.id;
+      }
+    }
+
+    hoveredPointerIdRef.current = closestId;
+  };
+
+  const handleMouseLeave = () => {
+    hoveredPointerIdRef.current = null;
+  };
+
   return (
     <canvas
       ref={canvasRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       style={{
         position: "absolute",
         left: 0,
         top: 0,
         width: `${width}px`,
         height: `${height}px`,
-        pointerEvents: "none",
+        pointerEvents: "auto",
         zIndex: 2,
       }}
     />

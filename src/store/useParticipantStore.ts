@@ -168,7 +168,15 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
 
   addAnomaly: (anomaly) =>
     set((state) => {
-      const pId = anomaly.userId || anomaly.participantId;
+      const pId = String(anomaly.userId || anomaly.participantId || "");
+      const type = anomaly.type;
+
+      // Deduplication check: if active anomaly for same participant & type exists within 15 minutes, skip duplicate
+      const isDuplicate = state.anomalies.some((a) => {
+        const aPid = String(a.userId || a.participantId || "");
+        return aPid === pId && a.type === type;
+      });
+
       const participants = { ...state.participants };
       if (pId && participants[pId]) {
         participants[pId] = {
@@ -178,13 +186,17 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
         };
       }
 
+      if (isDuplicate) {
+        return { participants };
+      }
+
       const newAnomaly = {
         ...anomaly,
         id: anomaly.id || `anomaly-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       };
 
       return {
-        anomalies: [newAnomaly, ...state.anomalies].slice(0, 50), // keep last 50
+        anomalies: [newAnomaly, ...state.anomalies].slice(0, 50),
         participants,
       };
     }),
@@ -196,15 +208,16 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
       const participants = { ...state.participants };
 
       if (target) {
-        const pId = target.userId || target.participantId;
+        const pId = String(target.userId || target.participantId || "");
         if (pId && participants[pId]) {
           const hasOtherAnomalies = remaining.some(
-            (a) => (a.userId || a.participantId) === pId,
+            (a) => String(a.userId || a.participantId || "") === pId,
           );
           if (!hasOtherAnomalies) {
             participants[pId] = {
               ...participants[pId],
               isAnomaly: false,
+              status: "active",
             };
           }
         }

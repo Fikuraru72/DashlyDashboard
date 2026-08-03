@@ -35,6 +35,12 @@ export function ElevationProfile({
     height: 0,
   });
 
+  // Drag-pan state for zoomed chart
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartDomainRef = useRef<[number, number] | null>(null);
+  const [isGrabbing, setIsGrabbing] = useState(false);
+
   // Stores
   const {
     chartData,
@@ -182,9 +188,42 @@ export function ElevationProfile({
     };
   }, [dimensions.width, totalDistance, xScale, effectiveDomain, resetZoom, setZoomDomain]);
 
-  // Mouse / Touch Interaction Handlers
+  // ── Drag-Pan Handlers for Zoomed Chart ───────────────────────
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (zoomDomain !== null) {
+      isDraggingRef.current = true;
+      dragStartXRef.current = e.clientX;
+      dragStartDomainRef.current = [...zoomDomain] as [number, number];
+      setIsGrabbing(true);
+    }
+  };
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!chartAreaRef.current || dimensions.width <= 0) return;
+
+    // Handle horizontal drag-panning when zoomed
+    if (isDraggingRef.current && dragStartDomainRef.current) {
+      const deltaX = e.clientX - dragStartXRef.current;
+      const domainRange = dragStartDomainRef.current[1] - dragStartDomainRef.current[0];
+      const deltaDist = -(deltaX / dimensions.width) * domainRange;
+
+      let newMin = dragStartDomainRef.current[0] + deltaDist;
+      let newMax = dragStartDomainRef.current[1] + deltaDist;
+
+      if (newMin < 0) {
+        newMin = 0;
+        newMax = domainRange;
+      }
+      if (newMax > totalDistance) {
+        newMax = totalDistance;
+        newMin = Math.max(0, totalDistance - domainRange);
+      }
+
+      setZoomDomain([newMin, newMax]);
+      return;
+    }
+
+    // Hover crosshair distance lookup
     const rect = chartAreaRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const dist = Math.max(0, Math.min(totalDistance, xScale.invert(mouseX)));
@@ -196,7 +235,18 @@ export function ElevationProfile({
     }
   };
 
+  const handleMouseUp = () => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      setIsGrabbing(false);
+    }
+  };
+
   const handleMouseLeave = () => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      setIsGrabbing(false);
+    }
     setHoveredDistance(null);
     if (onChartHover) {
       onChartHover(0, 0, null);
@@ -204,6 +254,9 @@ export function ElevationProfile({
   };
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Ignore click if user was dragging/panning
+    if (isDraggingRef.current) return;
+
     if (!chartAreaRef.current || dimensions.width <= 0) return;
     const rect = chartAreaRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -230,6 +283,11 @@ export function ElevationProfile({
   }
 
   const isZoomed = zoomDomain !== null;
+  const cursorStyle = isGrabbing
+    ? "cursor-grabbing"
+    : isZoomed
+    ? "cursor-grab"
+    : "cursor-crosshair";
 
   return (
     <div
@@ -261,7 +319,7 @@ export function ElevationProfile({
             </button>
           )}
           <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
-            Scroll to zoom
+            {isZoomed ? "Drag to pan / Scroll to zoom" : "Scroll to zoom"}
           </span>
         </div>
       </div>
@@ -269,8 +327,10 @@ export function ElevationProfile({
       {/* Main Multi-Layer Chart Canvas Container */}
       <div
         ref={chartAreaRef}
-        className="relative flex-1 w-full cursor-crosshair overflow-hidden bg-white"
+        className={`relative flex-1 w-full overflow-hidden bg-white ${cursorStyle}`}
+        onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
       >
