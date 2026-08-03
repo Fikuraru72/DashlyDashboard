@@ -840,14 +840,14 @@ export default function PublicEventMonitoringPage() {
     mapInstance.current = map;
 
     map.on("load", () => {
-      // Add Navigation control with pitch visualization
+      // Add Navigation control at bottom-right (clears top of map)
       map.addControl(
         new maplibregl.NavigationControl({
           visualizePitch: true,
           showCompass: true,
           showZoom: true,
         }),
-        "top-right",
+        "bottom-right",
       );
 
       // Add 3D Terrain DEM Elevation Source

@@ -12,7 +12,8 @@ interface ElevationTooltipProps {
 }
 
 /**
- * SVG Overlay Layer: Interactive hover crosshairs and detail tooltip card (Light Mode).
+ * SVG Overlay Layer: Interactive hover crosshairs and single-line minimalist tooltip pill.
+ * Formatted as 1 line: "5.26 km | Alt: 782 m" pinned to top of chart to prevent blocking participant labels.
  */
 export function ElevationTooltip({
   hoveredDistance,
@@ -31,21 +32,15 @@ export function ElevationTooltip({
 
   const km = (hoveredDistance / 1000).toFixed(2);
   const ele = Math.round(hoveredPoint.elevation);
-  const grade = hoveredPoint.grade.toFixed(1);
 
-  // Position tooltip card cleanly
-  const cardWidth = 145;
-  const cardHeight = 65;
-  let cardX = px + 12;
-  if (cardX + cardWidth > width - 10) {
-    cardX = px - cardWidth - 12;
-  }
+  // Single-line minimalist text
+  const labelText = `${km} km  |  Alt: ${ele} m`;
+  const pillWidth = 140;
+  const pillHeight = 22;
 
-  let cardY = py - cardHeight / 2;
-  if (cardY < 10) cardY = 10;
-  if (cardY + cardHeight > height - 10) cardY = height - cardHeight - 10;
-
-  const isSteep = hoveredPoint.grade > 6;
+  // Pin pill to top edge of chart (y = 6) so it never covers participant name tooltips (which hover at py - 20)
+  const pillX = Math.max(8, Math.min(width - pillWidth - 8, px - pillWidth / 2));
+  const pillY = 6;
 
   return (
     <svg
@@ -59,7 +54,7 @@ export function ElevationTooltip({
         zIndex: 4,
       }}
     >
-      {/* Vertical Crosshair Line (Light Mode) */}
+      {/* Vertical Crosshair Line (Dashed Slate) */}
       <line
         x1={px}
         y1={0}
@@ -82,55 +77,34 @@ export function ElevationTooltip({
       />
 
       {/* Hover Intersection Dot */}
-      <circle cx={px} cy={py} r={6} fill="#4f46e5" stroke="#ffffff" strokeWidth={2.5} />
+      <circle cx={px} cy={py} r={5} fill="#4f46e5" stroke="#ffffff" strokeWidth={2} />
 
-      {/* Tooltip Floating Card (Light Mode) */}
-      <g transform={`translate(${cardX}, ${cardY})`}>
-        {/* Card Shadow + Background */}
+      {/* Minimalist 1-Line Tooltip Pill at Top of Canvas */}
+      <g transform={`translate(${pillX}, ${pillY})`}>
+        {/* Pill Background */}
         <rect
           x={0}
           y={0}
-          width={cardWidth}
-          height={cardHeight}
-          rx={8}
-          fill="rgba(255, 255, 255, 0.96)"
-          stroke="rgba(203, 213, 225, 0.8)"
+          width={pillWidth}
+          height={pillHeight}
+          rx={6}
+          fill="rgba(255, 255, 255, 0.95)"
+          stroke="rgba(203, 213, 225, 0.9)"
           strokeWidth={1}
-          filter="drop-shadow(0 4px 6px rgba(0, 0, 0, 0.08))"
+          filter="drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08))"
         />
 
-        {/* Distance (km) */}
-        <text x={10} y={18} fill="#0f172a" fontSize={12} fontWeight="bold" fontFamily="Inter, sans-serif">
-          {km} km
-        </text>
-
-        {/* Elevation (m) */}
-        <text x={10} y={35} fill="#475569" fontSize={11} fontWeight="500" fontFamily="Inter, sans-serif">
-          Alt: <tspan fill="#0f172a" fontWeight="bold">{ele} m</tspan>
-        </text>
-
-        {/* Grade (%) */}
+        {/* 1-Line Label Text: Distance | Elevation */}
         <text
-          x={10}
-          y={52}
-          fill={isSteep ? "#e11d48" : "#475569"}
-          fontSize={10.5}
-          fontWeight={isSteep ? "bold" : "500"}
+          x={pillWidth / 2}
+          y={15}
+          textAnchor="middle"
+          fill="#0f172a"
+          fontSize={11}
+          fontWeight="bold"
           fontFamily="Inter, sans-serif"
         >
-          Grade: {grade}% {isSteep && "⛰️"}
-        </text>
-
-        {/* Lat/Lng Subtext */}
-        <text
-          x={cardWidth - 8}
-          y={18}
-          textAnchor="end"
-          fill="#94a3b8"
-          fontSize={9}
-          fontFamily="Inter, sans-serif"
-        >
-          {hoveredPoint.lat.toFixed(4)}, {hoveredPoint.lng.toFixed(4)}
+          {labelText}
         </text>
       </g>
     </svg>
