@@ -1194,18 +1194,80 @@ export default function PublicEventMonitoringPage() {
           // Keep React state updated for the sidebar leaderboard list, but it no longer controls the map markers
           setParticipants((prev) => {
             const next = new Map(prev);
+            const now = Date.now();
             newParticipants.forEach(({ data, lat, lng }, userId) => {
               const current = next.get(userId) || { id: userId, pathHistory: [] };
               const newHistory = [...(current.pathHistory || []), [lng, lat]];
               const isOfflineNormalized = isParticipantOffline(data.isOffline);
+              const speed = typeof data.speed === "number" ? data.speed : parseFloat(data.speed) || 0;
+
+              // Long-stop tracking (speed <= 0.5 km/h for >= 3 min / 180,000ms)
+              let stoppedSince = current.stoppedSince;
+              if (speed <= 0.5) {
+                if (!stoppedSince) stoppedSince = now;
+              } else {
+                stoppedSince = undefined;
+              }
+              const isStoppedLong = stoppedSince && now - stoppedSince >= 180000;
+
+              // Off-route check
+              const rawStatus = (data.status || data.type || "").toString().toLowerCase();
+              const isOffRouteSignal =
+                rawStatus.includes("off_route") ||
+                rawStatus.includes("off-route") ||
+                data.isOffRoute === true ||
+                (data.offRouteDistance != null && parseFloat(data.offRouteDistance) > 30);
+
+              let finalIsAnomaly = current.isAnomaly || false;
+              let finalStatus = current.status || "active";
+
+              if (isOfflineNormalized) {
+                finalStatus = "inactive";
+              } else if (isStoppedLong) {
+                finalIsAnomaly = true;
+                finalStatus = "stopped";
+                useParticipantStore.getState().addAnomaly({
+                  id: `stop-${userId}-${Math.floor(stoppedSince! / 60000)}`,
+                  userId,
+                  participantId: userId,
+                  type: "STOP",
+                  message: `${current.name || `User ${userId}`} terdeteksi berhenti lebih dari 3 menit!`,
+                  timestamp: new Date().toISOString(),
+                  severity: "warning",
+                });
+              } else if (isOffRouteSignal) {
+                finalIsAnomaly = true;
+                finalStatus = "off-route";
+                useParticipantStore.getState().addAnomaly({
+                  id: `offroute-${userId}-${Math.floor(now / 60000)}`,
+                  userId,
+                  participantId: userId,
+                  type: "OFF_ROUTE",
+                  message: `${current.name || `User ${userId}`} terdeteksi keluar dari jalur resmi!`,
+                  timestamp: new Date().toISOString(),
+                  severity: "danger",
+                });
+              } else if (current.isAnomaly && speed > 1.5) {
+                // Participant recovered movement -> resolve anomaly
+                finalIsAnomaly = false;
+                finalStatus = "active";
+              } else if (!current.isAnomaly) {
+                if (rawStatus.includes("stop") || rawStatus === "stuck") finalStatus = "stopped";
+                else if (rawStatus.includes("emergency") || rawStatus.includes("sos")) finalStatus = "emergency";
+                else if (rawStatus.includes("finish")) finalStatus = "finished";
+                else finalStatus = "active";
+              }
+
               next.set(userId, {
                 ...current,
                 ...data,
                 isOffline: isOfflineNormalized,
-                status: isOfflineNormalized ? "inactive" : data.status,
+                isAnomaly: finalIsAnomaly,
+                status: finalStatus,
+                stoppedSince,
                 lat,
                 lng,
-                lastUpdate: Date.now(),
+                lastUpdate: now,
                 pathHistory: newHistory,
               });
             });
