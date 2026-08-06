@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 
 // ── Configuration ────────────────────────────────────────────────
-const BUFFER_DELAY_MS = 1500; // 1.5 second playback buffer for smooth interpolation
+const BUFFER_DELAY_MS = 6000; // 6.0 second playback buffer for smooth 60fps interpolation
 const MAX_QUEUE_SIZE = 30;    // Max waypoints per participant before garbage collection
 const MAX_EXTRAP_MS = 2500;   // Max dead reckoning extrapolation duration (2.5s)
 
