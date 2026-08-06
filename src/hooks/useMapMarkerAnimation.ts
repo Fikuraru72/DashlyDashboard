@@ -5,7 +5,7 @@ import maplibregl from "maplibre-gl";
 
 // ── Configuration ────────────────────────────────────────────────
 const BUFFER_DELAY_MS = 6000; // 6.0 second playback buffer for smooth 60fps interpolation
-const MAX_QUEUE_SIZE = 30;    // Max waypoints per participant before garbage collection
+const MAX_QUEUE_SIZE = 500;   // Allow large batch sync queues without dropping points
 const MAX_EXTRAP_MS = 2500;   // Max dead reckoning extrapolation duration (2.5s)
 
 // ── Types ────────────────────────────────────────────────────────
@@ -14,6 +14,7 @@ export interface TelemetryWaypoint {
   lat: number;
   time: number;       // Arrival timestamp (ms) — used for virtual playback
   speed?: number;
+  routeDistance?: number;
   // Synchronized event state — delivered to callback when this waypoint is consumed
   status?: string;
   isAnomaly?: boolean;
@@ -35,20 +36,23 @@ interface ParticipantPlaybackState {
   queue: TelemetryWaypoint[];
   displayLng: number;
   displayLat: number;
+  displayRouteDistance?: number;
   // Velocity vectors for dead reckoning (degrees per millisecond)
   vLng: number;
   vLat: number;
   extrapolatedMs: number;
+  // Virtual clock playback offset per participant for smooth fast-replay
+  playbackTime: number;
   // The last consumed waypoint
   lastConsumed: TelemetryWaypoint | null;
 }
 
 /**
- * useMapMarkerAnimation — Continuous Motion & Event Sync Engine
+ * useMapMarkerAnimation — Continuous Motion & Fast Replay Event Sync Engine
  *
  * 60 FPS continuous motion engine with:
  * - FIFO timestamped waypoint queue per participant
- * - Virtual playback clock (t_render = Date.now() - BUFFER_DELAY_MS)
+ * - Adaptive Fast-Replay for batch offline sync (2x-8x speedup when queue backs up)
  * - Time-based linear interpolation between waypoints
  * - Smooth dead reckoning extrapolation on network lag
  * - Synchronized event callback when waypoints are consumed
@@ -61,6 +65,7 @@ export function useMapMarkerAnimation(
   const rAfIdRef = useRef<number | null>(null);
   const isRunningRef = useRef(false);
   const onWaypointConsumedRef = useRef(onWaypointConsumed);
+  const lastFrameTimeRef = useRef<number>(Date.now());
 
   // Keep callback ref fresh without triggering re-renders
   useEffect(() => {
@@ -69,6 +74,7 @@ export function useMapMarkerAnimation(
 
   /**
    * Push a new GPS telemetry waypoint into a participant's buffer queue.
+   * Supports both single real-time pings and batch arrays (from offline reconnection).
    */
   const pushWaypoint = useCallback(
     (
@@ -83,6 +89,7 @@ export function useMapMarkerAnimation(
         isStale?: boolean;
         color?: string;
         displayName?: string;
+        routeDistance?: number;
       },
     ) => {
       if (isNaN(lng) || isNaN(lat)) return;
@@ -92,12 +99,13 @@ export function useMapMarkerAnimation(
       let state = stateMap.get(userId);
 
       if (!state) {
-        // Initial load: Set waypoint time relative to buffer so marker renders immediately
+        // Initial load: Set initial playback time to now - BUFFER_DELAY_MS
         const initialWaypoint: TelemetryWaypoint = {
           lng,
           lat,
           time: now - BUFFER_DELAY_MS,
           speed,
+          routeDistance: eventState?.routeDistance,
           ...eventState,
         };
 
@@ -105,16 +113,18 @@ export function useMapMarkerAnimation(
           queue: [initialWaypoint],
           displayLng: lng,
           displayLat: lat,
+          displayRouteDistance: eventState?.routeDistance,
           vLng: 0,
           vLat: 0,
           extrapolatedMs: 0,
+          playbackTime: now - BUFFER_DELAY_MS,
           lastConsumed: initialWaypoint,
         };
         stateMap.set(userId, state);
       } else {
         const tail = state.queue[state.queue.length - 1];
 
-        // Skip duplicate coordinate noise
+        // Skip exact duplicate coordinate noise
         if (
           tail &&
           Math.abs(tail.lng - lng) < 0.0000005 &&
@@ -129,28 +139,58 @@ export function useMapMarkerAnimation(
         const newWaypoint: TelemetryWaypoint = {
           lng,
           lat,
-          time: now, // Real arrival time on client
+          time: timestamp || now,
           speed,
+          routeDistance: eventState?.routeDistance,
           ...eventState,
         };
 
         state.queue.push(newWaypoint);
         state.extrapolatedMs = 0; // Reset extrapolation timer
 
-        // Garbage collection if queue grows too large
+        // Safety cap if queue grows excessively large (>500)
         if (state.queue.length > MAX_QUEUE_SIZE) {
-          state.queue = state.queue.slice(-10);
+          state.queue = state.queue.slice(-100);
         }
       }
 
       // Start loop if idle
       if (!isRunningRef.current) {
         isRunningRef.current = true;
+        lastFrameTimeRef.current = Date.now();
         rAfIdRef.current = requestAnimationFrame(animate);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
+  );
+
+  /**
+   * Push a batch array of waypoints (e.g. from offline reconnection)
+   */
+  const pushWaypointBatch = useCallback(
+    (
+      userId: string,
+      waypoints: Array<{
+        lng: number;
+        lat: number;
+        speed?: number;
+        timestamp?: number;
+        eventState?: {
+          status?: string;
+          isAnomaly?: boolean;
+          isStale?: boolean;
+          color?: string;
+          displayName?: string;
+          routeDistance?: number;
+        };
+      }>,
+    ) => {
+      waypoints.forEach((wp) => {
+        pushWaypoint(userId, wp.lng, wp.lat, wp.speed, wp.timestamp, wp.eventState);
+      });
+    },
+    [pushWaypoint],
   );
 
   /**
@@ -171,11 +211,13 @@ export function useMapMarkerAnimation(
   }, []);
 
   /**
-   * Main 60 FPS animation loop — Time-Based Linear Interpolation
+   * Main 60 FPS animation loop — Time-Based Linear Interpolation + Adaptive Fast Replay
    */
   const animate = useCallback(() => {
     const now = Date.now();
-    const tRender = now - BUFFER_DELAY_MS;
+    const dtReal = Math.min(100, Math.max(1, now - lastFrameTimeRef.current));
+    lastFrameTimeRef.current = now;
+
     const stateMap = stateMapRef.current;
     const markers = markersRef.current;
     let anyActive = false;
@@ -185,6 +227,29 @@ export function useMapMarkerAnimation(
       if (!marker) continue;
 
       const queue = state.queue;
+
+      // ── Adaptive Fast-Replay Speed Calculation ────────────────
+      // If queue has accumulated offline batch points (>3), accelerate playback
+      // so the marker smoothly fast-forwards through offline points without teleporting.
+      let speedMultiplier = 1.0;
+      if (queue.length > 20) {
+        speedMultiplier = 6.0; // Fast replay for 20+ offline points
+      } else if (queue.length > 10) {
+        speedMultiplier = 3.5;
+      } else if (queue.length > 4) {
+        speedMultiplier = 2.0;
+      }
+
+      // Advance virtual playback time for this participant
+      state.playbackTime += dtReal * speedMultiplier;
+
+      // Target virtual time (upper bound: now - 500ms to stay just behind real-time)
+      const maxVirtualTime = now - 500;
+      if (state.playbackTime > maxVirtualTime && queue.length <= 2) {
+        state.playbackTime = maxVirtualTime;
+      }
+
+      const tRender = state.playbackTime;
 
       // ── Phase 1: Consume past waypoints ──────────────────────
       while (queue.length > 1 && queue[1].time <= tRender) {
@@ -212,13 +277,19 @@ export function useMapMarkerAnimation(
 
           state.displayLng = wA.lng + alpha * (wB.lng - wA.lng);
           state.displayLat = wA.lat + alpha * (wB.lat - wA.lat);
+
+          if (wA.routeDistance != null && wB.routeDistance != null) {
+            state.displayRouteDistance = wA.routeDistance + alpha * (wB.routeDistance - wA.routeDistance);
+          } else if (wB.routeDistance != null) {
+            state.displayRouteDistance = wB.routeDistance;
+          }
+
           segmentFound = true;
           anyActive = true;
 
           // Track velocity for dead reckoning (degrees per ms)
-          const dtMs = 16.67;
-          const newVLng = (state.displayLng - prevLng) / dtMs;
-          const newVLat = (state.displayLat - prevLat) / dtMs;
+          const newVLng = (state.displayLng - prevLng) / dtReal;
+          const newVLat = (state.displayLat - prevLat) / dtReal;
           state.vLng = state.vLng * 0.7 + newVLng * 0.3;
           state.vLat = state.vLat * 0.7 + newVLat * 0.3;
         }
@@ -232,17 +303,19 @@ export function useMapMarkerAnimation(
         const distSq = dLng * dLng + dLat * dLat;
 
         if (distSq > 0.0000000001) {
-          const step = 0.1; // Smooth catch-up step
+          const step = 0.08; // Smooth catch-up step
           const prevLng = state.displayLng;
           const prevLat = state.displayLat;
 
           state.displayLng += dLng * step;
           state.displayLat += dLat * step;
-          anyActive = true;
+          if (target.routeDistance != null) {
+            state.displayRouteDistance = target.routeDistance;
+          }
 
-          const dtMs = 16.67;
-          state.vLng = state.vLng * 0.7 + ((state.displayLng - prevLng) / dtMs) * 0.3;
-          state.vLat = state.vLat * 0.7 + ((state.displayLat - prevLat) / dtMs) * 0.3;
+          anyActive = true;
+          state.vLng = state.vLng * 0.7 + ((state.displayLng - prevLng) / dtReal) * 0.3;
+          state.vLat = state.vLat * 0.7 + ((state.displayLat - prevLat) / dtReal) * 0.3;
         }
       }
 
@@ -252,13 +325,12 @@ export function useMapMarkerAnimation(
           state.extrapolatedMs < MAX_EXTRAP_MS &&
           (Math.abs(state.vLng) > 1e-10 || Math.abs(state.vLat) > 1e-10)
         ) {
-          const dt = 16.67;
-          state.extrapolatedMs += dt;
+          state.extrapolatedMs += dtReal;
           const dampening = Math.max(0, 1 - state.extrapolatedMs / MAX_EXTRAP_MS);
           const dampenedSq = dampening * dampening;
 
-          state.displayLng += state.vLng * dt * dampenedSq;
-          state.displayLat += state.vLat * dt * dampenedSq;
+          state.displayLng += state.vLng * dtReal * dampenedSq;
+          state.displayLat += state.vLat * dtReal * dampenedSq;
           anyActive = true;
         }
       }
@@ -285,5 +357,5 @@ export function useMapMarkerAnimation(
     };
   }, []);
 
-  return { updateTarget, pushWaypoint, removeTarget };
+  return { updateTarget, pushWaypoint, pushWaypointBatch, removeTarget, stateMapRef };
 }

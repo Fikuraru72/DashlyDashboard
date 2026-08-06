@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 import { isStalePosition } from "@/lib/realtime-position";
 
@@ -58,68 +59,68 @@ interface ParticipantStore {
   setAnomalies: (anomalies: Anomaly[]) => void;
   addSyncBatch: (userId: string | number, points: any[]) => void;
   setEventMetadata: (metadata: EventMetadata) => void;
-  setParticipants: (participants: Record<string, ParticipantData>) => void; // helper for mock data
+  setParticipants: (participants: Record<string, ParticipantData>) => void;
   setSelectedParticipantId: (id: string | null) => void;
   removeAnomaly: (id: string) => void;
 }
 
-export const useParticipantStore = create<ParticipantStore>((set) => ({
-  participants: {},
-  anomalies: [],
-  eventMetadata: null,
-  selectedParticipantId: null,
-  socketConnected: false,
+export const useParticipantStore = create<ParticipantStore>()(
+  persist(
+    (set) => ({
+      participants: {},
+      anomalies: [],
+      eventMetadata: null,
+      selectedParticipantId: null,
+      socketConnected: false,
 
-  setSocketConnected: (status) => set({ socketConnected: status }),
+      setSocketConnected: (status) => set({ socketConnected: status }),
 
-  updateParticipant: (id, data) =>
-    set((state) => {
-      const existing = state.participants[id] || {
-        id,
-        name: `User ${id}`,
-        lat: 0,
-        lng: 0,
-        speed: 0,
-        status: "inactive",
-        pathHistory: [],
-      };
+      updateParticipant: (id, data) =>
+        set((state) => {
+          const existing = state.participants[id] || {
+            id,
+            name: `User ${id}`,
+            lat: 0,
+            lng: 0,
+            speed: 0,
+            status: "inactive",
+            pathHistory: [],
+          };
 
-      if (isStalePosition(data, existing)) return state;
+          if (isStalePosition(data, existing)) return state;
 
-      const newLat = data.lat ?? existing.lat;
-      const newLng = data.lng ?? existing.lng;
-      const isNewPosition =
-        data.lat !== undefined &&
-        data.lng !== undefined &&
-        (newLat !== existing.lat || newLng !== existing.lng);
+          const newLat = data.lat ?? existing.lat;
+          const newLng = data.lng ?? existing.lng;
+          const isNewPosition =
+            data.lat !== undefined &&
+            data.lng !== undefined &&
+            (newLat !== existing.lat || newLng !== existing.lng);
 
-      let newPathHistory = [...existing.pathHistory];
-      if (isNewPosition) {
-        newPathHistory.push([newLat, newLng]);
-        if (newPathHistory.length > 1000) {
-          newPathHistory = newPathHistory.slice(-1000);
-        }
-      }
+          let newPathHistory = [...existing.pathHistory];
+          if (isNewPosition) {
+            newPathHistory.push([newLat, newLng]);
+            if (newPathHistory.length > 1000) {
+              newPathHistory = newPathHistory.slice(-1000);
+            }
+          }
 
-      // FIX: Preserve real name from initial fetch; only override if new data
-      // provides a meaningful name (not a generic fallback)
-      const resolvedName =
-        data.name && !data.name.startsWith("User ") && !data.name.startsWith("Runner ")
-          ? data.name
-          : existing.name;
+          const resolvedName =
+            data.name && !data.name.startsWith("User ") && !data.name.startsWith("Runner ")
+              ? data.name
+              : existing.name;
 
-      return {
-        participants: {
-          ...state.participants,
-          [id]: {
-            ...existing,
-            ...data,
-            name: resolvedName,
-            pathHistory: newPathHistory,
-          },
-        },
-      };
-    }),
+          return {
+            participants: {
+              ...state.participants,
+              [id]: {
+                ...existing,
+                ...data,
+                name: resolvedName,
+                pathHistory: newPathHistory,
+              },
+            },
+          };
+        }),
 
   addSyncBatch: (userId, points) =>
     set((state) => {
@@ -262,4 +263,10 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
     set(() => ({
       selectedParticipantId: id,
     })),
-}));
+    }),
+    {
+      name: "dashly-participant-anomalies",
+      partialize: (state) => ({ anomalies: state.anomalies }),
+    }
+  )
+);
