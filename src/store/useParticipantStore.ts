@@ -171,11 +171,13 @@ export const useParticipantStore = create<ParticipantStore>()(
     set((state) => {
       const pId = String(anomaly.userId || anomaly.participantId || "");
       const type = anomaly.type;
+      const now = Date.now();
 
-      // Deduplication check: if active anomaly for same participant & type exists within 15 minutes, skip duplicate
+      // Deduplication check: only skip duplicate if same participant & type exists within the last 3 minutes (180,000ms)
       const isDuplicate = state.anomalies.some((a) => {
         const aPid = String(a.userId || a.participantId || "");
-        return aPid === pId && a.type === type;
+        const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        return aPid === pId && a.type === type && (isNaN(aTime) || now - aTime < 180000);
       });
 
       const participants = { ...state.participants };
@@ -183,7 +185,7 @@ export const useParticipantStore = create<ParticipantStore>()(
         participants[pId] = {
           ...participants[pId],
           isAnomaly: true,
-          status: "emergency",
+          status: type === "STOP" ? "stuck" : type === "OFF_ROUTE" ? "off-route" : "emergency",
         };
       }
 

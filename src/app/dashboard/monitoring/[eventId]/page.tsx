@@ -1315,6 +1315,7 @@ export default function PublicEventMonitoringPage() {
                   timestamp: new Date().toISOString(),
                   severity: "warning",
                 });
+                setShowAlerts(true);
               } else if (isOffRouteSignal) {
                 finalIsAnomaly = true;
                 finalStatus = "off-route";
@@ -1327,6 +1328,7 @@ export default function PublicEventMonitoringPage() {
                   timestamp: new Date().toISOString(),
                   severity: "danger",
                 });
+                setShowAlerts(true);
               } else if (current.isAnomaly && speed > 1.5) {
                 // Participant recovered movement -> resolve anomaly
                 finalIsAnomaly = false;
@@ -1430,6 +1432,7 @@ export default function PublicEventMonitoringPage() {
           userId,
           message: data.message || data.reason || "Unusual telemetry patterns detected.",
         });
+        setShowAlerts(true);
 
         let marker = markers.current.get(userId);
         if (marker) {
