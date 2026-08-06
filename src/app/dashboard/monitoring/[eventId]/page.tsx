@@ -330,7 +330,7 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const { updateTarget: updateMarkerTarget } = useMapMarkerAnimation(markers);
+  const { pushWaypoint, removeTarget: removeMarkerTarget } = useMapMarkerAnimation(markers);
   const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
   const elevationHoverMarker = useRef<maplibregl.Marker | null>(null);
 
@@ -1666,9 +1666,10 @@ export default function PublicEventMonitoringPage() {
           .setLngLat([data.lng, data.lat])
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
+        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate);
       } else {
-        // High Performance: Smooth 60fps lerp animation via rAF
-        updateMarkerTarget(userId, data.lng, data.lat);
+        // High Performance: Smooth continuous 60fps telemetry queue & dead reckoning
+        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate);
 
         const stateKey = `${displayName}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}`;
         if ((marker as any).__stateKey !== stateKey) {
@@ -1694,6 +1695,7 @@ export default function PublicEventMonitoringPage() {
         console.log(`[Marker] 🧹 Removing stale marker for userId=${userId}`);
         marker.remove();
         markers.current.delete(userId);
+        removeMarkerTarget(userId);
       }
     });
 

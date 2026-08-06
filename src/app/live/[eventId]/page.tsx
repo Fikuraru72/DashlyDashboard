@@ -44,6 +44,7 @@ import { useParticipantStore } from "@/store/useParticipantStore";
 import { isParticipantDisconnected } from "@/lib/realtime-position";
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 import { ElevationProfile } from "@/components/elevation/ElevationProfile";
+import { useMapMarkerAnimation } from "@/hooks/useMapMarkerAnimation";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
@@ -312,6 +313,7 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const { pushWaypoint, removeTarget: removeMarkerTarget } = useMapMarkerAnimation(markers);
   const clusterMarkers = useRef<Map<string, maplibregl.Marker>>(new Map());
   const superclusterRef = useRef<Supercluster | null>(null);
   const elevationHoverMarker = useRef<maplibregl.Marker | null>(null);
@@ -1532,13 +1534,14 @@ export default function PublicEventMonitoringPage() {
           data.isAnomaly,
           data.color,
         );
-        marker = new maplibregl.Marker({ element: el, anchor: "center" })
+        marker = new maplibregl.Marker({ element: el, anchor: "center", subpixelPositioning: true })
           .setLngLat([data.lng, data.lat])
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
+        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate);
       } else {
-        // Efficient update
-        marker.setLngLat([data.lng, data.lat]);
+        // Continuous 60fps telemetry queue & dead reckoning interpolation
+        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate);
         const el = marker.getElement();
         updateMarkerElement(
           el,
@@ -1559,6 +1562,7 @@ export default function PublicEventMonitoringPage() {
         console.log(`[Marker] 🧹 Removing stale marker for userId=${userId}`);
         marker.remove();
         markers.current.delete(userId);
+        removeMarkerTarget(userId);
       }
     });
 
