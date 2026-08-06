@@ -330,7 +330,29 @@ export default function PublicEventMonitoringPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const mqttClient = useRef<any>(null);
   const markers = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const { pushWaypoint, removeTarget: removeMarkerTarget } = useMapMarkerAnimation(markers);
+
+  // Synchronized event callback: fires when animation engine consumes a waypoint,
+  // ensuring marker element visual updates (anomaly badge, color, status) appear
+  // at the exact moment the marker arrives at that coordinate.
+  const handleWaypointConsumed = useCallback((userId: string, wp: import("@/hooks/useMapMarkerAnimation").TelemetryWaypoint) => {
+    const marker = markers.current.get(userId);
+    if (!marker || !wp.displayName) return;
+    const el = marker.getElement();
+    const stateKey = `${wp.displayName}_${wp.status}_${wp.isStale}_${wp.isAnomaly}_${wp.color}`;
+    if ((marker as any).__stateKey !== stateKey) {
+      (marker as any).__stateKey = stateKey;
+      updateMarkerElement(
+        el,
+        wp.displayName,
+        wp.status,
+        wp.isStale ?? false,
+        wp.isAnomaly ?? false,
+        wp.color,
+      );
+    }
+  }, []);
+
+  const { pushWaypoint, removeTarget: removeMarkerTarget } = useMapMarkerAnimation(markers, handleWaypointConsumed);
   const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
   const elevationHoverMarker = useRef<maplibregl.Marker | null>(null);
 
@@ -1666,24 +1688,24 @@ export default function PublicEventMonitoringPage() {
           .setLngLat([data.lng, data.lat])
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
-        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate);
+        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate, {
+          status: data.status,
+          isAnomaly: data.isAnomaly,
+          isStale,
+          color: data.color,
+          displayName,
+        });
       } else {
-        // High Performance: Smooth continuous 60fps telemetry queue & dead reckoning
-        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate);
-
-        const stateKey = `${displayName}_${data.status}_${isStale}_${data.isAnomaly}_${data.color}`;
-        if ((marker as any).__stateKey !== stateKey) {
-          (marker as any).__stateKey = stateKey;
-          const el = marker.getElement();
-          updateMarkerElement(
-            el,
-            displayName,
-            data.status,
-            isStale,
-            data.isAnomaly,
-            data.color,
-          );
-        }
+        // Push telemetry with full event state — marker element updates are
+        // delivered via onWaypointConsumed callback when the animation engine
+        // visually arrives at this coordinate (unified time-sync).
+        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate, {
+          status: data.status,
+          isAnomaly: data.isAnomaly,
+          isStale,
+          color: data.color,
+          displayName,
+        });
       }
     });
 

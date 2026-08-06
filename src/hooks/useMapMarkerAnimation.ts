@@ -3,87 +3,153 @@
 import { useRef, useEffect, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 
-export interface Waypoint {
+// ── Configuration ────────────────────────────────────────────────
+const BUFFER_DELAY_MS = 1800; // 1.8 second playback buffer for smooth interpolation
+const MAX_QUEUE_SIZE = 30;    // Max waypoints per participant before garbage collection
+const MAX_EXTRAP_MS = 2500;   // Max dead reckoning extrapolation duration (2.5s)
+
+// ── Types ────────────────────────────────────────────────────────
+export interface TelemetryWaypoint {
   lng: number;
   lat: number;
-  time: number;
+  time: number;       // Arrival timestamp (ms) — used for virtual playback
   speed?: number;
-}
-
-interface ParticipantAnimState {
-  queue: Waypoint[];
-  displayLng: number;
-  displayLat: number;
-  // Velocity components (deg per ms)
-  vLng: number;
-  vLat: number;
-  lastUpdateTime: number;
-  extrapolatedMs: number;
+  // Synchronized event state — delivered to callback when this waypoint is consumed
+  status?: string;
+  isAnomaly?: boolean;
+  isStale?: boolean;
+  color?: string;
+  displayName?: string;
 }
 
 /**
- * useMapMarkerAnimation — 60 FPS Continuous Telemetry Motion Engine
- * 
- * Provides smooth, non-stop marker animation across intermittent GPS updates.
- * - Maintains a FIFO queue of timestamped waypoints per participant.
- * - Interpolates smoothly between waypoints with adaptive speed scaling.
- * - Applies Dead Reckoning (momentum extrapolation with ease-out dampening)
- *   when queue is temporarily empty to prevent abrupt pauses/stuttering.
+ * Callback fired when the animation engine consumes a waypoint.
+ * This allows the caller to synchronize UI updates (marker element style,
+ * anomaly alerts, leaderboard status) with the exact moment the marker
+ * visually arrives at that coordinate.
+ */
+export type OnWaypointConsumed = (
+  userId: string,
+  waypoint: TelemetryWaypoint,
+) => void;
+
+interface ParticipantPlaybackState {
+  queue: TelemetryWaypoint[];
+  displayLng: number;
+  displayLat: number;
+  // Velocity vectors for dead reckoning (degrees per millisecond)
+  vLng: number;
+  vLat: number;
+  extrapolatedMs: number;
+  // The last consumed waypoint (for event state reference)
+  lastConsumed: TelemetryWaypoint | null;
+  // Virtual clock offset: when the first waypoint was pushed
+  clockOriginReal: number;     // Real wall-clock time of first push
+  clockOriginVirtual: number;  // The timestamp of the first waypoint
+  clockInitialized: boolean;
+}
+
+/**
+ * useMapMarkerAnimation — Unified Telemetry & Event Sync Engine
+ *
+ * 60 FPS continuous motion engine with:
+ * - FIFO timestamped waypoint queue per participant
+ * - Virtual playback clock (t_render = t_now - BUFFER_DELAY_MS)
+ * - Time-based linear interpolation between waypoints (constant velocity)
+ * - Dead reckoning momentum extrapolation on buffer underflow
+ * - Synchronized event callback when waypoints are consumed
  */
 export function useMapMarkerAnimation(
   markersRef: React.MutableRefObject<Map<string, maplibregl.Marker>>,
-  baseSpeedFactor: number = 0.08,
+  onWaypointConsumed?: OnWaypointConsumed,
 ) {
-  const stateMapRef = useRef<Map<string, ParticipantAnimState>>(new Map());
+  const stateMapRef = useRef<Map<string, ParticipantPlaybackState>>(new Map());
   const rAfIdRef = useRef<number | null>(null);
   const isRunningRef = useRef(false);
-  const lastFrameTimeRef = useRef<number>(Date.now());
+  const onWaypointConsumedRef = useRef(onWaypointConsumed);
+
+  // Keep callback ref fresh without triggering re-renders
+  useEffect(() => {
+    onWaypointConsumedRef.current = onWaypointConsumed;
+  }, [onWaypointConsumed]);
 
   /**
-   * Push a new GPS waypoint into a participant's queue.
+   * Push a new GPS telemetry waypoint into a participant's buffer queue.
+   * Include full telemetry state (status, isAnomaly, color, displayName) so
+   * the animation engine can deliver synchronized event callbacks.
    */
   const pushWaypoint = useCallback(
-    (userId: string, lng: number, lat: number, speed?: number, timestamp?: number) => {
+    (
+      userId: string,
+      lng: number,
+      lat: number,
+      speed?: number,
+      timestamp?: number,
+      eventState?: {
+        status?: string;
+        isAnomaly?: boolean;
+        isStale?: boolean;
+        color?: string;
+        displayName?: string;
+      },
+    ) => {
       if (isNaN(lng) || isNaN(lat)) return;
 
-      const now = timestamp || Date.now();
+      const arrivalTime = timestamp || Date.now();
       const stateMap = stateMapRef.current;
       let state = stateMap.get(userId);
 
+      const waypoint: TelemetryWaypoint = {
+        lng,
+        lat,
+        time: arrivalTime,
+        speed,
+        ...eventState,
+      };
+
       if (!state) {
-        // First position — snap instantly to position
+        // First waypoint — initialize playback state, snap to position
         state = {
-          queue: [{ lng, lat, time: now, speed }],
+          queue: [waypoint],
           displayLng: lng,
           displayLat: lat,
           vLng: 0,
           vLat: 0,
-          lastUpdateTime: now,
           extrapolatedMs: 0,
+          lastConsumed: null,
+          clockOriginReal: Date.now(),
+          clockOriginVirtual: arrivalTime,
+          clockInitialized: true,
         };
         stateMap.set(userId, state);
       } else {
-        // Avoid inserting exact duplicate coordinates at the tail
-        const lastInQueue = state.queue[state.queue.length - 1];
+        // Skip exact duplicate coordinates at tail of queue
+        const tail = state.queue[state.queue.length - 1];
         if (
-          !lastInQueue ||
-          Math.abs(lastInQueue.lng - lng) > 0.000001 ||
-          Math.abs(lastInQueue.lat - lat) > 0.000001
+          tail &&
+          Math.abs(tail.lng - lng) < 0.0000005 &&
+          Math.abs(tail.lat - lat) < 0.0000005
         ) {
-          state.queue.push({ lng, lat, time: now, speed });
-          // Limit queue max length to avoid memory leaks if rendering pauses
-          if (state.queue.length > 20) {
-            state.queue.shift();
+          // Update event state on existing tail waypoint (status/anomaly may have changed)
+          if (eventState) {
+            Object.assign(tail, eventState);
           }
+          return;
         }
-        // Reset extrapolation timer when new waypoint arrives
-        state.extrapolatedMs = 0;
+
+        state.queue.push(waypoint);
+        state.extrapolatedMs = 0; // Reset extrapolation timer
+
+        // Garbage collect if queue grows too large
+        if (state.queue.length > MAX_QUEUE_SIZE) {
+          // Keep at least last 10 waypoints
+          state.queue = state.queue.slice(-10);
+        }
       }
 
-      // Start rAF loop if not running
+      // Start the animation loop if not already running
       if (!isRunningRef.current) {
         isRunningRef.current = true;
-        lastFrameTimeRef.current = performance.now();
         rAfIdRef.current = requestAnimationFrame(animate);
       }
     },
@@ -92,7 +158,7 @@ export function useMapMarkerAnimation(
   );
 
   /**
-   * Alias for backward compatibility with previous updateTarget calls.
+   * Backward compatibility alias
    */
   const updateTarget = useCallback(
     (userId: string, lng: number, lat: number, speed?: number, timestamp?: number) => {
@@ -102,20 +168,17 @@ export function useMapMarkerAnimation(
   );
 
   /**
-   * Remove participant from animation loop (e.g. on disconnect / cleanup)
+   * Remove participant from animation loop
    */
   const removeTarget = useCallback((userId: string) => {
     stateMapRef.current.delete(userId);
   }, []);
 
   /**
-   * Main 60 FPS animation loop.
+   * Main 60 FPS animation loop — Time-Based Linear Interpolation Engine
    */
   const animate = useCallback(() => {
     const now = performance.now();
-    const dt = Math.min(100, Math.max(1, now - lastFrameTimeRef.current)); // Clamp dt between 1ms and 100ms
-    lastFrameTimeRef.current = now;
-
     const stateMap = stateMapRef.current;
     const markers = markersRef.current;
     let anyActive = false;
@@ -124,72 +187,109 @@ export function useMapMarkerAnimation(
       const marker = markers.get(userId);
       if (!marker) continue;
 
-      const queueLen = state.queue.length;
+      const queue = state.queue;
 
-      if (queueLen > 0) {
-        // Target is the next waypoint in queue
-        const target = state.queue[0];
+      // ── Phase 1: Determine virtual playback time ──────────────
+      // Virtual playback time runs BUFFER_DELAY_MS behind real time
+      // This creates a smooth buffer window for interpolation
+      const realElapsed = now - (state.clockOriginReal * 1 || now);
+      const tRender = state.clockOriginVirtual + realElapsed - BUFFER_DELAY_MS;
+
+      // ── Phase 2: Find interpolation segment in queue ──────────
+      // Find two adjacent waypoints W_A and W_B where W_A.time <= tRender <= W_B.time
+      let segmentFound = false;
+
+      // Consume past waypoints (where tRender has already passed)
+      while (queue.length > 1 && queue[1].time <= tRender) {
+        const consumed = queue.shift()!;
+        state.lastConsumed = consumed;
+
+        // Fire synchronized event callback
+        if (onWaypointConsumedRef.current) {
+          onWaypointConsumedRef.current(userId, consumed);
+        }
+      }
+
+      if (queue.length >= 2) {
+        // Interpolate between queue[0] (W_A) and queue[1] (W_B)
+        const wA = queue[0];
+        const wB = queue[1];
+        const segDuration = wB.time - wA.time;
+
+        if (segDuration > 0) {
+          const alpha = Math.max(0, Math.min(1, (tRender - wA.time) / segDuration));
+
+          const prevLng = state.displayLng;
+          const prevLat = state.displayLat;
+
+          state.displayLng = wA.lng + alpha * (wB.lng - wA.lng);
+          state.displayLat = wA.lat + alpha * (wB.lat - wA.lat);
+          segmentFound = true;
+          anyActive = true;
+
+          // Track velocity for dead reckoning
+          const dtMs = 16.67; // Approximate frame time
+          if (dtMs > 0) {
+            const newVLng = (state.displayLng - prevLng) / dtMs;
+            const newVLat = (state.displayLat - prevLat) / dtMs;
+            state.vLng = state.vLng * 0.6 + newVLng * 0.4;
+            state.vLat = state.vLat * 0.6 + newVLat * 0.4;
+          }
+        }
+      }
+
+      if (!segmentFound && queue.length === 1) {
+        // Only one waypoint in queue — lerp towards it smoothly
+        const target = queue[0];
         const dLng = target.lng - state.displayLng;
         const dLat = target.lat - state.displayLat;
         const distSq = dLng * dLng + dLat * dLat;
 
-        // Threshold ~0.000001 deg (approx 0.1 meter)
         if (distSq > 0.0000000001) {
-          anyActive = true;
-          // Dynamic catch-up factor: if queue is backing up (>2 items), speed up interpolation smoothly
-          const catchUpMultiplier = queueLen > 3 ? 1.6 : queueLen > 1 ? 1.25 : 1.0;
-          const step = Math.min(0.35, baseSpeedFactor * catchUpMultiplier * (dt / 16.67));
-
+          const step = 0.06; // Gentle approach
           const prevLng = state.displayLng;
           const prevLat = state.displayLat;
 
           state.displayLng += dLng * step;
           state.displayLat += dLat * step;
-
-          // Track instantaneous velocity vector (degrees per millisecond)
-          if (dt > 0) {
-            const currentVLng = (state.displayLng - prevLng) / dt;
-            const currentVLat = (state.displayLat - prevLat) / dt;
-            // Smooth velocity vector blend (low-pass filter)
-            state.vLng = state.vLng * 0.7 + currentVLng * 0.3;
-            state.vLat = state.vLat * 0.7 + currentVLat * 0.3;
-          }
-        } else {
-          // Reached target waypoint — snap to exact position and consume from queue if more remain
-          state.displayLng = target.lng;
-          state.displayLat = target.lat;
-
-          if (queueLen > 1) {
-            state.queue.shift();
-            anyActive = true;
-          }
-        }
-      } else {
-        // Buffer underflow: Queue is empty. Perform Dead Reckoning (momentum extrapolation)
-        // Keep moving along last known velocity vector for up to 2.5s with linear dampening
-        if (state.extrapolatedMs < 2500 && (Math.abs(state.vLng) > 1e-9 || Math.abs(state.vLat) > 1e-9)) {
-          state.extrapolatedMs += dt;
-          const dampening = Math.max(0, 1 - state.extrapolatedMs / 2500);
-
-          state.displayLng += state.vLng * dt * dampening;
-          state.displayLat += state.vLat * dt * dampening;
           anyActive = true;
-        } else {
-          state.vLng = 0;
-          state.vLat = 0;
+
+          const dtMs = 16.67;
+          state.vLng = state.vLng * 0.6 + ((state.displayLng - prevLng) / dtMs) * 0.4;
+          state.vLat = state.vLat * 0.6 + ((state.displayLat - prevLat) / dtMs) * 0.4;
         }
       }
 
-      // Directly update MapLibre DOM marker without triggering React re-render
+      if (!segmentFound && queue.length <= 1) {
+        // ── Phase 3: Dead Reckoning Extrapolation ───────────────
+        // Buffer underflow — no future waypoints available yet.
+        // Continue moving along last velocity vector with ease-out dampening.
+        if (
+          state.extrapolatedMs < MAX_EXTRAP_MS &&
+          (Math.abs(state.vLng) > 1e-10 || Math.abs(state.vLat) > 1e-10)
+        ) {
+          const dt = 16.67;
+          state.extrapolatedMs += dt;
+          const dampening = Math.max(0, 1 - state.extrapolatedMs / MAX_EXTRAP_MS);
+          const dampenedSq = dampening * dampening; // Quadratic ease-out for natural deceleration
+
+          state.displayLng += state.vLng * dt * dampenedSq;
+          state.displayLat += state.vLat * dt * dampenedSq;
+          anyActive = true;
+        }
+      }
+
+      // ── Phase 4: Update MapLibre marker position (zero React re-renders) ──
       marker.setLngLat([state.displayLng, state.displayLat]);
     }
 
-    if (anyActive) {
+    if (anyActive || stateMap.size > 0) {
+      // Keep loop alive as long as there are participants being tracked
       rAfIdRef.current = requestAnimationFrame(animate);
     } else {
       isRunningRef.current = false;
     }
-  }, [baseSpeedFactor, markersRef]);
+  }, [markersRef]);
 
   // Cleanup on unmount
   useEffect(() => {
