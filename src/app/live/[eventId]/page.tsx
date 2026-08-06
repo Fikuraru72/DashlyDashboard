@@ -47,6 +47,34 @@ import { ElevationProfile } from "@/components/elevation/ElevationProfile";
 import { useMapMarkerAnimation } from "@/hooks/useMapMarkerAnimation";
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
+// Helper: Instant point-to-line distance calculation in meters
+function getMinDistanceToPolylineMeters(point: [number, number], lineCoords: [number, number][]): number {
+  if (!lineCoords || lineCoords.length < 2) return 0;
+  let minSqDist = Infinity;
+  const [pLng, pLat] = point;
+  const cosLat = Math.cos((pLat * Math.PI) / 180);
+
+  for (let i = 0; i < lineCoords.length - 1; i++) {
+    const [aLng, aLat] = lineCoords[i];
+    const [bLng, bLat] = lineCoords[i + 1];
+
+    const dx = (bLng - aLng) * 111000 * cosLat;
+    const dy = (bLat - aLat) * 111000;
+    const px = (pLng - aLng) * 111000 * cosLat;
+    const py = (pLat - aLat) * 111000;
+
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq > 0 ? (px * dx + py * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+
+    const projX = px - t * dx;
+    const projY = py - t * dy;
+    const distSq = projX * projX + projY * projY;
+    if (distSq < minSqDist) minSqDist = distSq;
+  }
+  return Math.sqrt(minSqDist);
+}
+
 // Helper to generate a random hex color from a predefined aesthetic palette
 const generateRandomColor = () => {
   const colors = [
@@ -308,6 +336,9 @@ export default function PublicEventMonitoringPage() {
       }
     >
   >(new Map());
+
+  // Route Polyline Ref for Instant Real-Time Off-Route Distance Calculation
+  const routePolylineRef = useRef<[number, number][]>([]);
 
   const { theme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
@@ -712,6 +743,18 @@ export default function PublicEventMonitoringPage() {
           console.warn(
             "[INIT] ⚠️ No route geometry detected for this event. Using empty fallback.",
           );
+        } else {
+          // Extract route line coordinates for instant real-time off-route checking
+          const coords: [number, number][] = [];
+          eventData.routeGeojson.features.forEach((f: any) => {
+            if (f.geometry?.type === "LineString" && Array.isArray(f.geometry.coordinates)) {
+              coords.push(...f.geometry.coordinates);
+            } else if (f.geometry?.type === "MultiLineString" && Array.isArray(f.geometry.coordinates)) {
+              f.geometry.coordinates.forEach((line: any) => coords.push(...line));
+            }
+          });
+          routePolylineRef.current = coords;
+          console.log("[INIT] 📍 Loaded", coords.length, "route coordinates for off-route checking.");
         }
 
         // Fetch participants for mapping
@@ -1210,13 +1253,26 @@ export default function PublicEventMonitoringPage() {
               }
               const isStoppedLong = stoppedSince && now - stoppedSince >= 180000;
 
-              // Off-route check
+              // Real-time Off-route check (distance calculation to GeoJSON route polyline)
+              let measuredOffRouteMeters = 0;
+              let isOffRouteByDistance = false;
+              if (routePolylineRef.current.length >= 2) {
+                measuredOffRouteMeters = Math.round(
+                  getMinDistanceToPolylineMeters([lng, lat], routePolylineRef.current),
+                );
+                if (measuredOffRouteMeters > 30) {
+                  isOffRouteByDistance = true;
+                }
+              }
+
               const rawStatus = (data.status || data.type || "").toString().toLowerCase();
               const isOffRouteSignal =
                 rawStatus.includes("off_route") ||
                 rawStatus.includes("off-route") ||
+                rawStatus.includes("offroad") ||
                 data.isOffRoute === true ||
-                (data.offRouteDistance != null && parseFloat(data.offRouteDistance) > 30);
+                (data.offRouteDistance != null && parseFloat(data.offRouteDistance) > 30) ||
+                isOffRouteByDistance;
 
               let finalIsAnomaly = current.isAnomaly || false;
               let finalStatus = current.status || "active";
@@ -1238,12 +1294,16 @@ export default function PublicEventMonitoringPage() {
               } else if (isOffRouteSignal) {
                 finalIsAnomaly = true;
                 finalStatus = "off-route";
+                const distMsg =
+                  measuredOffRouteMeters > 0
+                    ? ` (berada ${measuredOffRouteMeters}m di luar jalur)`
+                    : "";
                 useParticipantStore.getState().addAnomaly({
                   id: `offroute-${userId}-${Math.floor(now / 60000)}`,
                   userId,
                   participantId: userId,
                   type: "OFF_ROUTE",
-                  message: `${current.name || `User ${userId}`} terdeteksi keluar dari jalur resmi!`,
+                  message: `${current.name || `User ${userId}`} terdeteksi keluar dari jalur resmi!${distMsg}`,
                   timestamp: new Date().toISOString(),
                   severity: "danger",
                 });
