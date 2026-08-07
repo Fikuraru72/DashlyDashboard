@@ -850,8 +850,8 @@ export default function PublicEventMonitoringPage() {
                     id: uid,
                     name: pInfo?.formattedName || p.name || `User ${String(uid).substring(0, 4)}`,
                     bibNumber: pInfo?.bibNumber || p.bibNumber || "-",
-                    lat: parseFloat(p.lat),
-                    lng: parseFloat(p.lng),
+                    lat: parseFloat(p.snappedLat ?? p.lat),
+                    lng: parseFloat(p.snappedLng ?? p.lng),
                     color: pInfo?.color,
                     speed: parseFloat(p.speed) || 0,
                     battery:
@@ -1243,8 +1243,8 @@ export default function PublicEventMonitoringPage() {
 
         batchData.positions.forEach((data: any) => {
           const userId = String(data.userId || data.participantId || data.id);
-          const lat = parseFloat(data.lat);
-          const lng = parseFloat(data.lng);
+          const lat = parseFloat(data.snappedLat ?? data.lat);
+          const lng = parseFloat(data.snappedLng ?? data.lng);
 
           if (isNaN(lat) || isNaN(lng)) return;
 
