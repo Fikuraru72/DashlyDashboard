@@ -2007,63 +2007,9 @@ export default function PublicEventMonitoringPage() {
       proximityClusters.set(String(p1.id), clusterIdx);
     });
 
-    validList.forEach((data) => {
-      const userId = String(data.id);
-      const clusterIdx = proximityClusters.get(userId) || 0;
-      const [finalLng, finalLat] = computeAlongPolylineOffset(
-        data.lng,
-        data.lat,
-        clusterIdx,
-        routePolylineRef.current,
-        8
-      );
-
-      const rank = sortedParticipants.findIndex((p) => String(p.id) === userId) + 1;
-      const rankStr = rank > 0 ? `${rank}` : "-";
-      let marker = markers.current.get(userId);
-      const isStale = isParticipantDisconnected(data);
-      const pInfo = participantsInfo.current.get(userId);
-      const rawName = pInfo?.name || (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) || `Participant ${userId.substring(0, 4)}`;
-      const bibNum = pInfo?.bibNumber || data.bibNumber || "-";
-      const displayName = `${rankStr}_${bibNum}_${rawName}`;
-
-      if (!marker) {
-        const el = createPulseMarker(
-          displayName,
-          data.status,
-          isStale,
-          data.isAnomaly,
-          data.color,
-        );
-        // Leaderboard Z-Index Stacking (Front runners on top)
-        el.style.zIndex = `${10000 + (sortedParticipants.length - rank)}`;
-        marker = new maplibregl.Marker({
-          element: el,
-          anchor: "center",
-          subpixelPositioning: true,
-        })
-          .setLngLat([finalLng, finalLat])
-          .addTo(mapInstance.current!);
-        markers.current.set(userId, marker);
-        pushWaypoint(userId, finalLng, finalLat, data.speed, data.lastUpdate, {
-          status: data.status,
-          isAnomaly: data.isAnomaly,
-          isStale,
-          color: data.color,
-          displayName,
-        });
-      } else {
-        const el = marker.getElement();
-        el.style.zIndex = `${10000 + (sortedParticipants.length - rank)}`;
-        pushWaypoint(userId, finalLng, finalLat, data.speed, data.lastUpdate, {
-          status: data.status,
-          isAnomaly: data.isAnomaly,
-          isStale,
-          color: data.color,
-          displayName,
-        });
-      }
-    });
+    // Clear legacy HTML DOM markers to prevent duplicate off-route floating elements
+    markers.current.forEach((m) => m.remove());
+    markers.current.clear();
 
     // Update Native WebGL Participants Source for 3D Ground Alignment
     const nativeFeatures: any[] = [];
