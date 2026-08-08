@@ -1742,6 +1742,23 @@ export default function PublicEventMonitoringPage() {
                 lastUpdate: now,
                 pathHistory: newHistory,
               });
+
+              // Push telemetry to 60 FPS WebGL continuous animation engine
+              const pInfo = participantsInfo.current.get(userId);
+              const rawName =
+                pInfo?.name ||
+                (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) ||
+                `Participant ${userId.substring(0, 4)}`;
+              const bibNum = pInfo?.bibNumber || data.bibNumber || "-";
+              const displayName = `${bibNum}_${rawName}`;
+
+              pushWaypoint(userId, lng, lat, speed, now, {
+                status: finalStatus,
+                isAnomaly: finalIsAnomaly,
+                isStale: isOfflineNormalized,
+                color: pInfo?.color || data.color || "#10b981",
+                displayName,
+              });
             });
             return next;
           });
