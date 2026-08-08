@@ -230,8 +230,6 @@ export function useMapMarkerAnimation(
 
     for (const [userId, state] of stateMap.entries()) {
       const marker = markers.get(userId);
-      if (!marker) continue;
-
       const queue = state.queue;
 
       // ── Adaptive Fast-Replay Speed Calculation ────────────────

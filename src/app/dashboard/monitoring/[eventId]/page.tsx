@@ -2138,54 +2138,6 @@ export default function PublicEventMonitoringPage() {
     markers.current.forEach((m) => m.remove());
     markers.current.clear();
 
-    // Update Native WebGL Participants Source for 3D Ground Alignment
-    const nativeFeatures: any[] = [];
-    validList.forEach((data) => {
-      const userId = String(data.id);
-      const clusterIdx = proximityClusters.get(userId) || 0;
-      const [finalLng, finalLat] = computeAlongPolylineOffset(
-        data.lng,
-        data.lat,
-        clusterIdx,
-        routePolylineRef.current,
-        8
-      );
-
-      const rank = sortedParticipants.findIndex((p) => String(p.id) === userId) + 1;
-      const rankStr = rank > 0 ? `${rank}` : "-";
-      const pInfo = participantsInfo.current.get(userId);
-      const rawName =
-        pInfo?.name ||
-        (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) ||
-        `Participant ${userId.substring(0, 4)}`;
-      const bibNum = pInfo?.bibNumber || data.bibNumber || "-";
-      const displayName = `${bibNum}_${rawName}`;
-
-      nativeFeatures.push({
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [finalLng, finalLat],
-        },
-        properties: {
-          id: userId,
-          color: data.color || "#10b981",
-          label: displayName,
-          status: data.status,
-        },
-      });
-    });
-
-    if (mapInstance.current) {
-      const nativeSource = mapInstance.current.getSource("participants-native") as maplibregl.GeoJSONSource;
-      if (nativeSource) {
-        nativeSource.setData({
-          type: "FeatureCollection",
-          features: nativeFeatures,
-        });
-      }
-    }
-
     // Stale cleanup — remove markers for participants gone >5min
     const currentTime = Date.now();
     markers.current.forEach((marker, userId) => {
