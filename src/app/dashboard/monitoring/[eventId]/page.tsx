@@ -61,7 +61,7 @@ import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route
 function snapPointToPolyline(
   point: [number, number],
   lineCoords: [number, number][],
-  maxSnapMeters: number = 50
+  maxSnapMeters: number = 300
 ): { snappedPoint: [number, number]; distMeters: number } {
   if (!lineCoords || lineCoords.length < 2) {
     return { snappedPoint: point, distMeters: 0 };
@@ -873,7 +873,7 @@ export default function PublicEventMonitoringPage() {
                     const { snappedPoint } = snapPointToPolyline(
                       [rawLng, rawLat],
                       routePolylineRef.current,
-                      50
+                      300
                     );
                     finalLng = snappedPoint[0];
                     finalLat = snappedPoint[1];
@@ -1286,7 +1286,7 @@ export default function PublicEventMonitoringPage() {
             const { snappedPoint } = snapPointToPolyline(
               [rawLng, rawLat],
               routePolylineRef.current,
-              50
+              300
             );
             lng = snappedPoint[0];
             lat = snappedPoint[1];
