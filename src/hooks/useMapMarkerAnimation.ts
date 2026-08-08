@@ -6,7 +6,7 @@ import maplibregl from "maplibre-gl";
 // ── Configuration ────────────────────────────────────────────────
 const BUFFER_DELAY_MS = 6000; // 6.0 second playback buffer for smooth 60fps interpolation
 const MAX_QUEUE_SIZE = 500;   // Allow large batch sync queues without dropping points
-const MAX_EXTRAP_MS = 2500;   // Max dead reckoning extrapolation duration (2.5s)
+const MAX_EXTRAP_MS = 800;    // Max dead reckoning extrapolation duration (0.8s)
 
 // ── Types ────────────────────────────────────────────────────────
 export interface TelemetryWaypoint {
@@ -288,8 +288,13 @@ export function useMapMarkerAnimation(
           const prevLng = state.displayLng;
           const prevLat = state.displayLat;
 
-          state.displayLng = wA.lng + alpha * (wB.lng - wA.lng);
-          state.displayLat = wA.lat + alpha * (wB.lat - wA.lat);
+          const targetLng = wA.lng + alpha * (wB.lng - wA.lng);
+          const targetLat = wA.lat + alpha * (wB.lat - wA.lat);
+
+          // Smooth Exponential Lerp from current display position to target (prevents backward snap from dead reckoning)
+          const easeFactor = Math.min(1.0, (dtReal / 1000) * 12);
+          state.displayLng += (targetLng - state.displayLng) * easeFactor;
+          state.displayLat += (targetLat - state.displayLat) * easeFactor;
 
           if (wA.routeDistance != null && wB.routeDistance != null) {
             state.displayRouteDistance = wA.routeDistance + alpha * (wB.routeDistance - wA.routeDistance);
