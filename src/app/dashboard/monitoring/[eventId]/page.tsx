@@ -104,6 +104,57 @@ function snapPointToPolyline(
   return { snappedPoint: point, distMeters };
 }
 
+// Helper: Calculate an offset along the polyline tangent vector for close proximity markers
+function computeAlongPolylineOffset(
+  rawLng: number,
+  rawLat: number,
+  indexInCluster: number,
+  lineCoords: [number, number][],
+  stepMeters: number = 8
+): [number, number] {
+  if (!lineCoords || lineCoords.length < 2 || indexInCluster === 0) {
+    return [rawLng, rawLat];
+  }
+
+  let bestDist = Infinity;
+  let bestSegIdx = 0;
+  const pLng = rawLng;
+  const pLat = rawLat;
+  const cosLat = Math.cos((pLat * Math.PI) / 180);
+
+  for (let i = 0; i < lineCoords.length - 1; i++) {
+    const [aLng, aLat] = lineCoords[i];
+    const [bLng, bLat] = lineCoords[i + 1];
+
+    const dx = (bLng - aLng) * 111000 * cosLat;
+    const dy = (bLat - aLat) * 111000;
+    const px = (pLng - aLng) * 111000 * cosLat;
+    const py = (pLat - aLat) * 111000;
+
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq > 0 ? (px * dx + py * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+
+    const distSq = (px - t * dx) ** 2 + (py - t * dy) ** 2;
+    if (distSq < bestDist) {
+      bestDist = distSq;
+      bestSegIdx = i;
+    }
+  }
+
+  const [aLng, aLat] = lineCoords[bestSegIdx];
+  const [bLng, bLat] = lineCoords[bestSegIdx + 1];
+  const dx = bLng - aLng;
+  const dy = bLat - aLat;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+
+  const ux = dx / len;
+  const uy = dy / len;
+
+  const shiftDegrees = (indexInCluster * stepMeters) / 111000;
+  return [rawLng + ux * shiftDegrees, rawLat + uy * shiftDegrees];
+}
+
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
 // Helper to generate a random hex color from a predefined aesthetic palette
 const generateRandomColor = () => {
@@ -1137,6 +1188,42 @@ export default function PublicEventMonitoringPage() {
           .addTo(map);
       }
 
+      // Add dynamic zoom listener for sleek responsive marker scaling
+      const updateMarkerScales = () => {
+        const currentZoom = map.getZoom();
+        markers.current.forEach((m) => {
+          const el = m.getElement();
+          const dot = el.querySelector(".marker-dot") as HTMLElement | null;
+          const tooltip = el.querySelector(".marker-tooltip") as HTMLElement | null;
+          if (currentZoom < 12) {
+            if (dot) {
+              dot.style.width = "8px";
+              dot.style.height = "8px";
+              dot.style.borderWidth = "1.5px";
+              dot.style.boxShadow = "0 1px 4px rgba(0,0,0,0.5)";
+            }
+            if (tooltip) tooltip.style.display = "none";
+          } else if (currentZoom < 15) {
+            if (dot) {
+              dot.style.width = "11px";
+              dot.style.height = "11px";
+              dot.style.borderWidth = "2px";
+              dot.style.boxShadow = "0 2px 5px rgba(0,0,0,0.4)";
+            }
+            if (tooltip) tooltip.style.display = "block";
+          } else {
+            if (dot) {
+              dot.style.width = "13px";
+              dot.style.height = "13px";
+              dot.style.borderWidth = "2px";
+              dot.style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
+            }
+            if (tooltip) tooltip.style.display = "block";
+          }
+        });
+      };
+      map.on("zoom", updateMarkerScales);
+
       console.log(
         "[Map] ✅ Map fully loaded. Draining",
         pendingUpdates.current.length,
@@ -1828,19 +1915,42 @@ export default function PublicEventMonitoringPage() {
   useEffect(() => {
     if (!mapIsReady || !mapInstance.current) return;
 
-    participants.forEach((data, userId) => {
-      // PILLAR 1: Skip invalid coords
-      if (isNaN(data.lat) || isNaN(data.lng)) {
-        console.warn(`[Marker] ⚠️ Skipping marker for userId=${userId} — invalid coordinates.`);
-        return;
-      }
+    // Filter valid participants
+    const validList = Array.from(participants.values()).filter(
+      (p) => !isNaN(p.lat) && !isNaN(p.lng)
+    );
 
-      const rank = sortedParticipants.findIndex((p) => String(p.id) === String(userId)) + 1;
+    // Compute proximity cluster offsets along polyline
+    const proximityClusters: Map<string, number> = new Map();
+    validList.forEach((p1, idx1) => {
+      let clusterIdx = 0;
+      for (let idx2 = 0; idx2 < idx1; idx2++) {
+        const p2 = validList[idx2];
+        const distMeters = Math.hypot((p1.lat - p2.lat) * 111000, (p1.lng - p2.lng) * 111000);
+        if (distMeters < 15) {
+          clusterIdx++;
+        }
+      }
+      proximityClusters.set(String(p1.id), clusterIdx);
+    });
+
+    validList.forEach((data) => {
+      const userId = String(data.id);
+      const clusterIdx = proximityClusters.get(userId) || 0;
+      const [finalLng, finalLat] = computeAlongPolylineOffset(
+        data.lng,
+        data.lat,
+        clusterIdx,
+        routePolylineRef.current,
+        8
+      );
+
+      const rank = sortedParticipants.findIndex((p) => String(p.id) === userId) + 1;
       const rankStr = rank > 0 ? `${rank}` : "-";
       let marker = markers.current.get(userId);
       const isStale = isParticipantDisconnected(data);
-      const pInfo = participantsInfo.current.get(String(userId));
-      const rawName = pInfo?.name || (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) || `Participant ${String(userId).substring(0, 4)}`;
+      const pInfo = participantsInfo.current.get(userId);
+      const rawName = pInfo?.name || (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) || `Participant ${userId.substring(0, 4)}`;
       const bibNum = pInfo?.bibNumber || data.bibNumber || "-";
       const displayName = `${rankStr}_${bibNum}_${rawName}`;
 
@@ -1852,26 +1962,24 @@ export default function PublicEventMonitoringPage() {
           data.isAnomaly,
           data.color,
         );
+        // Leaderboard Z-Index Stacking (Front runners on top)
+        el.style.zIndex = `${10000 + (sortedParticipants.length - rank)}`;
         marker = new maplibregl.Marker({
           element: el,
           anchor: "center",
           subpixelPositioning: true,
         })
-          .setLngLat([data.lng, data.lat])
+          .setLngLat([finalLng, finalLat])
           .addTo(mapInstance.current!);
         markers.current.set(userId, marker);
-        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate, {
+        pushWaypoint(userId, finalLng, finalLat, data.speed, data.lastUpdate, {
           status: data.status,
           isAnomaly: data.isAnomaly,
           isStale,
           color: data.color,
           displayName,
         });
-      } else {
-        // Push telemetry with full event state — marker element updates are
-        // delivered via onWaypointConsumed callback when the animation engine
-        // visually arrives at this coordinate (unified time-sync).
-        pushWaypoint(userId, data.lng, data.lat, data.speed, data.lastUpdate, {
+        pushWaypoint(userId, finalLng, finalLat, data.speed, data.lastUpdate, {
           status: data.status,
           isAnomaly: data.isAnomaly,
           isStale,
