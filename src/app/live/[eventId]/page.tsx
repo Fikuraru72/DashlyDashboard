@@ -1105,27 +1105,7 @@ export default function PublicEventMonitoringPage() {
         data: { type: "FeatureCollection", features: [] },
       });
 
-      // Native WebGL Outer Glow Layer (3D Map Pitch Aligned)
-      map.addLayer({
-        id: "participants-glow-layer",
-        type: "circle",
-        source: "participants-native",
-        paint: {
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            10, 8,
-            14, 14,
-            18, 22
-          ],
-          "circle-color": ["get", "color"],
-          "circle-opacity": 0.35,
-          "circle-pitch-alignment": "map",
-        },
-      });
-
-      // Native WebGL Core Dot Layer (Compact Micro Dot)
+      // Native WebGL Core Dot Layer (Clean Sharp Micro Dot)
       map.addLayer({
         id: "participants-dot-layer",
         type: "circle",
