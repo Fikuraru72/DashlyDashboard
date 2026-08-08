@@ -1148,7 +1148,7 @@ export default function PublicEventMonitoringPage() {
         },
       });
 
-      // Native WebGL Core Dot Layer (3D Map Pitch Aligned)
+      // Native WebGL Core Dot Layer (Compact Micro Dot)
       map.addLayer({
         id: "participants-dot-layer",
         type: "circle",
@@ -1158,18 +1158,18 @@ export default function PublicEventMonitoringPage() {
             "interpolate",
             ["linear"],
             ["zoom"],
-            10, 4,
-            14, 7,
-            18, 10
+            10, 3,
+            14, 5,
+            18, 7
           ],
           "circle-color": ["get", "color"],
-          "circle-stroke-width": 2,
+          "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
           "circle-pitch-alignment": "map",
         },
       });
 
-      // Native WebGL Label Symbol Layer
+      // Native WebGL Label Symbol Layer (Prominent BIB & Name Typography)
       map.addLayer({
         id: "participants-label-layer",
         type: "symbol",
@@ -1180,70 +1180,20 @@ export default function PublicEventMonitoringPage() {
             "interpolate",
             ["linear"],
             ["zoom"],
-            10, 9,
-            14, 11,
-            18, 13
+            10, 10,
+            14, 12,
+            18, 14
           ],
-          "text-offset": [0, -1.6],
+          "text-offset": [0, -1.2],
           "text-anchor": "bottom",
-          "text-optional": true,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
         },
         paint: {
           "text-color": "#ffffff",
-          "text-halo-color": "#0f172a",
-          "text-halo-width": 2,
+          "text-halo-color": "#090d16",
+          "text-halo-width": 2.5,
         },
-      });
-
-      // Hover Glassmorphic Popup for Participant Identity & Telemetry
-      const hoverPopup = new maplibregl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        offset: 12,
-      });
-
-      map.on("mouseenter", "participants-dot-layer", (e) => {
-        map.getCanvas().style.cursor = "pointer";
-        const feat = e.features?.[0];
-        if (!feat || !feat.properties) return;
-
-        const { id, label, color, speed, status, isAnomaly } = feat.properties;
-        const coordinates = (feat.geometry as any).coordinates.slice();
-
-        const anomalyBadge = isAnomaly
-          ? `<div style="background: #e11d48; color: white; padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">🚨 ANOMALY DETECTED</div>`
-          : "";
-
-        hoverPopup
-          .setLngLat(coordinates)
-          .setHTML(
-            `<div style="
-              background: rgba(15, 23, 42, 0.94);
-              backdrop-filter: blur(12px);
-              color: white;
-              padding: 10px 14px;
-              border-radius: 12px;
-              border: 1px solid rgba(255,255,255,0.18);
-              box-shadow: 0 12px 30px rgba(0,0,0,0.5);
-              font-family: system-ui, -apple-system, sans-serif;
-              min-width: 150px;
-            ">
-              ${anomalyBadge}
-              <div style="font-weight: 800; font-size: 12.5px; margin-bottom: 4px; color: ${color}; letter-spacing: 0.3px;">
-                ${label}
-              </div>
-              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; opacity: 0.9; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
-                <span>⚡ ${Number(speed || 0).toFixed(1)} km/h</span>
-                <span style="font-weight: 800; color: ${isAnomaly ? "#e11d48" : "#10b981"}">${(status || "TRACKING").toUpperCase()}</span>
-              </div>
-            </div>`
-          )
-          .addTo(map);
-      });
-
-      map.on("mouseleave", "participants-dot-layer", () => {
-        map.getCanvas().style.cursor = "";
-        hoverPopup.remove();
       });
 
       // Add kilometer distance badges along the route (WebGL Layer)
