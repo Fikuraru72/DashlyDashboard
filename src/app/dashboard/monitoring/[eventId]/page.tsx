@@ -453,7 +453,66 @@ export default function PublicEventMonitoringPage() {
     }
   }, []);
 
-  const { pushWaypoint, removeTarget: removeMarkerTarget } = useMapMarkerAnimation(markers, handleWaypointConsumed);
+  // 60 FPS Native WebGL Animation Frame Callback
+  const handleAnimationFrame = useCallback((stateMap: Map<string, any>) => {
+    if (!mapInstance.current) return;
+    const nativeSource = mapInstance.current.getSource("participants-native") as maplibregl.GeoJSONSource;
+    if (!nativeSource) return;
+
+    const features: any[] = [];
+    stateMap.forEach((state, userId) => {
+      const rawLng = state.displayLng;
+      const rawLat = state.displayLat;
+
+      let finalLng = rawLng;
+      let finalLat = rawLat;
+      if (routePolylineRef.current.length >= 2) {
+        const { snappedPoint } = snapPointToPolyline(
+          [rawLng, rawLat],
+          routePolylineRef.current,
+          300
+        );
+        finalLng = snappedPoint[0];
+        finalLat = snappedPoint[1];
+      }
+
+      const lastConsumed = state.lastConsumed;
+      const isAnomaly = lastConsumed?.isAnomaly ?? false;
+      const isStale = lastConsumed?.isStale ?? false;
+      const color = isAnomaly ? "#e11d48" : (lastConsumed?.color || "#10b981");
+      const label = lastConsumed?.displayName || `Runner ${userId.substring(0, 4)}`;
+      const speed = lastConsumed?.speed || 0;
+      const status = lastConsumed?.status || "moving";
+
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [finalLng, finalLat],
+        },
+        properties: {
+          id: userId,
+          color,
+          label: isAnomaly ? `🚨 [ANOMALY] ${label}` : label,
+          speed,
+          status,
+          isAnomaly,
+          isStale,
+        },
+      });
+    });
+
+    nativeSource.setData({
+      type: "FeatureCollection",
+      features,
+    });
+  }, []);
+
+  const { pushWaypoint, removeTarget: removeMarkerTarget } = useMapMarkerAnimation(
+    markers,
+    handleWaypointConsumed,
+    handleAnimationFrame
+  );
   const kmMarkersRef = useRef<maplibregl.Marker[]>([]);
   const elevationHoverMarker = useRef<maplibregl.Marker | null>(null);
 
@@ -1192,6 +1251,57 @@ export default function PublicEventMonitoringPage() {
           "text-halo-color": "#0f172a",
           "text-halo-width": 2,
         },
+      });
+
+      // Hover Glassmorphic Popup for Participant Identity & Telemetry
+      const hoverPopup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 12,
+      });
+
+      map.on("mouseenter", "participants-dot-layer", (e) => {
+        map.getCanvas().style.cursor = "pointer";
+        const feat = e.features?.[0];
+        if (!feat || !feat.properties) return;
+
+        const { id, label, color, speed, status, isAnomaly } = feat.properties;
+        const coordinates = (feat.geometry as any).coordinates.slice();
+
+        const anomalyBadge = isAnomaly
+          ? `<div style="background: #e11d48; color: white; padding: 3px 8px; border-radius: 6px; font-weight: 900; font-size: 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">🚨 ANOMALY DETECTED</div>`
+          : "";
+
+        hoverPopup
+          .setLngLat(coordinates)
+          .setHTML(
+            `<div style="
+              background: rgba(15, 23, 42, 0.94);
+              backdrop-filter: blur(12px);
+              color: white;
+              padding: 10px 14px;
+              border-radius: 12px;
+              border: 1px solid rgba(255,255,255,0.18);
+              box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+              font-family: system-ui, -apple-system, sans-serif;
+              min-width: 150px;
+            ">
+              ${anomalyBadge}
+              <div style="font-weight: 800; font-size: 12.5px; margin-bottom: 4px; color: ${color}; letter-spacing: 0.3px;">
+                ${label}
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; opacity: 0.9; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
+                <span>⚡ ${Number(speed || 0).toFixed(1)} km/h</span>
+                <span style="font-weight: 800; color: ${isAnomaly ? "#e11d48" : "#10b981"}">${(status || "TRACKING").toUpperCase()}</span>
+              </div>
+            </div>`
+          )
+          .addTo(map);
+      });
+
+      map.on("mouseleave", "participants-dot-layer", () => {
+        map.getCanvas().style.cursor = "";
+        hoverPopup.remove();
       });
 
       // Add kilometer distance badges along the route (WebGL Layer)

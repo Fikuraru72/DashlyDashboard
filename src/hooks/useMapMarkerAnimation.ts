@@ -60,17 +60,23 @@ interface ParticipantPlaybackState {
 export function useMapMarkerAnimation(
   markersRef: React.MutableRefObject<Map<string, maplibregl.Marker>>,
   onWaypointConsumed?: OnWaypointConsumed,
+  onFrame?: (stateMap: Map<string, ParticipantPlaybackState>) => void,
 ) {
   const stateMapRef = useRef<Map<string, ParticipantPlaybackState>>(new Map());
   const rAfIdRef = useRef<number | null>(null);
   const isRunningRef = useRef(false);
   const onWaypointConsumedRef = useRef(onWaypointConsumed);
+  const onFrameRef = useRef(onFrame);
   const lastFrameTimeRef = useRef<number>(Date.now());
 
   // Keep callback ref fresh without triggering re-renders
   useEffect(() => {
     onWaypointConsumedRef.current = onWaypointConsumed;
   }, [onWaypointConsumed]);
+
+  useEffect(() => {
+    onFrameRef.current = onFrame;
+  }, [onFrame]);
 
   /**
    * Push a new GPS telemetry waypoint into a participant's buffer queue.
@@ -335,8 +341,14 @@ export function useMapMarkerAnimation(
         }
       }
 
-      // Update MapLibre DOM element (Zero React re-renders)
-      marker.setLngLat([state.displayLng, state.displayLat]);
+      // Update MapLibre DOM element if present
+      if (marker) {
+        marker.setLngLat([state.displayLng, state.displayLat]);
+      }
+    }
+
+    if (onFrameRef.current) {
+      onFrameRef.current(stateMapRef.current);
     }
 
     if (anyActive || stateMap.size > 0) {
