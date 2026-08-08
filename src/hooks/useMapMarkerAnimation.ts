@@ -128,6 +128,13 @@ export function useMapMarkerAnimation(
         };
         stateMap.set(userId, state);
       } else {
+        const wpTime = timestamp || now;
+
+        // Reject obsolete waypoints from the past that arrived out-of-order
+        if (wpTime <= state.playbackTime) {
+          return;
+        }
+
         const tail = state.queue[state.queue.length - 1];
 
         // Skip exact duplicate coordinate noise
@@ -145,13 +152,15 @@ export function useMapMarkerAnimation(
         const newWaypoint: TelemetryWaypoint = {
           lng,
           lat,
-          time: timestamp || now,
+          time: wpTime,
           speed,
           routeDistance: eventState?.routeDistance,
           ...eventState,
         };
 
         state.queue.push(newWaypoint);
+        // Ensure queue is strictly sorted by timestamp chronologically
+        state.queue.sort((a, b) => a.time - b.time);
         state.extrapolatedMs = 0; // Reset extrapolation timer
 
         // Safety cap if queue grows excessively large (>500)
