@@ -1064,6 +1064,77 @@ export default function PublicEventMonitoringPage() {
           "line-opacity": 0.9,
         },
       });
+      map.addSource("participants-native", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      // Native WebGL Outer Glow Layer (3D Map Pitch Aligned)
+      map.addLayer({
+        id: "participants-glow-layer",
+        type: "circle",
+        source: "participants-native",
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10, 8,
+            14, 14,
+            18, 22
+          ],
+          "circle-color": ["get", "color"],
+          "circle-opacity": 0.35,
+          "circle-pitch-alignment": "map",
+        },
+      });
+
+      // Native WebGL Core Dot Layer (3D Map Pitch Aligned)
+      map.addLayer({
+        id: "participants-dot-layer",
+        type: "circle",
+        source: "participants-native",
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10, 4,
+            14, 7,
+            18, 10
+          ],
+          "circle-color": ["get", "color"],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+          "circle-pitch-alignment": "map",
+        },
+      });
+
+      // Native WebGL Label Symbol Layer
+      map.addLayer({
+        id: "participants-label-layer",
+        type: "symbol",
+        source: "participants-native",
+        layout: {
+          "text-field": ["get", "label"],
+          "text-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10, 9,
+            14, 11,
+            18, 13
+          ],
+          "text-offset": [0, -1.6],
+          "text-anchor": "bottom",
+          "text-optional": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "#0f172a",
+          "text-halo-width": 2,
+        },
+      });
 
       // Add kilometer distance badges along the route (WebGL Layer)
       addKilometerMarkers(map, event.routeGeojson, showKmMarkers);
@@ -1881,9 +1952,6 @@ export default function PublicEventMonitoringPage() {
           color: data.color,
           displayName,
         });
-      } else {
-        const el = marker.getElement();
-        el.style.zIndex = `${10000 + (sortedParticipants.length - rank)}`;
         pushWaypoint(userId, finalLng, finalLat, data.speed, data.lastUpdate, {
           status: data.status,
           isAnomaly: data.isAnomaly,
@@ -1893,6 +1961,52 @@ export default function PublicEventMonitoringPage() {
         });
       }
     });
+
+    // Update Native WebGL Participants Source for 3D Ground Alignment
+    const nativeFeatures: any[] = [];
+    validList.forEach((data) => {
+      const userId = String(data.id);
+      const clusterIdx = proximityClusters.get(userId) || 0;
+      const [finalLng, finalLat] = computeAlongPolylineOffset(
+        data.lng,
+        data.lat,
+        clusterIdx,
+        routePolylineRef.current,
+        8
+      );
+
+      const pInfo = participantsInfo.current.get(userId);
+      const rawName =
+        pInfo?.name ||
+        (data.name && data.name !== "undefined" && !data.name.startsWith("User ") ? data.name : null) ||
+        `Participant ${userId.substring(0, 4)}`;
+      const bibNum = pInfo?.bibNumber || data.bibNumber || "-";
+      const displayName = `${bibNum}_${rawName}`;
+
+      nativeFeatures.push({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [finalLng, finalLat],
+        },
+        properties: {
+          id: userId,
+          color: data.color || "#10b981",
+          label: displayName,
+          status: data.status,
+        },
+      });
+    });
+
+    if (mapInstance.current) {
+      const nativeSource = mapInstance.current.getSource("participants-native") as maplibregl.GeoJSONSource;
+      if (nativeSource) {
+        nativeSource.setData({
+          type: "FeatureCollection",
+          features: nativeFeatures,
+        });
+      }
+    }
 
     // Stale cleanup — remove markers for participants gone >5min
     const currentTime = Date.now();
