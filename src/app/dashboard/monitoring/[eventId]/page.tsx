@@ -461,20 +461,8 @@ export default function PublicEventMonitoringPage() {
 
     const features: any[] = [];
     stateMap.forEach((state, userId) => {
-      const rawLng = state.displayLng;
-      const rawLat = state.displayLat;
-
-      let finalLng = rawLng;
-      let finalLat = rawLat;
-      if (routePolylineRef.current.length >= 2) {
-        const { snappedPoint } = snapPointToPolyline(
-          [rawLng, rawLat],
-          routePolylineRef.current,
-          300
-        );
-        finalLng = snappedPoint[0];
-        finalLat = snappedPoint[1];
-      }
+      const finalLng = state.displayLng;
+      const finalLat = state.displayLat;
 
       const lastConsumed = state.lastConsumed;
       const isAnomaly = lastConsumed?.isAnomaly ?? false;
@@ -674,8 +662,8 @@ export default function PublicEventMonitoringPage() {
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
     return Array.from(participants.values()).sort((a, b) => {
-      const distA = a.distanceKm ?? a.progressKm ?? 0;
-      const distB = b.distanceKm ?? b.progressKm ?? 0;
+      const distA = a.routeDistance ?? a.routeIndex ?? a.distanceKm ?? a.progressKm ?? 0;
+      const distB = b.routeDistance ?? b.routeIndex ?? b.distanceKm ?? b.progressKm ?? 0;
       if (distA !== distB) return distB - distA;
       return (b.speed || 0) - (a.speed || 0);
     });
