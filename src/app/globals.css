@@ -24,3 +24,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Sleek MapLibre Glassmorphic Hover Popup Reset */
+.participant-hover-popup .maplibregl-popup-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+}
+.participant-hover-popup .maplibregl-popup-tip {
+  border-top-color: rgba(15, 23, 42, 0.94) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.94) !important;
+}

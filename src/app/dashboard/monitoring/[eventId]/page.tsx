@@ -1204,31 +1204,65 @@ export default function PublicEventMonitoringPage() {
         },
       });
 
-      // Native WebGL Label Symbol Layer (Prominent BIB & Name Typography)
-      map.addLayer({
-        id: "participants-label-layer",
-        type: "symbol",
-        source: "participants-native",
-        layout: {
-          "text-field": ["get", "label"],
-          "text-size": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            10, 10,
-            14, 12,
-            18, 14
-          ],
-          "text-offset": [0, -1.2],
-          "text-anchor": "bottom",
-          "text-allow-overlap": true,
-          "text-ignore-placement": true,
-        },
-        paint: {
-          "text-color": "#ffffff",
-          "text-halo-color": "#090d16",
-          "text-halo-width": 2.5,
-        },
+      // Hover Glassmorphic Popup for Participant BIB, Name & Telemetry
+      const hoverPopup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 10,
+        className: "participant-hover-popup",
+      });
+
+      map.on("mouseenter", "participants-dot-layer", (e) => {
+        map.getCanvas().style.cursor = "pointer";
+        const feat = e.features?.[0];
+        if (!feat || !feat.properties) return;
+
+        const { id, label, color, speed, status, isAnomaly } = feat.properties;
+        const coordinates = (feat.geometry as any).coordinates.slice();
+
+        const parts = (label || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").split("_");
+        const bibNum = parts.length > 1 ? parts[0] : "-";
+        const rawName = parts.length > 1 ? parts.slice(1).join(" ") : label;
+
+        const anomalyBadge = isAnomaly
+          ? `<div style="background: #e11d48; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 900; font-size: 9px; margin-bottom: 4px; display: inline-flex; align-items: center; gap: 4px;">🚨 ANOMALY</div>`
+          : "";
+
+        hoverPopup
+          .setLngLat(coordinates)
+          .setHTML(
+            `<div style="
+              background: rgba(15, 23, 42, 0.94);
+              backdrop-filter: blur(12px);
+              color: white;
+              padding: 9px 12px;
+              border-radius: 12px;
+              border: 1px solid rgba(255,255,255,0.18);
+              box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+              font-family: system-ui, -apple-system, sans-serif;
+              min-width: 140px;
+            ">
+              ${anomalyBadge}
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
+                <span style="background: rgba(99, 102, 241, 0.25); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.4); padding: 1px 5px; border-radius: 5px; font-weight: 900; font-size: 9.5px; shrink: 0;">
+                  BIB #${bibNum}
+                </span>
+                <span style="font-weight: 800; font-size: 12px; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;">
+                  ${rawName}
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; opacity: 0.9; margin-top: 5px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 4px;">
+                <span>⚡ ${Number(speed || 0).toFixed(1)} km/h</span>
+                <span style="font-weight: 800; color: ${isAnomaly ? "#f43f5e" : "#10b981"}">${(status || "TRACKING").toUpperCase()}</span>
+              </div>
+            </div>`
+          )
+          .addTo(map);
+      });
+
+      map.on("mouseleave", "participants-dot-layer", () => {
+        map.getCanvas().style.cursor = "";
+        hoverPopup.remove();
       });
 
       // Add kilometer distance badges along the route (WebGL Layer)
