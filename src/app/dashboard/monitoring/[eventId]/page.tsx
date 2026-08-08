@@ -57,10 +57,17 @@ const getCookie = (name: string) => {
 };
 import { getRouteCoordinates, toRouteFeatureCollection } from "@/lib/utils/route-normalizer";
 
-// Helper: Instant point-to-line distance calculation in meters
-function getMinDistanceToPolylineMeters(point: [number, number], lineCoords: [number, number][]): number {
-  if (!lineCoords || lineCoords.length < 2) return 0;
+// Helper: Snap GPS point onto the route polyline within maxSnapMeters threshold
+function snapPointToPolyline(
+  point: [number, number],
+  lineCoords: [number, number][],
+  maxSnapMeters: number = 50
+): { snappedPoint: [number, number]; distMeters: number } {
+  if (!lineCoords || lineCoords.length < 2) {
+    return { snappedPoint: point, distMeters: 0 };
+  }
   let minSqDist = Infinity;
+  let bestPoint: [number, number] = point;
   const [pLng, pLat] = point;
   const cosLat = Math.cos((pLat * Math.PI) / 180);
 
@@ -77,12 +84,24 @@ function getMinDistanceToPolylineMeters(point: [number, number], lineCoords: [nu
     let t = lenSq > 0 ? (px * dx + py * dy) / lenSq : 0;
     t = Math.max(0, Math.min(1, t));
 
+    const projLng = aLng + t * (bLng - aLng);
+    const projLat = aLat + t * (bLat - aLat);
+
     const projX = px - t * dx;
     const projY = py - t * dy;
     const distSq = projX * projX + projY * projY;
-    if (distSq < minSqDist) minSqDist = distSq;
+
+    if (distSq < minSqDist) {
+      minSqDist = distSq;
+      bestPoint = [projLng, projLat];
+    }
   }
-  return Math.sqrt(minSqDist);
+
+  const distMeters = Math.sqrt(minSqDist);
+  if (distMeters <= maxSnapMeters) {
+    return { snappedPoint: bestPoint, distMeters };
+  }
+  return { snappedPoint: point, distMeters };
 }
 
 // ── Marker Styling (Inline CSS Only — Tailwind does NOT work inside MapLibre canvas) ─────────
@@ -846,12 +865,25 @@ export default function PublicEventMonitoringPage() {
                     isOfflineNormalized,
                   );
                   const pInfo = participantsInfo.current.get(uid);
+                  const rawLat = parseFloat(p.snappedLat ?? p.lat);
+                  const rawLng = parseFloat(p.snappedLng ?? p.lng);
+                  let finalLat = rawLat;
+                  let finalLng = rawLng;
+                  if (routePolylineRef.current.length >= 2) {
+                    const { snappedPoint } = snapPointToPolyline(
+                      [rawLng, rawLat],
+                      routePolylineRef.current,
+                      50
+                    );
+                    finalLng = snappedPoint[0];
+                    finalLat = snappedPoint[1];
+                  }
                   next.set(uid, {
                     id: uid,
                     name: pInfo?.formattedName || p.name || `User ${String(uid).substring(0, 4)}`,
                     bibNumber: pInfo?.bibNumber || p.bibNumber || "-",
-                    lat: parseFloat(p.snappedLat ?? p.lat),
-                    lng: parseFloat(p.snappedLng ?? p.lng),
+                    lat: finalLat,
+                    lng: finalLng,
                     color: pInfo?.color,
                     speed: parseFloat(p.speed) || 0,
                     battery:
@@ -1243,10 +1275,22 @@ export default function PublicEventMonitoringPage() {
 
         batchData.positions.forEach((data: any) => {
           const userId = String(data.userId || data.participantId || data.id);
-          const lat = parseFloat(data.snappedLat ?? data.lat);
-          const lng = parseFloat(data.snappedLng ?? data.lng);
+          const rawLat = parseFloat(data.snappedLat ?? data.lat);
+          const rawLng = parseFloat(data.snappedLng ?? data.lng);
 
-          if (isNaN(lat) || isNaN(lng)) return;
+          if (isNaN(rawLat) || isNaN(rawLng)) return;
+
+          let lat = rawLat;
+          let lng = rawLng;
+          if (routePolylineRef.current.length >= 2) {
+            const { snappedPoint } = snapPointToPolyline(
+              [rawLng, rawLat],
+              routePolylineRef.current,
+              50
+            );
+            lng = snappedPoint[0];
+            lat = snappedPoint[1];
+          }
 
           const pInfo = participantsInfo.current.get(userId);
           if (pInfo) {
@@ -1338,7 +1382,7 @@ export default function PublicEventMonitoringPage() {
               let isOffRouteByDistance = false;
               if (routePolylineRef.current.length >= 2) {
                 measuredOffRouteMeters = Math.round(
-                  getMinDistanceToPolylineMeters([lng, lat], routePolylineRef.current),
+                  snapPointToPolyline([lng, lat], routePolylineRef.current).distMeters,
                 );
                 if (measuredOffRouteMeters > 30) {
                   isOffRouteByDistance = true;
