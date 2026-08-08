@@ -963,19 +963,8 @@ export default function PublicEventMonitoringPage() {
                     isOfflineNormalized,
                   );
                   const pInfo = participantsInfo.current.get(uid);
-                  const rawLat = parseFloat(p.snappedLat ?? p.lat);
-                  const rawLng = parseFloat(p.snappedLng ?? p.lng);
-                  let finalLat = rawLat;
-                  let finalLng = rawLng;
-                  if (routePolylineRef.current.length >= 2) {
-                    const { snappedPoint } = snapPointToPolyline(
-                      [rawLng, rawLat],
-                      routePolylineRef.current,
-                      300
-                    );
-                    finalLng = snappedPoint[0];
-                    finalLat = snappedPoint[1];
-                  }
+                  const finalLat = parseFloat(p.lat ?? p.snappedLat);
+                  const finalLng = parseFloat(p.lng ?? p.snappedLng);
                   next.set(uid, {
                     id: uid,
                     name: pInfo?.formattedName || p.name || `User ${String(uid).substring(0, 4)}`,
@@ -1483,22 +1472,10 @@ export default function PublicEventMonitoringPage() {
 
         batchData.positions.forEach((data: any) => {
           const userId = String(data.userId || data.participantId || data.id);
-          const rawLat = parseFloat(data.snappedLat ?? data.lat);
-          const rawLng = parseFloat(data.snappedLng ?? data.lng);
+          const lat = parseFloat(data.lat ?? data.snappedLat);
+          const lng = parseFloat(data.lng ?? data.snappedLng);
 
-          if (isNaN(rawLat) || isNaN(rawLng)) return;
-
-          let lat = rawLat;
-          let lng = rawLng;
-          if (routePolylineRef.current.length >= 2) {
-            const { snappedPoint } = snapPointToPolyline(
-              [rawLng, rawLat],
-              routePolylineRef.current,
-              300
-            );
-            lng = snappedPoint[0];
-            lat = snappedPoint[1];
-          }
+          if (isNaN(lat) || isNaN(lng)) return;
 
           const pInfo = participantsInfo.current.get(userId);
           if (pInfo) {
