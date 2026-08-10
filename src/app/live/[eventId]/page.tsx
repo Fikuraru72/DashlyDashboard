@@ -2414,25 +2414,32 @@ export default function PublicEventMonitoringPage() {
                     Blood Type
                   </p>
                   <p className="text-lg font-black text-rose-400">
-                    {participantDetailModal.user?.healthInfo?.bloodType || "N/A"}
+                    {participantDetailModal.user?.healthProfile?.bloodType ||
+                      participantDetailModal.user?.healthInfo?.bloodType ||
+                      "N/A"}
                   </p>
                 </div>
                 <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-                    Phone
+                    Height & Weight
                   </p>
                   <p className="text-sm font-bold text-slate-300">
-                    {participantDetailModal.user?.phone || "N/A"}
+                    {participantDetailModal.user?.healthProfile?.height || participantDetailModal.user?.healthInfo?.height ? `${participantDetailModal.user?.healthProfile?.height || participantDetailModal.user?.healthInfo?.height} cm` : "-"} /{" "}
+                    {participantDetailModal.user?.healthProfile?.weight || participantDetailModal.user?.healthInfo?.weight ? `${participantDetailModal.user?.healthProfile?.weight || participantDetailModal.user?.healthInfo?.weight} kg` : "-"}
                   </p>
                 </div>
               </div>
 
               <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-                  Medical Conditions
+                  Medical History / Conditions
                 </p>
                 <p className="text-sm font-medium text-slate-300">
-                  {participantDetailModal.user?.healthInfo?.medicalConditions?.join(", ") ||
+                  {participantDetailModal.user?.healthProfile?.medicalHistory ||
+                    participantDetailModal.user?.healthInfo?.medicalHistory ||
+                    (Array.isArray(participantDetailModal.user?.healthInfo?.medicalConditions)
+                      ? participantDetailModal.user?.healthInfo?.medicalConditions.join(", ")
+                      : null) ||
                     "None reported"}
                 </p>
               </div>
@@ -2442,8 +2449,11 @@ export default function PublicEventMonitoringPage() {
                   Emergency Contact
                 </p>
                 <p className="text-sm font-bold text-slate-300">
-                  {participantDetailModal.user?.healthInfo?.emergencyContactName || "N/A"} -{" "}
-                  {participantDetailModal.user?.healthInfo?.emergencyContactPhone || "N/A"}
+                  {participantDetailModal.user?.healthProfile?.emergencyContact ||
+                    participantDetailModal.user?.healthInfo?.emergencyContact ||
+                    (participantDetailModal.user?.healthInfo?.emergencyContactName
+                      ? `${participantDetailModal.user?.healthInfo?.emergencyContactName} - ${participantDetailModal.user?.healthInfo?.emergencyContactPhone || ""}`
+                      : "N/A")}
                 </p>
               </div>
             </div>
