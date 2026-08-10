@@ -21,7 +21,9 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
   const [password, setPassword] = useState("");
   const [roleId, setRoleId] = useState<number | "">("");
   const [phone, setPhone] = useState("");
+  const [emergencyName, setEmergencyName] = useState("");
   const [emergencyPhone, setEmergencyPhone] = useState("");
+  const [emergencyRelation, setEmergencyRelation] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [bloodType, setBloodType] = useState("");
@@ -49,10 +51,12 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
     try {
       const healthInfo = isParticipantRole
         ? {
-            emergency_phone: emergencyPhone || undefined,
-            blood_type: bloodType || undefined,
-            height_cm: height ? Number(height) : undefined,
-            weight_kg: weight ? Number(weight) : undefined,
+            emergencyName: emergencyName || undefined,
+            emergencyPhone: emergencyPhone || undefined,
+            emergencyRelation: emergencyRelation || undefined,
+            bloodType: bloodType || undefined,
+            height: height ? Number(height) : undefined,
+            weight: weight ? Number(weight) : undefined,
           }
         : null;
 
@@ -70,7 +74,9 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
       setPassword("");
       setRoleId("");
       setPhone("");
+      setEmergencyName("");
       setEmergencyPhone("");
+      setEmergencyRelation("");
       setHeight("");
       setWeight("");
       setBloodType("");
@@ -237,9 +243,44 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                       </div>
                     </div>
 
+                    <div className="col-span-2 space-y-1.5">
+                      <label htmlFor="add-emergencyName" className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Nama Kontak Darurat
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <User className="h-3.5 w-3.5 text-rose-400" />
+                        </div>
+                        <input
+                          id="add-emergencyName"
+                          name="emergencyName"
+                          type="text"
+                          value={emergencyName}
+                          onChange={(e) => setEmergencyName(e.target.value)}
+                          placeholder="Nama Kontak Darurat"
+                          className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="add-emergencyRelation" className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Hubungan
+                      </label>
+                      <input
+                        id="add-emergencyRelation"
+                        name="emergencyRelation"
+                        type="text"
+                        value={emergencyRelation}
+                        onChange={(e) => setEmergencyRelation(e.target.value)}
+                        placeholder="e.g. Orang Tua, Suami"
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                    </div>
+
                     <div className="space-y-1.5">
                       <label htmlFor="add-emergencyPhone" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Emergency Phone
+                        No. HP Emergency
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -251,7 +292,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                           type="tel"
                           value={emergencyPhone}
                           onChange={(e) => setEmergencyPhone(e.target.value)}
-                          placeholder="Emergency contact"
+                          placeholder="0812..."
                           className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                         />
                       </div>

@@ -2451,9 +2451,11 @@ export default function PublicEventMonitoringPage() {
                 <p className="text-sm font-bold text-slate-300">
                   {participantDetailModal.user?.healthProfile?.emergencyContact ||
                     participantDetailModal.user?.healthInfo?.emergencyContact ||
-                    (participantDetailModal.user?.healthInfo?.emergencyContactName
-                      ? `${participantDetailModal.user?.healthInfo?.emergencyContactName} - ${participantDetailModal.user?.healthInfo?.emergencyContactPhone || ""}`
-                      : "N/A")}
+                    (participantDetailModal.user?.healthInfo?.emergencyName
+                      ? `${participantDetailModal.user?.healthInfo?.emergencyName} ${participantDetailModal.user?.healthInfo?.emergencyRelation ? `(${participantDetailModal.user?.healthInfo?.emergencyRelation})` : ''} - ${participantDetailModal.user?.healthInfo?.emergencyPhone || ''}`
+                      : participantDetailModal.user?.healthInfo?.emergencyContactName
+                        ? `${participantDetailModal.user?.healthInfo?.emergencyContactName} - ${participantDetailModal.user?.healthInfo?.emergencyContactPhone || ''}`
+                        : "N/A")}
                 </p>
               </div>
             </div>
