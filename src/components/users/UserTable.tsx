@@ -78,8 +78,11 @@ export function UserTable({ users, roles, canManageUsers, onDelete, onEdit }: Us
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="relative w-full sm:w-96">
+          <label htmlFor="user-search" className="sr-only">Search Users</label>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
+            id="user-search"
+            name="search"
             type="text"
             placeholder="Search users by name or email..."
             value={searchQuery}
@@ -92,19 +95,22 @@ export function UserTable({ users, roles, canManageUsers, onDelete, onEdit }: Us
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="relative w-full sm:w-auto">
+            <label htmlFor="role-filter" className="sr-only">Filter by Role</label>
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <select
+              id="role-filter"
+              name="roleFilter"
               value={selectedRole}
               onChange={(e) => {
                 setSelectedRole(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full sm:w-auto pl-10 pr-8 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer text-slate-700 dark:text-slate-300 font-medium"
+              className="w-full sm:w-auto pl-10 pr-8 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer text-slate-800 dark:text-slate-200 font-medium"
             >
               <option value="ALL">All Roles</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.name}>
-                  {r.name}
+              {roles.map((role) => (
+                <option key={role.id} value={role.name}>
+                  {role.name}
                 </option>
               ))}
             </select>

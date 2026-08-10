@@ -147,7 +147,7 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
 
             <form id="editUserForm" onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="edit-name" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Full Name
                 </label>
                 <div className="relative">
@@ -155,6 +155,8 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     <User className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
+                    id="edit-name"
+                    name="name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -165,7 +167,7 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="edit-email" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Email Address
                 </label>
                 <div className="relative">
@@ -173,6 +175,8 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     <Mail className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
+                    id="edit-email"
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -183,7 +187,7 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="edit-password" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Update Password (Optional)
                 </label>
                 <div className="relative">
@@ -191,6 +195,8 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     <Lock className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
+                    id="edit-password"
+                    name="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -201,7 +207,7 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="edit-roleId" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Assign Role
                 </label>
                 <div className="relative">
@@ -209,6 +215,8 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     <Shield className="h-4 w-4 text-slate-400" />
                   </div>
                   <select
+                    id="edit-roleId"
+                    name="roleId"
                     value={roleId}
                     onChange={(e) => setRoleId(e.target.value ? Number(e.target.value) : "")}
                     className="w-full pl-10 pr-8 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer text-slate-800 dark:text-slate-200 font-medium"
@@ -236,7 +244,7 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="edit-phone" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Phone Number
                       </label>
                       <div className="relative">
@@ -244,6 +252,8 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                           <Phone className="h-3 w-3 text-slate-400" />
                         </div>
                         <input
+                          id="edit-phone"
+                          name="phone"
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
@@ -254,7 +264,7 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="edit-emergencyPhone" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Emergency Phone
                       </label>
                       <div className="relative">
@@ -262,6 +272,8 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                           <Phone className="h-3 w-3 text-rose-400" />
                         </div>
                         <input
+                          id="edit-emergencyPhone"
+                          name="emergencyPhone"
                           type="tel"
                           value={emergencyPhone}
                           onChange={(e) => setEmergencyPhone(e.target.value)}
@@ -272,10 +284,12 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="edit-height" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Height (cm)
                       </label>
                       <input
+                        id="edit-height"
+                        name="height"
                         type="number"
                         value={height}
                         onChange={(e) => setHeight(e.target.value)}
@@ -285,10 +299,12 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="edit-weight" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Weight (kg)
                       </label>
                       <input
+                        id="edit-weight"
+                        name="weight"
                         type="number"
                         value={weight}
                         onChange={(e) => setWeight(e.target.value)}
@@ -298,10 +314,12 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="edit-bloodType" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Blood Type
                       </label>
                       <select
+                        id="edit-bloodType"
+                        name="bloodType"
                         value={bloodType}
                         onChange={(e) => setBloodType(e.target.value)}
                         className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer"
@@ -316,10 +334,12 @@ export function EditUserModal({ isOpen, user, roles, onClose, onSave }: EditUser
                       </select>
                     </div>
                     <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="edit-medicalHistory" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Health History (Optional)
                       </label>
                       <textarea
+                        id="edit-medicalHistory"
+                        name="medicalHistory"
                         value={healthHistory}
                         onChange={(e) => setHealthHistory(e.target.value)}
                         placeholder="e.g. Asthma, Allergies, Heart Condition, etc."

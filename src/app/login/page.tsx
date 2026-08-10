@@ -133,7 +133,7 @@ export default function LoginPage() {
             <div className="space-y-4">
               {/* Email Input */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
+                <label htmlFor="login-email" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
                   Email Address
                 </label>
                 <div className="relative group">
@@ -141,6 +141,8 @@ export default function LoginPage() {
                     <Mail className="h-5 w-5" />
                   </div>
                   <input
+                    id="login-email"
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -153,7 +155,7 @@ export default function LoginPage() {
 
               {/* Password Input */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
+                <label htmlFor="login-password" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">
                   Password
                 </label>
                 <div className="relative group">
@@ -161,6 +163,8 @@ export default function LoginPage() {
                     <Lock className="h-5 w-5" />
                   </div>
                   <input
+                    id="login-password"
+                    name="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

@@ -120,7 +120,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
 
             <form id="addUserForm" onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="add-name" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Full Name
                 </label>
                 <div className="relative">
@@ -128,6 +128,8 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     <User className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
+                    id="add-name"
+                    name="name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -138,7 +140,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="add-email" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Email Address
                 </label>
                 <div className="relative">
@@ -146,6 +148,8 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     <Mail className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
+                    id="add-email"
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -156,7 +160,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="add-password" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Temporary Password
                 </label>
                 <div className="relative">
@@ -164,6 +168,8 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     <Lock className="h-4 w-4 text-slate-400" />
                   </div>
                   <input
+                    id="add-password"
+                    name="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -174,7 +180,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                <label htmlFor="add-roleId" className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   Assign Role
                 </label>
                 <div className="relative">
@@ -182,6 +188,8 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     <Shield className="h-4 w-4 text-slate-400" />
                   </div>
                   <select
+                    id="add-roleId"
+                    name="roleId"
                     value={roleId}
                     onChange={(e) => setRoleId(e.target.value ? Number(e.target.value) : "")}
                     className="w-full pl-10 pr-8 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer text-slate-800 dark:text-slate-200 font-medium"
@@ -210,7 +218,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="add-phone" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Phone Number
                       </label>
                       <div className="relative">
@@ -218,6 +226,8 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                           <Phone className="h-3 w-3 text-slate-400" />
                         </div>
                         <input
+                          id="add-phone"
+                          name="phone"
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
@@ -228,7 +238,7 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="add-emergencyPhone" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Emergency Phone
                       </label>
                       <div className="relative">
@@ -236,6 +246,8 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                           <Phone className="h-3 w-3 text-rose-400" />
                         </div>
                         <input
+                          id="add-emergencyPhone"
+                          name="emergencyPhone"
                           type="tel"
                           value={emergencyPhone}
                           onChange={(e) => setEmergencyPhone(e.target.value)}
@@ -246,10 +258,12 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="add-height" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Height (cm)
                       </label>
                       <input
+                        id="add-height"
+                        name="height"
                         type="number"
                         value={height}
                         onChange={(e) => setHeight(e.target.value)}
@@ -259,10 +273,12 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="add-weight" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Weight (kg)
                       </label>
                       <input
+                        id="add-weight"
+                        name="weight"
                         type="number"
                         value={weight}
                         onChange={(e) => setWeight(e.target.value)}
@@ -272,10 +288,12 @@ export function AddUserModal({ isOpen, roles, onClose, onSave }: AddUserModalPro
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="add-bloodType" className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Blood Type
                       </label>
                       <select
+                        id="add-bloodType"
+                        name="bloodType"
                         value={bloodType}
                         onChange={(e) => setBloodType(e.target.value)}
                         className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer"
