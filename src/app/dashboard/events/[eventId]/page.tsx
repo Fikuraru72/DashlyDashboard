@@ -428,28 +428,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
 
     try {
       const token = getCookie("auth_token");
-      let res: Response;
+      const formData = new FormData();
 
-      if (mappedParticipants && mappedParticipants.length > 0) {
-        res = await authenticatedFetch(`${apiUrl}/events/${eventId}/import-csv`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ participants: mappedParticipants }),
-        });
-      } else {
-        const formData = new FormData();
-        if (csvFile) formData.append("file", csvFile);
-        res = await fetch(`${apiUrl}/events/${eventId}/import-csv`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
+      if (csvFile) {
+        formData.append("file", csvFile);
       }
+      if (mappedParticipants && mappedParticipants.length > 0) {
+        formData.append("participants", JSON.stringify(mappedParticipants));
+      }
+
+      const res = await fetch(`${apiUrl}/events/${eventId}/import-csv`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
