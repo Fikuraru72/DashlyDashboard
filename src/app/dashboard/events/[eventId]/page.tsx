@@ -19,6 +19,7 @@ import {
   Trash2,
   UserCircle,
   Download,
+  Upload,
   Copy,
   QrCode,
   Phone,
@@ -73,6 +74,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
   // Participant Modal State
   const [selectedParticipant, setSelectedParticipant] = useState<any>(null);
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
+
+  // CSV Import Modal State
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [importReport, setImportReport] = useState<any>(null);
 
   const getCookie = (name: string) => {
     const value = `; ${document.cookie}`;
@@ -238,6 +246,61 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFile(file);
+    setImportReport(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (!text) return;
+      const lines = text.split("\n").filter((l) => l.trim().length > 0);
+      const preview = lines.slice(0, 6).map((line) => {
+        return line.split(",").map((cell) => cell.replace(/^["']|["']$/g, "").trim());
+      });
+      setCsvPreviewRows(preview);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExecuteImportCSV = async () => {
+    if (!csvFile) return;
+    setIsImportingCsv(true);
+    setError("");
+    setImportReport(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", csvFile);
+
+      const token = getCookie("auth_token");
+      const res = await fetch(`${apiUrl}/events/${eventId}/import-csv`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to import CSV");
+      }
+
+      const data = await res.json();
+      setImportReport(data);
+
+      // Refresh participant list and event count
+      await fetchEventData();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsImportingCsv(false);
+    }
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -934,6 +997,17 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                     </div>
                     <div className="flex items-center gap-3">
                       <button
+                        onClick={() => {
+                          setShowCsvModal(true);
+                          setCsvFile(null);
+                          setCsvPreviewRows([]);
+                          setImportReport(null);
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm shadow-indigo-500/20"
+                      >
+                        <Upload size={14} /> Import CSV
+                      </button>
+                      <button
                         onClick={handleDownloadCSV}
                         className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition-all"
                       >
@@ -1261,6 +1335,141 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                     Dismiss Information
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CSV Import Modal ── */}
+        {showCsvModal && (
+          <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">
+                    <Upload size={22} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white">Import Peserta (CSV)</h3>
+                    <p className="text-xs text-slate-500">Unggah file CSV vendor tiket untuk mendaftarkan peserta otomatis</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCsvModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* File Input Drag Zone */}
+              <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-6 text-center hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors bg-slate-50/50 dark:bg-slate-950/50">
+                <input
+                  type="file"
+                  accept=".csv"
+                  id="csv-file-input"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <label htmlFor="csv-file-input" className="cursor-pointer flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                    <Upload size={24} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-sm text-indigo-600 dark:text-indigo-400">Klik untuk memilih file CSV</span>
+                    <p className="text-xs text-slate-400 mt-1">Mendukung file CSV mentah vendor tiket (M112, Tiket.com, Loket, dll)</p>
+                  </div>
+                  {csvFile && (
+                    <span className="mt-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-full text-xs font-bold font-mono">
+                      📄 {csvFile.name} ({(csvFile.size / 1024).toFixed(1)} KB)
+                    </span>
+                  )}
+                </label>
+              </div>
+
+              {/* Column Filtering Report Notice */}
+              <div className="p-4 bg-indigo-50/60 dark:bg-indigo-500/10 border border-indigo-200/60 dark:border-indigo-500/20 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                  <InfoIcon size={14} /> Aturan Pemfilteran Otomatis System:
+                </div>
+                <ul className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 list-disc pl-5">
+                  <li><b>🟢 Dipakai (5-9 Field)</b>: Participant Number (BIB), Full Name, Email, Phone (Password Default), Golongan Darah & Emergency Contact.</li>
+                  <li><b>🔴 Dibuang Otomatis</b>: ID Number (NIK KTP), Address, Size Jersey, Gender, Tanggal Lahir.</li>
+                </ul>
+              </div>
+
+              {/* CSV Data Preview Table */}
+              {csvPreviewRows.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Pratinjau Data CSV (6 Baris Pertama)</h4>
+                  <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <table className="w-full text-left text-xs font-mono">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {csvPreviewRows.map((row, rIdx) => (
+                          <tr key={rIdx} className={rIdx === 0 ? "bg-slate-100 dark:bg-slate-800 font-bold" : ""}>
+                            {row.slice(0, 6).map((cell, cIdx) => (
+                              <td key={cIdx} className="px-3 py-2 whitespace-nowrap truncate max-w-[120px]">
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Report Result */}
+              {importReport && (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl space-y-2">
+                  <h4 className="text-xs font-black text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                    ✅ {importReport.message}
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono pt-1">
+                    <div className="bg-white/80 dark:bg-slate-900 p-2 rounded-xl border border-emerald-100 dark:border-emerald-800 text-center">
+                      <span className="text-[10px] text-slate-400 block">TOTAL BARIS</span>
+                      <span className="font-bold">{importReport.stats?.totalRows || 0}</span>
+                    </div>
+                    <div className="bg-white/80 dark:bg-slate-900 p-2 rounded-xl border border-emerald-100 dark:border-emerald-800 text-center">
+                      <span className="text-[10px] text-slate-400 block">SUKSES</span>
+                      <span className="font-bold text-emerald-600">{importReport.stats?.successCount || 0}</span>
+                    </div>
+                    <div className="bg-white/80 dark:bg-slate-900 p-2 rounded-xl border border-emerald-100 dark:border-emerald-800 text-center">
+                      <span className="text-[10px] text-slate-400 block">USER BARU</span>
+                      <span className="font-bold text-indigo-600">{importReport.stats?.createdUsersCount || 0}</span>
+                    </div>
+                    <div className="bg-white/80 dark:bg-slate-900 p-2 rounded-xl border border-emerald-100 dark:border-emerald-800 text-center">
+                      <span className="text-[10px] text-slate-400 block">USER LAMA</span>
+                      <span className="font-bold text-amber-600">{importReport.stats?.existingUsersCount || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCsvModal(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={!csvFile || isImportingCsv}
+                  onClick={handleExecuteImportCSV}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+                >
+                  {isImportingCsv ? (
+                    <>Memproses Import...</>
+                  ) : (
+                    <>
+                      <Upload size={14} /> Import Peserta
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
