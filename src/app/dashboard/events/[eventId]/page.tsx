@@ -521,9 +521,19 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
       const token = getCookie("auth_token");
       let res: Response;
 
-      if (mappedParticipants && mappedParticipants.length > 0) {
-        // DEBUG: log payload before sending
-        console.log('[CSV-IMPORT DEBUG] Sending participants:', mappedParticipants.slice(0, 3));
+      // Always send raw CSV file to backend for reliable parsing
+      if (csvFile) {
+        const formData = new FormData();
+        formData.append("file", csvFile);
+        res = await fetch(`${apiUrl}/events/${eventId}/import-csv`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+      } else if (mappedParticipants && mappedParticipants.length > 0) {
+        // Fallback: send pre-parsed JSON if no raw file available
         res = await fetch(`${apiUrl}/events/${eventId}/import-json`, {
           method: "POST",
           headers: {
@@ -533,15 +543,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
           body: JSON.stringify({ participants: mappedParticipants }),
         });
       } else {
-        const formData = new FormData();
-        if (csvFile) formData.append("file", csvFile);
-        res = await fetch(`${apiUrl}/events/${eventId}/import-csv`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
+        throw new Error("No CSV file or data to import");
       }
 
       if (!res.ok) {
