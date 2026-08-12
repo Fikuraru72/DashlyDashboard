@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Eco Race Maps — Real-time Race Monitoring",
+  title: "EcoRaceMaps — Real-time Race Monitoring",
   description: "High-performance GPS race monitoring platform",
 };
 

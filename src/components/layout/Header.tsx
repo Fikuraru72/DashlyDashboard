@@ -24,7 +24,7 @@ export function Header() {
         {/* Indent to accounts for mobile sidebar toggle */}
         <div className="pl-12 md:pl-0">
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500 dark:from-slate-100 dark:to-slate-400 hidden sm:block">
-            {isMonitoring ? "Mission Control" : "Eco Race Maps Platform"}
+            {isMonitoring ? "Mission Control" : "EcoRaceMaps Platform"}
           </h1>
           {isMonitoring && eventMetadata?.name && (
             <div className="flex items-center gap-2">

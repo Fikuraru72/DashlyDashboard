@@ -68,7 +68,7 @@ export default function LoginPage() {
             <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
               <img src="/logo.png" alt="Eco Race Maps Logo" className="h-10 w-10 object-contain" />
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-white">Eco Race Maps</h1>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white">EcoRaceMaps</h1>
           </div>
           <h2 className="text-5xl lg:text-6xl font-black text-white leading-[1.1] tracking-tight mb-6">
             Real-time <br />
@@ -109,7 +109,7 @@ export default function LoginPage() {
               <img src="/logo.png" alt="Eco Race Maps Logo" className="h-8 w-8 object-contain" />
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Eco Race Maps
+              EcoRaceMaps
             </h1>
           </div>
 

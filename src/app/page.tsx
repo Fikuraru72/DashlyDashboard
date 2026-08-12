@@ -54,7 +54,7 @@ export default function LandingPage() {
             <div className="p-1.5 bg-slate-900 rounded-lg border border-white/10">
               <img src="/logo.png" alt="Eco Race Maps Logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">Eco Race Maps</span>
+            <span className="text-xl font-bold tracking-tight text-white">EcoRaceMaps</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a

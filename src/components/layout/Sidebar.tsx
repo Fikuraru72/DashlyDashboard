@@ -121,10 +121,10 @@ export function Sidebar() {
             className={`flex items-center gap-3 overflow-hidden transition-all ${isCollapsed ? "opacity-0 w-0" : "opacity-100"}`}
           >
             <div className="flex items-center justify-center p-1 w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800">
-              <img src="/logo.png" alt="Eco Race Maps Logo" className="w-6 h-6 object-contain" />
+              <img src="/logo.png" alt="EcoRaceMaps Logo" className="w-6 h-6 object-contain" />
             </div>
             <span className="text-lg font-black tracking-tight text-slate-900 dark:text-[#4CB9E7]">
-              Eco Race Maps
+              EcoRaceMaps
             </span>
           </div>
           <button
