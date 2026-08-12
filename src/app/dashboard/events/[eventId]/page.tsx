@@ -363,7 +363,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
       }
 
       let email = findVal(values, "email", "email address", "mail", "alamat email", "e-mail");
-      let fullName = findVal(values, "full name", "fullname", "nama lengkap", "nama", "name");
+      let fullName = findVal(values, "full name", "fullname", "participant name", "nama lengkap", "nama peserta", "nama", "name");
       let phone = findVal(
         values,
         "phone",
@@ -440,18 +440,24 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
         }
       }
 
-      // 3. Name Fallback: Column index 2 or fallback
-      if (!fullName) {
-        if (
-          cleanValues[2] &&
-          !cleanValues[2].includes(",") &&
-          !cleanValues[2].includes("@") &&
-          !/^\+?[0-9]{8,15}$/.test(cleanValues[2])
-        ) {
-          fullName = cleanValues[2].trim();
-        } else {
-          fullName = "Participant";
-        }
+      // 3. Name Fallback: aggressively find a human name from row values
+      if (!fullName || fullName === "Participant") {
+        // Scan all clean values for likely human name (not email, not phone, not number)
+        const candidate = cleanValues.find((v) => {
+          return (
+            v.length >= 3 &&
+            v.length <= 100 &&
+            !v.includes("@") &&
+            !v.includes(",") &&
+            !/^\+?[0-9]{6,}$/.test(v.replace(/[\s-]/g, "")) &&
+            !/^[0-9]{1,5}$/.test(v) &&
+            v !== email &&
+            v !== phone &&
+            v !== participantNumber &&
+            /[a-zA-Z]{2,}/.test(v)
+          );
+        });
+        fullName = candidate || "Participant";
       }
 
       // 4. BIB Fallback: Column index 0 or formatted index
