@@ -286,7 +286,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
   };
 
   const parseAndMapCsv = (text: string) => {
-    const cleanText = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const cleanText = text
+      .replace(/\0/g, "")
+      .replace(/[\uFEFF\u200B]/g, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n");
     const lines = cleanText.split("\n").filter((l) => l.trim().length > 0);
     if (lines.length === 0) return { preview: [], records: [] };
 
@@ -312,18 +316,26 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
             inQuotes = !inQuotes;
           }
         } else if (char === delim && !inQuotes) {
-          result.push(current.trim());
+          result.push(current.trim().replace(/^["']|["']$/g, ""));
           current = "";
         } else {
           current += char;
         }
       }
-      result.push(current.trim());
+      result.push(current.trim().replace(/^["']|["']$/g, ""));
+
+      // Fallback regex split if delimiter loop failed to split columns
+      if (result.length <= 1 && delim === ",") {
+        const regexSplit = line
+          .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+          .map((item) => item.trim().replace(/^["']|["']$/g, ""));
+        if (regexSplit.length > 1) return regexSplit;
+      }
       return result;
     };
 
     const headers = parseLine(lines[0], delimiter).map((h) =>
-      h.replace(/^["']|["']$/g, "").replace(/[\uFEFF\u200B]/g, "").trim()
+      h.replace(/^["']|["']$/g, "").trim().toLowerCase()
     );
 
     const findVal = (rowValues: string[], ...searchKeys: string[]) => {
