@@ -369,7 +369,7 @@ export default function PublicEventMonitoringPage() {
   const [participantDetailModal, setParticipantDetailModal] = useState<any>(null);
 
   // HUD Visibility (Guest Mode — No Incident Stream, No Polylines)
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(true);
   const [showAltitudeChart, setShowAltitudeChart] = useState(true);
   const [showKmMarkers, setShowKmMarkers] = useState(false);
   const [is3DMode, setIs3DMode] = useState(true);
@@ -1203,50 +1203,48 @@ export default function PublicEventMonitoringPage() {
           const startCoord = coords[0];
           const finishCoord = coords[coords.length - 1];
 
-          // Start Marker (Compact Emerald Pill)
+          // Start Marker (Green Flag Marker 🟢🚩)
           const startEl = document.createElement("div");
           startEl.innerHTML = `
             <div style="
               background: #10b981;
               color: #ffffff;
-              font-size: 8px;
+              font-size: 11px;
               font-weight: 900;
-              padding: 1.5px 5.5px;
-              border-radius: 9999px;
-              border: 1.5px solid #ffffff;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-              letter-spacing: 0.5px;
+              padding: 4px 7px;
+              border-radius: 10px;
+              border: 2px solid #ffffff;
+              box-shadow: 0 4px 12px rgba(16,185,129,0.4);
               display: flex;
               align-items: center;
-              gap: 2.5px;
+              justify-content: center;
               pointer-events: none;
-            ">
-              <span style="font-size: 7px;">🟢</span> START
+            " title="Start Line">
+              🚩
             </div>
           `;
           startMarkerRef.current = new maplibregl.Marker({ element: startEl, anchor: "center" })
             .setLngLat([startCoord[0], startCoord[1]])
             .addTo(map);
 
-          // Finish Marker (Compact Rose Pill)
+          // Finish Marker (Red Flag Marker 🔴🚩)
           const finishEl = document.createElement("div");
           finishEl.innerHTML = `
             <div style="
               background: #e11d48;
               color: #ffffff;
-              font-size: 8px;
+              font-size: 11px;
               font-weight: 900;
-              padding: 1.5px 5.5px;
-              border-radius: 9999px;
-              border: 1.5px solid #ffffff;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-              letter-spacing: 0.5px;
+              padding: 4px 7px;
+              border-radius: 10px;
+              border: 2px solid #ffffff;
+              box-shadow: 0 4px 12px rgba(225,29,72,0.4);
               display: flex;
               align-items: center;
-              gap: 2.5px;
+              justify-content: center;
               pointer-events: none;
-            ">
-              <span style="font-size: 7px;">🏁</span> FINISH
+            " title="Finish Line">
+              🚩
             </div>
           `;
           finishMarkerRef.current = new maplibregl.Marker({ element: finishEl, anchor: "center" })
@@ -2082,11 +2080,12 @@ export default function PublicEventMonitoringPage() {
         {/* Left: Event Branding + Merged Live Active Info */}
         <div className="flex items-center gap-2.5 bg-white/95 backdrop-blur-xl p-1.5 pr-3.5 rounded-2xl border border-slate-200/80 shadow-lg pointer-events-auto max-w-full overflow-hidden">
           <Link
-            href={`/events/${eventId}`}
-            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors shrink-0"
-            title="Back to Event"
+            href="/dashboard/events"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl transition-colors shrink-0 font-bold text-xs"
+            title="Kembali ke Dasbor Event"
           >
             <ChevronLeft className="w-4 h-4 text-slate-700" />
+            <span className="hidden sm:inline">Dasbor</span>
           </Link>
           <div className="flex flex-col min-w-0">
             <span className="text-[8px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-0.5">
@@ -2264,6 +2263,8 @@ export default function PublicEventMonitoringPage() {
               (p.name && p.name !== "undefined" && !p.name.startsWith("User ") ? p.name : null) ||
               `Participant ${String(p.id).substring(0, 4)}`;
             const bibNum = pInfo?.bibNumber || p.bibNumber || "-";
+            const distMeters = p.routeDistance ?? p.distanceMeters ?? p.participantDistanceMeters ?? p.totalDistanceMeters ?? 0;
+            const distKmStr = (distMeters / 1000).toFixed(1);
 
             return (
               <div
@@ -2278,7 +2279,7 @@ export default function PublicEventMonitoringPage() {
                   ${p.hasAlert ? "border-rose-300 bg-rose-50/90 text-rose-950" : ""}
                 `}
               >
-                <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center justify-between gap-2 relative z-10">
                   <div className="flex items-center gap-2 min-w-0">
                     <div
                       className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0
@@ -2293,45 +2294,31 @@ export default function PublicEventMonitoringPage() {
                       }
                     `}
                     >
-                      {idx === 0 ? "👑 1" : idx + 1}
+                      {idx === 0 ? "👑 1" : `#${idx + 1}`}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-[12px] font-black text-slate-900 uppercase tracking-tight truncate w-28" title={`${bibNum} - ${rawName}`}>
+                      <span className="text-[11.5px] font-black text-slate-900 uppercase tracking-tight truncate max-w-[110px]" title={`${bibNum} - ${rawName}`}>
                         {rawName}
                       </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[8.5px] font-extrabold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200/60">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[8.5px] font-extrabold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200/60 shrink-0">
                           BIB #{bibNum}
                         </span>
-                        <span
-                          className={`text-[8.5px] font-bold flex items-center gap-1 uppercase tracking-widest ${p.isOffline ? "text-slate-400" : "text-slate-500"}`}
-                        >
-                          <Signal
-                            className={`w-2.5 h-2.5 ${p.isOffline ? "text-slate-400" : "text-emerald-500"}`}
-                          />
-                          {p.isOffline ? "Offline" : "Connected"}
+                        <span className="text-[8.5px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60 shrink-0">
+                          {distKmStr} KM
                         </span>
                       </div>
                     </div>
                   </div>
 
-                <div className="text-right flex flex-col items-end">
-                  <div className="text-[12px] font-black text-slate-900">
-                    {(p.speed || 0).toFixed(1)}{" "}
-                    <span className="text-[8px] font-bold text-slate-500 uppercase">KM/H</span>
-                  </div>
-                  <div className="flex items-center justify-end gap-1 mt-0.5">
-                    <Zap
-                      className={`w-2.5 h-2.5 ${p.battery == null ? "text-slate-400" : p.battery < 20 ? "text-rose-500 animate-pulse" : "text-emerald-500"}`}
-                    />
-                    <span className="text-[9px] font-bold text-slate-500">
-                      {p.battery != null ? `${p.battery}%` : "--%"}
-                    </span>
-                  </div>
-                  <div className="mt-0.5">
+                  <div className="text-right flex flex-col items-end shrink-0">
+                    <div className="text-[11px] font-black text-slate-900">
+                      {(p.speed || 0).toFixed(1)}{" "}
+                      <span className="text-[7.5px] font-bold text-slate-500 uppercase">KM/H</span>
+                    </div>
                     <button
                       type="button"
-                      className="px-1.5 py-0.5 bg-slate-200/80 hover:bg-slate-300 rounded text-[8.5px] font-bold text-slate-800 uppercase transition-colors"
+                      className="mt-1 px-1.5 py-0.5 bg-slate-200/80 hover:bg-slate-300 rounded text-[8.5px] font-bold text-slate-800 uppercase transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         const pInfo = participantsInfo.current.get(String(p.id));
@@ -2352,7 +2339,6 @@ export default function PublicEventMonitoringPage() {
                   </div>
                 </div>
               </div>
-            </div>
           );
         })}
 

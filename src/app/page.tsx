@@ -126,13 +126,16 @@ export default function LandingPage() {
           </h1>
 
           <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-400 mb-10 leading-relaxed">
-            Dashly brings real-time GPS tracking, anomaly detection, and instant emergency responses
+            EcoRaceMaps brings real-time GPS tracking, anomaly detection, cycling telemetry, and instant emergency responses
             to your fingertips. The ultimate companion for endurance events.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="#download"
+              href="https://github.com/Fikuraru72/DashlyBackend/releases/download/v1/ERM.V1.1.apk"
+              download
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-bold text-lg transition-all shadow-[0_0_30px_rgba(79,70,229,0.4)] hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] hover:-translate-y-1 flex items-center justify-center gap-2"
             >
               Download APK <ArrowRight className="w-5 h-5" />
@@ -157,8 +160,8 @@ export default function LandingPage() {
                 <span className="text-cyan-400">Performance</span>.
               </h2>
               <p className="text-slate-400 text-lg leading-relaxed mb-6">
-                Endurance racing pushes human limits. When athletes are out on the trail, every
-                second counts. Dashly was built to ensure no runner goes untracked, and no emergency
+                Endurance racing pushes human limits. When athletes are out on the trail or road, every
+                second counts. EcoRaceMaps ensures no participant goes untracked, and no emergency
                 goes unnoticed.
               </p>
               <ul className="space-y-4">
@@ -177,7 +180,7 @@ export default function LandingPage() {
             <div className="relative aspect-square md:aspect-video rounded-3xl overflow-hidden shadow-2xl border border-white/10">
               <Image
                 src="https://images.unsplash.com/photo-1541252874014-4166bf2a64c8?auto=format&fit=crop&q=80"
-                alt="Runners on a trail"
+                alt="Athletes racing on route"
                 fill
                 className="object-cover"
               />
@@ -266,7 +269,7 @@ export default function LandingPage() {
             <div>
               <h2 className="text-3xl md:text-5xl font-black mb-4">Upcoming Events</h2>
               <p className="text-slate-400 text-lg max-w-2xl">
-                Find your next challenge. Register directly through the Dashly app.
+                Find your next challenge. Register directly through the EcoRaceMaps app.
               </p>
             </div>
           </div>
@@ -299,16 +302,18 @@ export default function LandingPage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="w-full h-full bg-slate-800 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                        <MapPin className="w-12 h-12 text-slate-600" />
+                      <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+                        <Activity className="w-12 h-12 text-slate-800" />
                       </div>
                     )}
-                    <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs font-bold border border-white/10">
-                      {event.registrationStatus?.replace(/_/g, " ") || "UNKNOWN"}
+                    <div className="absolute top-4 right-4">
+                      <span className="px-3 py-1 bg-slate-950/80 backdrop-blur-md rounded-full text-xs font-bold text-indigo-400 border border-white/10">
+                        {event.category || "CYCLING"}
+                      </span>
                     </div>
                   </div>
                   <div className="p-6">
-                    <h3 className="text-xl font-bold mb-2 group-hover:text-indigo-400 transition-colors line-clamp-1">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-400 transition-colors line-clamp-1">
                       {event.name}
                     </h3>
                     <p className="text-slate-400 text-sm mb-4 line-clamp-2">
@@ -353,18 +358,18 @@ export default function LandingPage() {
             <div className="relative z-10 text-center md:text-left flex-1">
               <h2 className="text-3xl md:text-4xl font-black mb-4">Ready to hit the trail?</h2>
               <p className="text-indigo-200 text-lg mb-8 max-w-md">
-                Download the Dashly participant app to register for events, access your QR ticket,
+                Download the EcoRaceMaps participant app to register for events, access your QR ticket,
                 and enable live tracking during the race.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
-                  href="https://github.com/Fikuraru72/DashlyBackend/releases/download/v1/DashlyV3.3.apk"
+                  href="https://github.com/Fikuraru72/DashlyBackend/releases/download/v1/ERM.V1.1.apk"
                   download
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-8 py-4 bg-white text-slate-900 hover:bg-slate-100 rounded-full font-bold text-lg transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.5)] flex items-center justify-center gap-2"
                 >
-                  <Smartphone className="w-5 h-5" /> Download for Android
+                  <Smartphone className="w-5 h-5" /> Download for Android (ERM v1.1)
                 </a>
               </div>
             </div>
@@ -376,7 +381,7 @@ export default function LandingPage() {
                 <div className="w-12 h-12 bg-indigo-600 rounded-xl mx-auto flex items-center justify-center mb-3">
                   <Activity className="w-6 h-6 text-white" />
                 </div>
-                <div className="font-bold text-sm">Dashly Tracking</div>
+                <div className="font-bold text-sm">EcoRaceMaps Tracking</div>
               </div>
             </div>
           </div>
@@ -389,11 +394,11 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-indigo-500" />
-              <span className="font-bold tracking-tight">Dashly Engine</span>
+              <span className="font-bold tracking-tight">EcoRaceMaps Engine</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-slate-400">
               <a href="#" className="hover:text-white transition-colors flex items-center gap-2">
-                <Mail className="w-4 h-4" /> support@dashly.app
+                <Mail className="w-4 h-4" /> support@ecoracemaps.app
               </a>
               <a href="#" className="hover:text-white transition-colors flex items-center gap-2">
                 <Globe className="w-4 h-4" /> dashboard
@@ -401,7 +406,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-8 text-center text-sm text-slate-600">
-            &copy; {new Date().getFullYear()} Dashly Platform. All rights reserved.
+            &copy; {new Date().getFullYear()} EcoRaceMaps Platform. All rights reserved.
           </div>
         </div>
       </footer>

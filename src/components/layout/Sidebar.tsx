@@ -35,10 +35,17 @@ export function Sidebar() {
   const segments = pathname?.split("/").filter(Boolean) || [];
 
   // Check if we are inside a specific event monitoring context
-  // Paths like /dashboard/monitoring/evt-123
+  // Paths like /dashboard/monitoring/evt-123 or /live/evt-123
   const isMonitoringContext =
-    segments.length === 3 && segments[0] === "dashboard" && segments[1] === "monitoring";
-  const activeEventId = isMonitoringContext ? segments[2] : null;
+    (segments.length === 3 && segments[0] === "dashboard" && segments[1] === "monitoring") ||
+    (segments.length === 2 && segments[0] === "live");
+  const activeEventId = isMonitoringContext ? segments[segments.length - 1] : null;
+
+  useEffect(() => {
+    if (isMonitoringContext) {
+      setIsCollapsed(true);
+    }
+  }, [isMonitoringContext, pathname]);
 
   // Paths like /dashboard/events/evt-123 (but not /dashboard/events/create)
   const isEventDetail =
