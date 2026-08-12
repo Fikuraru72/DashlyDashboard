@@ -1561,11 +1561,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
               {/* Column Filtering Report Notice */}
               <div className="p-4 bg-indigo-50/60 dark:bg-indigo-500/10 border border-indigo-200/60 dark:border-indigo-500/20 rounded-2xl space-y-2">
                 <div className="flex items-center gap-2 text-xs font-bold text-indigo-700 dark:text-indigo-300">
-                  <InfoIcon size={14} /> Aturan Pemfilteran Otomatis System:
+                  <InfoIcon size={14} /> Aturan Ekstraksi Data Otomatis System:
                 </div>
                 <ul className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 list-disc pl-5">
-                  <li><b>🟢 Dipakai (5-9 Field)</b>: Participant Number (BIB), Full Name, Email, Phone (Password Default), Golongan Darah & Emergency Contact.</li>
-                  <li><b>🔴 Dibuang Otomatis</b>: ID Number (NIK KTP), Address, Size Jersey, Gender, Tanggal Lahir.</li>
+                  <li><b>🟢 4 Field Utama (Wajib Akun & Event)</b>: <b>Participant Number (BIB)</b>, <b>Full Name (Nama Lengkap)</b>, <b>Email (Username Login)</b>, & <b>Phone (Password Default Login)</b>.</li>
+                  <li><b>⚪ Field Opsional Tambahan</b>: Golongan Darah, Penyakit Bawaan, Kontak Darurat (diambil jika tersedia).</li>
+                  <li><b>🔴 Field Dibuang Otomatis</b>: NIK KTP, Alamat, Ukuran Jersey, Gender, Tanggal Lahir, Nama Komunitas.</li>
                 </ul>
               </div>
 
