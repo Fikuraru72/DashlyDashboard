@@ -408,30 +408,47 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
       // Pattern-based and Column Index Fallbacks if header matching failed
       const cleanValues = values.map((v) => v.replace(/^["']|["']$/g, "").trim());
 
-      // 1. Email Fallback: Find any cell matching email regex or column index 3
+      // 1. Email Fallback: Extract exact email substring via regex match
       if (!email) {
-        const emailCell = cleanValues.find((v) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v));
-        if (emailCell) {
-          email = emailCell;
-        } else if (cleanValues[3] && cleanValues[3].includes("@")) {
-          email = cleanValues[3];
+        const singleEmailCell = cleanValues.find(
+          (v) => !v.includes(",") && /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v)
+        );
+        if (singleEmailCell) {
+          email = singleEmailCell.trim();
+        } else {
+          const matchedEmail = lines[i].match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          if (matchedEmail && matchedEmail[0]) {
+            email = matchedEmail[0].trim();
+          }
         }
       }
 
-      // 2. Phone Fallback: Find any cell matching phone regex or column index 4
+      // 2. Phone Fallback: Extract exact phone substring
       if (!phone) {
-        const phoneCell = cleanValues.find((v) => /^\+?[0-9]{8,15}$/.test(v.replace(/[\s-]/g, "")));
-        if (phoneCell) {
-          phone = phoneCell;
-        } else if (cleanValues[4]) {
-          phone = cleanValues[4];
+        const singlePhoneCell = cleanValues.find(
+          (v) => !v.includes(",") && /^\+?[0-9]{8,15}$/.test(v.replace(/[\s-]/g, ""))
+        );
+        if (singlePhoneCell) {
+          phone = singlePhoneCell.trim();
+        } else {
+          const matchedPhone = lines[i].match(/\+62[0-9]{8,13}|08[0-9]{8,12}/);
+          if (matchedPhone && matchedPhone[0]) {
+            phone = matchedPhone[0].trim();
+          } else if (cleanValues[4] && !cleanValues[4].includes(",")) {
+            phone = cleanValues[4].trim();
+          }
         }
       }
 
-      // 3. Name Fallback: Column index 2 or first text cell that is not email/phone
+      // 3. Name Fallback: Column index 2 or fallback
       if (!fullName) {
-        if (cleanValues[2] && !cleanValues[2].includes("@") && !/^\+?[0-9]{8,15}$/.test(cleanValues[2])) {
-          fullName = cleanValues[2];
+        if (
+          cleanValues[2] &&
+          !cleanValues[2].includes(",") &&
+          !cleanValues[2].includes("@") &&
+          !/^\+?[0-9]{8,15}$/.test(cleanValues[2])
+        ) {
+          fullName = cleanValues[2].trim();
         } else {
           fullName = "Participant";
         }
@@ -439,8 +456,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
 
       // 4. BIB Fallback: Column index 0 or formatted index
       if (!participantNumber || participantNumber === String(i).padStart(3, "0")) {
-        if (cleanValues[0] && cleanValues[0] !== fullName) {
-          participantNumber = cleanValues[0];
+        if (cleanValues[0] && !cleanValues[0].includes(",") && cleanValues[0] !== fullName) {
+          participantNumber = cleanValues[0].trim();
         } else {
           participantNumber = String(i).padStart(3, "0");
         }
