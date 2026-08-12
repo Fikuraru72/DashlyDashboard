@@ -244,38 +244,6 @@ export default function UsersPage() {
     setUsers([...users, newUser]);
   };
 
-  const handleBulkDeleteParticipants = async () => {
-    if (!canManageUsers) return;
-    if (
-      !confirm(
-        "Apakah Anda yakin ingin menghapus SELURUH akun peserta? (Akun Super Admin & Staff Anda 100% AMAN & TIDAK TERHAPUS)",
-      )
-    )
-      return;
-
-    try {
-      const tokenMatch = document.cookie.match(new RegExp("(^| )auth_token=([^;]+)"));
-      const token = tokenMatch ? tokenMatch[2] : null;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
-      const response = await authenticatedFetch(`${apiUrl}/users/participants/bulk`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        alert(`Berhasil menghapus ${data.count || 0} akun peserta!`);
-        setUsers(users.filter((u) => u.role?.name && u.role.name !== "PARTICIPANT"));
-      } else {
-        alert("Gagal menghapus akun peserta");
-      }
-    } catch (error) {
-      console.error("Error bulk deleting participants:", error);
-      alert("Error deleting participants");
-    }
-  };
-
   if (authLoading || (loading && user))
     return (
       <div className="flex-1 flex items-center justify-center p-8 h-full bg-slate-100/50 dark:bg-slate-950/50">
@@ -310,12 +278,6 @@ export default function UsersPage() {
 
         {canManageUsers && activeTab === "users" && (
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleBulkDeleteParticipants}
-              className="px-4 py-2.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl shadow-sm hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all font-semibold text-sm whitespace-nowrap flex items-center gap-2"
-            >
-              <Trash2 size={16} /> Hapus Semua Peserta
-            </button>
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all font-semibold text-sm whitespace-nowrap"

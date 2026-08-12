@@ -31,6 +31,9 @@ import {
   Footprints,
   Image as ImageIcon,
   UserPlus,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import StaticMapWrapper from "@/components/map/index-static";
@@ -85,6 +88,28 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
   const [mappedParticipants, setMappedParticipants] = useState<any[]>([]);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [importReport, setImportReport] = useState<any>(null);
+
+  // Registered Participants Table Search & Pagination State
+  const [participantSearchQuery, setParticipantSearchQuery] = useState("");
+  const [participantCurrentPage, setParticipantCurrentPage] = useState(1);
+  const [participantItemsPerPage, setParticipantItemsPerPage] = useState(10);
+
+  // Registered Participants Filtered & Paginated List
+  const filteredParticipants = React.useMemo(() => {
+    const q = participantSearchQuery.toLowerCase().trim();
+    if (!q) return participants;
+    return participants.filter((p) => {
+      const name = (p.name || p.user?.name || "").toLowerCase();
+      const email = (p.email || p.user?.email || "").toLowerCase();
+      const bib = (p.bibNumber || p.participantNumber || "").toLowerCase();
+      return name.includes(q) || email.includes(q) || bib.includes(q);
+    });
+  }, [participants, participantSearchQuery]);
+
+  const paginatedParticipants = React.useMemo(() => {
+    const start = (participantCurrentPage - 1) * participantItemsPerPage;
+    return filteredParticipants.slice(start, start + participantItemsPerPage);
+  }, [filteredParticipants, participantCurrentPage, participantItemsPerPage]);
 
   const getCookie = (name: string) => {
     const value = `; ${document.cookie}`;
@@ -1302,15 +1327,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                 </div>
 
                 {/* Participants Section */}
-                <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-                  <div className="flex items-center justify-between mb-6">
+                <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3 text-slate-800 dark:text-slate-100">
                       <div className="p-2.5 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20">
                         <Users size={20} />
                       </div>
-                      <h3 className="font-bold text-lg tracking-tight">Registered Participants</h3>
+                      <div>
+                        <h3 className="font-bold text-lg tracking-tight">Registered Participants</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Total {participants.length} peserta terdaftar di event ini
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <button
                         onClick={() => setShowAddExistingModal(true)}
                         className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm shadow-emerald-500/20"
@@ -1334,16 +1364,34 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                       >
                         <Download size={14} /> Export CSV
                       </button>
-                      <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-xs font-bold font-mono">
-                        {participants.length} TOTAL
-                      </span>
                     </div>
+                  </div>
+
+                  {/* Search Bar for Participants */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                    <div className="relative w-full sm:w-80">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama, email, atau BIB..."
+                        value={participantSearchQuery}
+                        onChange={(e) => {
+                          setParticipantSearchQuery(e.target.value);
+                          setParticipantCurrentPage(1);
+                        }}
+                        className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-medium"
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-slate-400 font-medium self-end sm:self-center">
+                      Hasil: {filteredParticipants.length} peserta
+                    </span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-slate-50 dark:bg-slate-950/50 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                         <tr>
-                          <th className="px-4 py-3 rounded-tl-xl">Participant</th>
+                          <th className="px-4 py-3 rounded-tl-xl w-24">BIB</th>
+                          <th className="px-4 py-3">Participant</th>
                           <th className="px-4 py-3">Email</th>
                           <th className="px-4 py-3">State</th>
                           <th className="px-4 py-3">Joined Date</th>
@@ -1351,21 +1399,26 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                        {participants.length === 0 ? (
+                        {filteredParticipants.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="py-12 text-center text-slate-400">
+                            <td colSpan={6} className="py-12 text-center text-slate-400">
                               <UserCircle size={40} className="opacity-10 mb-2 mx-auto" />
                               <p className="text-sm font-medium">
-                                No participants have joined yet.
+                                Tidak ada peserta terdaftar yang cocok.
                               </p>
                             </td>
                           </tr>
                         ) : (
-                          participants.map((p) => (
+                          paginatedParticipants.map((p) => (
                             <tr
                               key={p.id}
                               className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${p.participantState === "FROZEN" ? "bg-rose-50/50 dark:bg-rose-500/5" : ""}`}
                             >
+                              <td className="px-4 py-3">
+                                <span className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-md font-mono font-black text-xs border border-cyan-200 dark:border-cyan-500/20 shadow-xs">
+                                  {p.bibNumber || p.participantNumber || "-"}
+                                </span>
+                              </td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
                                   <div
@@ -1417,6 +1470,111 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         )}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Registered Participants Table Pagination Footer */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        Showing {filteredParticipants.length > 0 ? (participantCurrentPage - 1) * participantItemsPerPage + 1 : 0} to{" "}
+                        {Math.min(participantCurrentPage * participantItemsPerPage, filteredParticipants.length)} of {filteredParticipants.length}{" "}
+                        participants
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        <span>Per page:</span>
+                        <select
+                          value={participantItemsPerPage}
+                          onChange={(e) => {
+                            setParticipantItemsPerPage(Number(e.target.value));
+                            setParticipantCurrentPage(1);
+                          }}
+                          className="px-2 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+                        >
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setParticipantCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={participantCurrentPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {(() => {
+                          const totalPages = Math.ceil(filteredParticipants.length / participantItemsPerPage) || 1;
+                          if (totalPages <= 7) {
+                            return Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => setParticipantCurrentPage(page)}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                                  participantCurrentPage === page
+                                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ));
+                          }
+
+                          const pages: (number | string)[] = [1];
+                          if (participantCurrentPage > 3) pages.push("...");
+                          const start = Math.max(2, participantCurrentPage - 1);
+                          const end = Math.min(totalPages - 1, participantCurrentPage + 1);
+                          for (let i = start; i <= end; i++) {
+                            pages.push(i);
+                          }
+                          if (participantCurrentPage < totalPages - 2) pages.push("...");
+                          pages.push(totalPages);
+
+                          return pages.map((page, idx) =>
+                            typeof page === "number" ? (
+                              <button
+                                key={page}
+                                onClick={() => setParticipantCurrentPage(page)}
+                                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                                  participantCurrentPage === page
+                                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ) : (
+                              <span
+                                key={`dots-${idx}`}
+                                className="w-7 h-7 flex items-center justify-center text-xs text-slate-400 font-bold"
+                              >
+                                ...
+                              </span>
+                            ),
+                          );
+                        })()}
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          setParticipantCurrentPage((p) =>
+                            Math.min(Math.ceil(filteredParticipants.length / participantItemsPerPage) || 1, p + 1)
+                          )
+                        }
+                        disabled={
+                          participantCurrentPage === (Math.ceil(filteredParticipants.length / participantItemsPerPage) || 1)
+                        }
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
