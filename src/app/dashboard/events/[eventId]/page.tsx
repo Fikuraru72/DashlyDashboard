@@ -288,55 +288,99 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
   const parseAndMapCsv = (text: string) => {
     const cleanText = text
       .replace(/\0/g, "")
-      .replace(/[\uFEFF\u200B]/g, "")
+      .replace(/[\uFEFF\u200B\u200C\u200D\uFFFE]/g, "")
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n");
     const lines = cleanText.split("\n").filter((l) => l.trim().length > 0);
     if (lines.length === 0) return { preview: [], records: [] };
 
+    // Debug: log raw first line characters
     const line0 = lines[0];
+    console.log("[CSV-DEBUG] line0 length:", line0.length, "first 5 chars:", JSON.stringify(line0.substring(0, 5)));
+    console.log("[CSV-DEBUG] line0 charCodes[0..4]:", [...line0.substring(0, 5)].map(c => c.charCodeAt(0)));
+
     const commaCount = (line0.match(/,/g) || []).length;
     const semiCount = (line0.match(/;/g) || []).length;
     const tabCount = (line0.match(/\t/g) || []).length;
     let delimiter = ",";
     if (semiCount > commaCount && semiCount >= tabCount) delimiter = ";";
     else if (tabCount > commaCount && tabCount > semiCount) delimiter = "\t";
+    console.log("[CSV-DEBUG] delimiter:", JSON.stringify(delimiter), "commas:", commaCount, "semis:", semiCount, "tabs:", tabCount);
 
     const parseLine = (line: string, delim: string): string[] => {
+      // Strategy 1: Character-by-character parser with quote handling
       const result: string[] = [];
       let current = "";
       let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          if (inQuotes && line[i + 1] === '"') {
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"' || char === '\u201C' || char === '\u201D') {
+          if (inQuotes && j + 1 < line.length && (line[j + 1] === '"' || line[j + 1] === char)) {
             current += '"';
-            i++;
+            j++;
           } else {
             inQuotes = !inQuotes;
           }
         } else if (char === delim && !inQuotes) {
-          result.push(current.trim().replace(/^["']|["']$/g, ""));
+          result.push(current.trim().replace(/^["'\u201C\u201D]|["'\u201C\u201D]$/g, ""));
           current = "";
         } else {
           current += char;
         }
       }
-      result.push(current.trim().replace(/^["']|["']$/g, ""));
+      result.push(current.trim().replace(/^["'\u201C\u201D]|["'\u201C\u201D]$/g, ""));
 
-      // Fallback regex split if delimiter loop failed to split columns
-      if (result.length <= 1 && delim === ",") {
-        const regexSplit = line
-          .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-          .map((item) => item.trim().replace(/^["']|["']$/g, ""));
-        if (regexSplit.length > 1) return regexSplit;
+      if (result.length > 1) return result;
+
+      // Strategy 2: Regex split (handles quoted fields)
+      const regexSplit = line
+        .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+        .map((item) => item.trim().replace(/^["']|["']$/g, ""));
+      if (regexSplit.length > 1) return regexSplit;
+
+      // Strategy 3: Try other delimiters if primary one failed
+      for (const altDelim of [",", ";", "\t"]) {
+        if (altDelim === delim) continue;
+        const altResult: string[] = [];
+        let altCurrent = "";
+        let altInQuotes = false;
+        for (let j = 0; j < line.length; j++) {
+          const c = line[j];
+          if (c === '"') {
+            if (altInQuotes && j + 1 < line.length && line[j + 1] === '"') {
+              altCurrent += '"';
+              j++;
+            } else {
+              altInQuotes = !altInQuotes;
+            }
+          } else if (c === altDelim && !altInQuotes) {
+            altResult.push(altCurrent.trim().replace(/^["']|["']$/g, ""));
+            altCurrent = "";
+          } else {
+            altCurrent += c;
+          }
+        }
+        altResult.push(altCurrent.trim().replace(/^["']|["']$/g, ""));
+        if (altResult.length > 1) {
+          console.log("[CSV-DEBUG] Fallback delimiter worked:", JSON.stringify(altDelim), "columns:", altResult.length);
+          return altResult;
+        }
       }
+
+      // Strategy 4: Brute force simple split (ignore quotes entirely)
+      const simpleSplit = line.split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
+      if (simpleSplit.length > 1) {
+        console.log("[CSV-DEBUG] Brute force comma split:", simpleSplit.length, "columns");
+        return simpleSplit;
+      }
+
       return result;
     };
 
     const headers = parseLine(lines[0], delimiter).map((h) =>
       h.replace(/^["']|["']$/g, "").trim().toLowerCase()
     );
+    console.log("[CSV-DEBUG] Parsed headers count:", headers.length, "first 5:", headers.slice(0, 5));
 
     const findVal = (rowValues: string[], ...searchKeys: string[]) => {
       for (const key of searchKeys) {
