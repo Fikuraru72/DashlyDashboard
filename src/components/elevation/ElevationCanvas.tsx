@@ -40,25 +40,25 @@ export function ElevationCanvas({
 
     ctx.clearRect(0, 0, width, height);
 
-    // ── 1. Create Vibrant Cyan-Indigo Area Fill Gradient ─────────────
+    // ── 1. Create Crisp High-Contrast Gradient Fill ─────────────
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, "rgba(76, 185, 231, 0.35)");   // EcoRaceMaps Cyan (#4CB9E7)
-    gradient.addColorStop(0.5, "rgba(79, 70, 229, 0.15)");  // Indigo
-    gradient.addColorStop(1, "rgba(79, 70, 229, 0.0)");     // Transparent bottom
+    gradient.addColorStop(0, "rgba(2, 132, 199, 0.22)");   // Sky-600 sharp fill
+    gradient.addColorStop(0.7, "rgba(2, 132, 199, 0.05)");
+    gradient.addColorStop(1, "rgba(2, 132, 199, 0.0)");
 
-    // ── 2. Draw Subtle Background Horizontal Grid Lines ─────────
-    ctx.strokeStyle = "rgba(226, 232, 240, 0.4)";
+    // ── 2. Draw Sharp Subtle Background Grid Lines ─────────
+    ctx.strokeStyle = "rgba(203, 213, 225, 0.5)";
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    for (let h = 20; h < height - 10; h += 30) {
+    ctx.setLineDash([3, 3]);
+    for (let h = 20; h < height - 10; h += 25) {
       ctx.beginPath();
-      ctx.moveTo(0, h);
-      ctx.lineTo(width, h);
+      ctx.moveTo(0, Math.floor(h) + 0.5);
+      ctx.lineTo(width, Math.floor(h) + 0.5);
       ctx.stroke();
     }
     ctx.setLineDash([]); // Reset dash
 
-    // ── 3. Draw Area Fill Path ───────────────────────────────────
+    // ── 3. Draw Sharp Area Fill Path ──────────────────────────────
     ctx.beginPath();
     ctx.moveTo(xScale(data[0].distance), height - 10);
     ctx.lineTo(xScale(data[0].distance), yScale(data[0].elevation));
@@ -73,10 +73,7 @@ export function ElevationCanvas({
     ctx.fillStyle = gradient;
     ctx.fill();
 
-    // ── 4. Draw Glowing Contour Stroke Line ───────────────────────
-    ctx.shadowColor = "rgba(76, 185, 231, 0.6)";
-    ctx.shadowBlur = 8;
-
+    // ── 4. Draw Ultra-Sharp High-Precision Contour Line ───────────
     ctx.beginPath();
     ctx.moveTo(xScale(data[0].distance), yScale(data[0].elevation));
 
@@ -84,24 +81,21 @@ export function ElevationCanvas({
       ctx.lineTo(xScale(data[i].distance), yScale(data[i].elevation));
     }
 
-    ctx.strokeStyle = "#4CB9E7"; // EcoRaceMaps primary cyan
-    ctx.lineWidth = 3;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
+    ctx.strokeStyle = "#0284c7"; // Sky-600 sharp crisp line
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "miter";
+    ctx.miterLimit = 2;
+    ctx.lineCap = "square";
     ctx.stroke();
 
-    // Reset shadow
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-
-    // ── 5. Highlighting steep climbs (> 6% grade) ─────────────
+    // ── 5. Highlighting steep climb segments (> 6% grade) ─────────
     for (let i = 1; i < data.length; i++) {
       if (data[i].grade > 6) {
         ctx.beginPath();
         ctx.moveTo(xScale(data[i - 1].distance), yScale(data[i - 1].elevation));
         ctx.lineTo(xScale(data[i].distance), yScale(data[i].elevation));
-        ctx.strokeStyle = "#f43f5e"; // Rose-500 for steep climb
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#e11d48"; // Rose-600 for sharp steep climb
+        ctx.lineWidth = 2.5;
         ctx.stroke();
       }
     }
