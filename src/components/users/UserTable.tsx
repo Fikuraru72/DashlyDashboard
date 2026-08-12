@@ -34,16 +34,25 @@ interface UserTableProps {
   roles: Role[];
   canManageUsers: boolean;
   onDelete: (id: number) => void;
+  onBatchDelete?: (ids: number[]) => void;
   onEdit: (user: UserData) => void;
 }
 
-export function UserTable({ users, roles, canManageUsers, onDelete, onEdit }: UserTableProps) {
+export function UserTable({
+  users,
+  roles,
+  canManageUsers,
+  onDelete,
+  onBatchDelete,
+  onEdit,
+}: UserTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
 
   const itemsPerPage = 8;
 
@@ -124,7 +133,29 @@ export function UserTable({ users, roles, canManageUsers, onDelete, onEdit }: Us
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="p-4 pl-6 font-semibold text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {canManageUsers && (
+                  <th className="p-4 pl-6 w-10">
+                    <input
+                      type="checkbox"
+                      checked={
+                        paginatedUsers.length > 0 &&
+                        paginatedUsers.every((u) => selectedUserIds.includes(u.id))
+                      }
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (checked) {
+                          const pageIds = paginatedUsers.map((u) => u.id);
+                          setSelectedUserIds(Array.from(new Set([...selectedUserIds, ...pageIds])));
+                        } else {
+                          const pageIdSet = new Set(paginatedUsers.map((u) => u.id));
+                          setSelectedUserIds(selectedUserIds.filter((id) => !pageIdSet.has(id)));
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-700 focus:ring-indigo-500"
+                    />
+                  </th>
+                )}
+                <th className={`p-4 ${!canManageUsers ? "pl-6" : ""} font-semibold text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400`}>
                   User
                 </th>
                 <th className="p-4 font-semibold text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 hidden sm:table-cell">
@@ -142,9 +173,28 @@ export function UserTable({ users, roles, canManageUsers, onDelete, onEdit }: Us
               {paginatedUsers.map((u) => (
                 <tr
                   key={u.id}
-                  className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors group"
+                  className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors group ${
+                    selectedUserIds.includes(u.id) ? "bg-indigo-50/30 dark:bg-indigo-900/10" : ""
+                  }`}
                 >
-                  <td className="p-4 pl-6">
+                  {canManageUsers && (
+                    <td className="p-4 pl-6 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.includes(u.id)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          if (checked) {
+                            setSelectedUserIds([...selectedUserIds, u.id]);
+                          } else {
+                            setSelectedUserIds(selectedUserIds.filter((id) => id !== u.id));
+                          }
+                        }}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-700 focus:ring-indigo-500"
+                      />
+                    </td>
+                  )}
+                  <td className={`p-4 ${!canManageUsers ? "pl-6" : ""}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-slate-800 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-slate-700">
                         <UserIcon className="w-5 h-5 text-indigo-500 dark:text-slate-400" />
@@ -290,12 +340,45 @@ export function UserTable({ users, roles, canManageUsers, onDelete, onEdit }: Us
         )}
       </div>
 
-      {/* Detail Modal overlay */}
-      <UserDetailModal
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        user={selectedUser}
-      />
+      {/* Drawer */}
+      {selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+        />
+      )}
+
+      {/* Floating Selection Action Bar */}
+      {selectedUserIds.length > 0 && onBatchDelete && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl border border-slate-700/50 flex items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-indigo-500 text-white font-bold text-xs flex items-center justify-center">
+              {selectedUserIds.length}
+            </span>
+            <span className="text-xs font-semibold text-slate-200">User Terpilih</span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700"></div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                onBatchDelete(selectedUserIds);
+              }}
+              className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2"
+            >
+              <Trash2 size={14} /> Hapus Terpilih ({selectedUserIds.length})
+            </button>
+            <button
+              onClick={() => setSelectedUserIds([])}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

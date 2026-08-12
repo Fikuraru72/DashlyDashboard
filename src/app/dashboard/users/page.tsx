@@ -9,6 +9,7 @@ import { UserTable } from "../../../components/users/UserTable";
 import { RoleManagement } from "../../../components/roles/RoleManagement";
 import { AddUserModal } from "../../../components/users/AddUserModal";
 import { EditUserModal } from "../../../components/users/EditUserModal";
+import { DeleteUserModal } from "../../../components/users/DeleteUserModal";
 
 interface RoleData {
   id: number;
@@ -45,6 +46,10 @@ export default function UsersPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const [deletingUserIds, setDeletingUserIds] = useState<number[]>([]);
+  const [deletingUserName, setDeletingUserName] = useState<string>("");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Fetch auth user if not loaded
   useEffect(() => {
@@ -98,29 +103,59 @@ export default function UsersPage() {
 
   const canManageUsers = hasPermission("manage_users");
 
-  const handleDeleteUser = async (id: number) => {
-    if (!canManageUsers) return;
-    if (!confirm("Are you sure you want to delete this user?")) return;
+  const handleInitiateSingleDelete = (id: number) => {
+    const target = users.find((u) => u.id === id);
+    setDeletingUserIds([id]);
+    setDeletingUserName(target?.name || "");
+    setIsDeleteModalOpen(true);
+  };
 
-    try {
-      const tokenMatch = document.cookie.match(new RegExp("(^| )auth_token=([^;]+)"));
-      const token = tokenMatch ? tokenMatch[2] : null;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const handleInitiateBatchDelete = (ids: number[]) => {
+    setDeletingUserIds(ids);
+    setDeletingUserName("");
+    setIsDeleteModalOpen(true);
+  };
 
+  const handleExecuteDeleteAccount = async () => {
+    if (deletingUserIds.length === 0) return;
+
+    const tokenMatch = document.cookie.match(new RegExp("(^| )auth_token=([^;]+)"));
+    const token = tokenMatch ? tokenMatch[2] : null;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+    if (deletingUserIds.length === 1) {
+      const id = deletingUserIds[0];
       const response = await authenticatedFetch(`${apiUrl}/users/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
-        setUsers(users.filter((u) => u.id !== id));
+        setUsers((prev) => prev.filter((u) => u.id !== id));
       } else {
-        alert("Failed to delete user");
+        alert("Gagal menghapus akun user.");
       }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      alert("Error deleting user");
+    } else {
+      const response = await authenticatedFetch(`${apiUrl}/users/batch-delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: deletingUserIds }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(`Berhasil menghapus ${data.count || 0} akun user.`);
+        const deleteSet = new Set(deletingUserIds);
+        setUsers((prev) => prev.filter((u) => !deleteSet.has(u.id)));
+      } else {
+        alert("Gagal menghapus batch user.");
+      }
     }
+
+    setDeletingUserIds([]);
   };
 
   const handleEditUser = (targetUser: UserData) => {
@@ -331,7 +366,8 @@ export default function UsersPage() {
               users={users}
               roles={roles}
               canManageUsers={canManageUsers}
-              onDelete={handleDeleteUser}
+              onDelete={handleInitiateSingleDelete}
+              onBatchDelete={handleInitiateBatchDelete}
               onEdit={handleEditUser}
             />
           )}
@@ -364,6 +400,18 @@ export default function UsersPage() {
           setEditingUser(null);
         }}
         onSave={handleSaveEditUser}
+      />
+
+      {/* Delete User Modal (with Options) */}
+      <DeleteUserModal
+        isOpen={isDeleteModalOpen}
+        userCount={deletingUserIds.length}
+        userName={deletingUserName}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setDeletingUserIds([]);
+        }}
+        onConfirmDeleteAccount={handleExecuteDeleteAccount}
       />
     </div>
   );
