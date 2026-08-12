@@ -50,11 +50,11 @@ export default function LandingPage() {
       {/* ── Navbar ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-indigo-600 rounded-lg text-white">
-              <Activity className="w-6 h-6" />
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-slate-900 rounded-lg border border-white/10">
+              <img src="/logo.png" alt="Eco Race Maps Logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">Dashly</span>
+            <span className="text-xl font-bold tracking-tight text-white">Eco Race Maps</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a

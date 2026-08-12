@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dashly Real-time Race Monitoring",
-  description: "High-performance dashboard skeleton",
+  title: "Eco Race Maps — Real-time Race Monitoring",
+  description: "High-performance GPS race monitoring platform",
 };
 
 export default function RootLayout({

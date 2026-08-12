@@ -120,11 +120,11 @@ export function Sidebar() {
           <div
             className={`flex items-center gap-3 overflow-hidden transition-all ${isCollapsed ? "opacity-0 w-0" : "opacity-100"}`}
           >
-            <div className="flex items-center justify-center p-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg text-indigo-600 dark:text-cyan-400">
-              <Activity className="h-5 w-5" />
+            <div className="flex items-center justify-center p-1 w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800">
+              <img src="/logo.png" alt="Eco Race Maps Logo" className="w-6 h-6 object-contain" />
             </div>
-            <span className="text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-500 dark:from-cyan-400 dark:to-emerald-400">
-              Dashly
+            <span className="text-lg font-black tracking-tight text-slate-900 dark:text-[#4CB9E7]">
+              Eco Race Maps
             </span>
           </div>
           <button

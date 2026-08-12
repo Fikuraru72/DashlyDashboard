@@ -65,10 +65,10 @@ export default function LoginPage() {
 
         <div className="relative z-10 flex flex-col justify-center h-full p-16 xl:p-24">
           <div className="flex items-center gap-3 mb-8">
-            <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md border border-white/20 text-white">
-              <Activity className="h-8 w-8" />
+            <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
+              <img src="/logo.png" alt="Eco Race Maps Logo" className="h-10 w-10 object-contain" />
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-white">Dashly</h1>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white">Eco Race Maps</h1>
           </div>
           <h2 className="text-5xl lg:text-6xl font-black text-white leading-[1.1] tracking-tight mb-6">
             Real-time <br />
@@ -105,11 +105,11 @@ export default function LoginPage() {
         <div className="w-full max-w-md mx-auto">
           {/* Mobile Logo */}
           <div className="flex lg:hidden items-center gap-3 mb-10">
-            <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl text-indigo-600 dark:text-cyan-400">
-              <Activity className="h-6 w-6" />
+            <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
+              <img src="/logo.png" alt="Eco Race Maps Logo" className="h-8 w-8 object-contain" />
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Dashly
+              Eco Race Maps
             </h1>
           </div>
 
