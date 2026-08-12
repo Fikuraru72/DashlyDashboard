@@ -79,6 +79,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]);
+  const [mappedParticipants, setMappedParticipants] = useState<any[]>([]);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [importReport, setImportReport] = useState<any>(null);
 
@@ -284,6 +285,123 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     document.body.removeChild(link);
   };
 
+  const parseAndMapCsv = (text: string) => {
+    const cleanText = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const lines = cleanText.split("\n").filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return { preview: [], records: [] };
+
+    const line0 = lines[0];
+    const commaCount = (line0.match(/,/g) || []).length;
+    const semiCount = (line0.match(/;/g) || []).length;
+    const tabCount = (line0.match(/\t/g) || []).length;
+    let delimiter = ",";
+    if (semiCount > commaCount && semiCount >= tabCount) delimiter = ";";
+    else if (tabCount > commaCount && tabCount > semiCount) delimiter = "\t";
+
+    const parseLine = (line: string, delim: string): string[] => {
+      const result: string[] = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === delim && !inQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    const headers = parseLine(lines[0], delimiter).map((h) =>
+      h.replace(/^["']|["']$/g, "").replace(/[\uFEFF\u200B]/g, "").trim()
+    );
+
+    const findVal = (rowValues: string[], ...searchKeys: string[]) => {
+      for (const key of searchKeys) {
+        const target = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const idx = headers.findIndex(
+          (h) => h.toLowerCase().replace(/[^a-z0-9]/g, "") === target
+        );
+        if (idx !== -1 && rowValues[idx] !== undefined) {
+          return rowValues[idx].replace(/^["']|["']$/g, "").trim();
+        }
+      }
+      return "";
+    };
+
+    const records: any[] = [];
+    const rawPreview: string[][] = [headers];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseLine(lines[i], delimiter);
+      if (values.length === 0 || (values.length === 1 && !values[0])) continue;
+
+      if (rawPreview.length < 6) {
+        rawPreview.push(values.map((v) => v.replace(/^["']|["']$/g, "").trim()));
+      }
+
+      const email = findVal(values, "email", "email address", "mail");
+      const fullName =
+        findVal(values, "full name", "fullname", "nama lengkap", "nama", "name") || "Participant";
+      const phone = findVal(
+        values,
+        "phone",
+        "nomor hp",
+        "telepon",
+        "handphone",
+        "no hp",
+        "phone number"
+      );
+      const participantNumber =
+        findVal(values, "participant number", "bib number", "bib", "no bib", "nomor peserta") ||
+        String(i).padStart(3, "0");
+      const bloodType = findVal(values, "golongan darah", "blood type", "goldar");
+      const medicalHistory = findVal(
+        values,
+        "penyakit bawaan",
+        "medical history",
+        "riwayat penyakit"
+      );
+      const emergencyPhone = findVal(
+        values,
+        "nomor kontak darurat",
+        "emergency phone",
+        "kontak darurat",
+        "emergency contact"
+      );
+      const emergencyRelation = findVal(
+        values,
+        "hubungan dengan kontak darurat",
+        "emergency relation",
+        "hubungan kontak darurat",
+        "hubungan"
+      );
+
+      records.push({
+        participantNumber,
+        fullName,
+        email,
+        phone,
+        bloodType,
+        medicalHistory,
+        emergencyPhone,
+        emergencyRelation,
+      });
+    }
+
+    return { preview: rawPreview, records };
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -294,33 +412,44 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     reader.onload = (evt) => {
       const text = evt.target?.result as string;
       if (!text) return;
-      const lines = text.split("\n").filter((l) => l.trim().length > 0);
-      const preview = lines.slice(0, 6).map((line) => {
-        return line.split(",").map((cell) => cell.replace(/^["']|["']$/g, "").trim());
-      });
+
+      const { preview, records } = parseAndMapCsv(text);
       setCsvPreviewRows(preview);
+      setMappedParticipants(records);
     };
     reader.readAsText(file);
   };
 
   const handleExecuteImportCSV = async () => {
-    if (!csvFile) return;
+    if (!csvFile && mappedParticipants.length === 0) return;
     setIsImportingCsv(true);
     setError("");
     setImportReport(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", csvFile);
-
       const token = getCookie("auth_token");
-      const res = await fetch(`${apiUrl}/events/${eventId}/import-csv`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      let res: Response;
+
+      if (mappedParticipants && mappedParticipants.length > 0) {
+        res = await authenticatedFetch(`${apiUrl}/events/${eventId}/import-csv`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ participants: mappedParticipants }),
+        });
+      } else {
+        const formData = new FormData();
+        if (csvFile) formData.append("file", csvFile);
+        res = await fetch(`${apiUrl}/events/${eventId}/import-csv`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+      }
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
