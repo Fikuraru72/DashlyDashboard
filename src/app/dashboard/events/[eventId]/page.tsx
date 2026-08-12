@@ -30,11 +30,13 @@ import {
   Bike,
   Footprints,
   Image as ImageIcon,
+  UserPlus,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import StaticMapWrapper from "@/components/map/index-static";
 import RouteEditorMapWrapper from "@/components/map/index-editor";
 import LocationPickerMapWrapper from "@/components/map/index-picker";
+import AddExistingParticipantModal from "@/components/events/AddExistingParticipantModal";
 
 export default function EventDetailPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = use(params);
@@ -77,6 +79,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
 
   // CSV Import Modal State
   const [showCsvModal, setShowCsvModal] = useState(false);
+  const [showAddExistingModal, setShowAddExistingModal] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]);
   const [mappedParticipants, setMappedParticipants] = useState<any[]>([]);
@@ -1309,6 +1312,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                     </div>
                     <div className="flex items-center gap-3">
                       <button
+                        onClick={() => setShowAddExistingModal(true)}
+                        className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm shadow-emerald-500/20"
+                      >
+                        <UserPlus size={14} /> + Tambah Peserta
+                      </button>
+                      <button
                         onClick={() => {
                           setShowCsvModal(true);
                           setCsvFile(null);
@@ -1787,6 +1796,16 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
             </div>
           </div>
         )}
+
+        {/* Add Existing Registered Participant Modal */}
+        <AddExistingParticipantModal
+          isOpen={showAddExistingModal}
+          onClose={() => setShowAddExistingModal(false)}
+          eventId={Number(eventId)}
+          existingParticipantUserIds={participants.map((p) => p.id || p.userId)}
+          onSuccess={() => void fetchEventData()}
+          apiUrl={apiUrl}
+        />
       </div>
     </div>
   );
