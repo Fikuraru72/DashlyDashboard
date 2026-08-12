@@ -2,12 +2,13 @@
 
 import { authenticatedFetch } from "@/lib/api";
 import React, { useEffect, useState } from "react";
-import { Users, Shield } from "lucide-react";
+import { Users, Shield, Trash2 } from "lucide-react";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { UserTable } from "../../../components/users/UserTable";
 import { RoleManagement } from "../../../components/roles/RoleManagement";
 import { AddUserModal } from "../../../components/users/AddUserModal";
+import { EditUserModal } from "../../../components/users/EditUserModal";
 
 interface RoleData {
   id: number;
@@ -42,6 +43,8 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"users" | "roles">("users");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Fetch auth user if not loaded
   useEffect(() => {
@@ -120,8 +123,32 @@ export default function UsersPage() {
     }
   };
 
-  const handleEditUser = (user: UserData) => {
-    alert(`Edit feature for user ${user.name} is not fully implemented yet.`);
+  const handleEditUser = (targetUser: UserData) => {
+    setEditingUser(targetUser);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditUser = async (id: number, data: any) => {
+    const tokenMatch = document.cookie.match(new RegExp("(^| )auth_token=([^;]+)"));
+    const token = tokenMatch ? tokenMatch[2] : null;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+    const response = await authenticatedFetch(`${apiUrl}/users/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || "Failed to update user");
+    }
+
+    const updatedUser = await response.json();
+    setUsers(users.map((u) => (u.id === id ? { ...u, ...updatedUser } : u)));
   };
 
   const handleUpdateRole = async (roleId: number, newPermissions: string[]) => {
@@ -182,6 +209,38 @@ export default function UsersPage() {
     setUsers([...users, newUser]);
   };
 
+  const handleBulkDeleteParticipants = async () => {
+    if (!canManageUsers) return;
+    if (
+      !confirm(
+        "Apakah Anda yakin ingin menghapus SELURUH akun peserta? (Akun Super Admin & Staff Anda 100% AMAN & TIDAK TERHAPUS)",
+      )
+    )
+      return;
+
+    try {
+      const tokenMatch = document.cookie.match(new RegExp("(^| )auth_token=([^;]+)"));
+      const token = tokenMatch ? tokenMatch[2] : null;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+      const response = await authenticatedFetch(`${apiUrl}/users/participants/bulk`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(`Berhasil menghapus ${data.count || 0} akun peserta!`);
+        setUsers(users.filter((u) => u.role?.name && u.role.name !== "PARTICIPANT"));
+      } else {
+        alert("Gagal menghapus akun peserta");
+      }
+    } catch (error) {
+      console.error("Error bulk deleting participants:", error);
+      alert("Error deleting participants");
+    }
+  };
+
   if (authLoading || (loading && user))
     return (
       <div className="flex-1 flex items-center justify-center p-8 h-full bg-slate-100/50 dark:bg-slate-950/50">
@@ -215,12 +274,20 @@ export default function UsersPage() {
         </div>
 
         {canManageUsers && activeTab === "users" && (
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all font-semibold text-sm whitespace-nowrap"
-          >
-            + Add User
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBulkDeleteParticipants}
+              className="px-4 py-2.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl shadow-sm hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all font-semibold text-sm whitespace-nowrap flex items-center gap-2"
+            >
+              <Trash2 size={16} /> Hapus Semua Peserta
+            </button>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all font-semibold text-sm whitespace-nowrap"
+            >
+              + Add User
+            </button>
+          </div>
         )}
       </div>
 
@@ -285,6 +352,18 @@ export default function UsersPage() {
         roles={roles}
         onClose={() => setIsAddModalOpen(false)}
         onSave={handleCreateUser}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={isEditModalOpen}
+        user={editingUser}
+        roles={roles}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingUser(null);
+        }}
+        onSave={handleSaveEditUser}
       />
     </div>
   );
