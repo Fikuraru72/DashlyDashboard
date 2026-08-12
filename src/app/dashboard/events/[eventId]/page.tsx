@@ -34,6 +34,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Check,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import StaticMapWrapper from "@/components/map/index-static";
@@ -93,6 +94,54 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
   const [participantSearchQuery, setParticipantSearchQuery] = useState("");
   const [participantCurrentPage, setParticipantCurrentPage] = useState(1);
   const [participantItemsPerPage, setParticipantItemsPerPage] = useState(10);
+
+  // Edit BIB State
+  const [editingBibUserId, setEditingBibUserId] = useState<number | null>(null);
+  const [editBibValue, setEditBibValue] = useState("");
+  const [isSubmittingBib, setIsSubmittingBib] = useState(false);
+
+  const handleSaveBib = async (userId: number, newBib: string) => {
+    const trimmed = newBib.trim();
+    if (!trimmed) {
+      alert("Nomor BIB tidak boleh kosong!");
+      return;
+    }
+    setIsSubmittingBib(true);
+    try {
+      const token = getCookie("auth_token");
+      const res = await authenticatedFetch(`${apiUrl}/events/${eventId}/participants/${userId}/bib`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bibNumber: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Gagal meng-update nomor BIB");
+      }
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.id === userId || p.user?.id === userId
+            ? { ...p, bibNumber: trimmed, participantNumber: trimmed }
+            : p
+        )
+      );
+      if (selectedParticipant && (selectedParticipant.id === userId || selectedParticipant.user?.id === userId)) {
+        setSelectedParticipant((prev: any) =>
+          prev
+            ? { ...prev, bibNumber: trimmed, participantNumber: trimmed }
+            : null
+        );
+      }
+      setEditingBibUserId(null);
+    } catch (err: any) {
+      alert(err.message || "Gagal meng-update nomor BIB");
+    } finally {
+      setIsSubmittingBib(false);
+    }
+  };
 
   // Registered Participants Filtered & Paginated List
   const filteredParticipants = React.useMemo(() => {
@@ -1415,9 +1464,57 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                               className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${p.participantState === "FROZEN" ? "bg-rose-50/50 dark:bg-rose-500/5" : ""}`}
                             >
                               <td className="px-4 py-3">
-                                <span className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-md font-mono font-black text-xs border border-cyan-200 dark:border-cyan-500/20 shadow-xs">
-                                  {p.bibNumber || p.participantNumber || "-"}
-                                </span>
+                                {editingBibUserId === (p.user?.id || p.id) ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={editBibValue}
+                                      onChange={(e) => setEditBibValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          handleSaveBib(p.user?.id || p.id, editBibValue);
+                                        } else if (e.key === "Escape") {
+                                          setEditingBibUserId(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="w-16 px-2 py-1 bg-white dark:bg-slate-950 border border-cyan-500 rounded text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:outline-none shadow-xs"
+                                    />
+                                    <button
+                                      onClick={() => handleSaveBib(p.user?.id || p.id, editBibValue)}
+                                      disabled={isSubmittingBib}
+                                      className="p-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors"
+                                      title="Simpan BIB"
+                                    >
+                                      <Check size={12} />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingBibUserId(null)}
+                                      disabled={isSubmittingBib}
+                                      className="p-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded transition-colors"
+                                      title="Batal"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 group/bib">
+                                    <span className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-md font-mono font-black text-xs border border-cyan-200 dark:border-cyan-500/20 shadow-xs">
+                                      {p.bibNumber || p.participantNumber || "-"}
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        setEditingBibUserId(p.user?.id || p.id);
+                                        setEditBibValue(p.bibNumber || p.participantNumber || "");
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors opacity-0 group-hover/bib:opacity-100"
+                                      title="Edit BIB"
+                                    >
+                                      <Edit3 size={12} />
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
@@ -1749,6 +1846,61 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
                         )}
                       </p>
                     </div>
+                  </div>
+
+                  {/* BIB Card in Modal */}
+                  <div className="p-4 bg-cyan-50/60 dark:bg-cyan-500/10 rounded-2xl border border-cyan-100 dark:border-cyan-500/20 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1 text-cyan-700 dark:text-cyan-400">
+                        <span className="text-[10px] uppercase font-black tracking-widest">BIB Number</span>
+                      </div>
+                      {editingBibUserId === (selectedParticipant.user?.id || selectedParticipant.id) ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="text"
+                            value={editBibValue}
+                            onChange={(e) => setEditBibValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleSaveBib(selectedParticipant.user?.id || selectedParticipant.id, editBibValue);
+                              }
+                            }}
+                            className="w-24 px-2.5 py-1 bg-white dark:bg-slate-950 border border-cyan-500 rounded-lg text-sm font-mono font-black text-slate-800 dark:text-slate-100 focus:outline-none"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleSaveBib(selectedParticipant.user?.id || selectedParticipant.id, editBibValue)}
+                            disabled={isSubmittingBib}
+                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                          >
+                            <Check size={14} /> Simpan
+                          </button>
+                          <button
+                            onClick={() => setEditingBibUserId(null)}
+                            disabled={isSubmittingBib}
+                            className="px-2 py-1 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg transition-colors"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xl font-black font-mono text-cyan-800 dark:text-cyan-300 tracking-wider">
+                          {selectedParticipant.bibNumber || selectedParticipant.participantNumber || "-"}
+                        </span>
+                      )}
+                    </div>
+                    {editingBibUserId !== (selectedParticipant.user?.id || selectedParticipant.id) && (
+                      <button
+                        onClick={() => {
+                          setEditingBibUserId(selectedParticipant.user?.id || selectedParticipant.id);
+                          setEditBibValue(selectedParticipant.bibNumber || selectedParticipant.participantNumber || "");
+                        }}
+                        className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+                      >
+                        <Edit3 size={14} /> Edit BIB
+                      </button>
+                    )}
                   </div>
 
                   <div className="p-6 bg-rose-50/50 dark:bg-rose-500/5 rounded-2xl border border-rose-100 dark:border-rose-500/20">
