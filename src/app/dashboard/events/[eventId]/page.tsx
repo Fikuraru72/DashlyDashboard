@@ -176,28 +176,64 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     try {
       const token = getCookie("auth_token");
 
-      const payloadToSave = isEditingRoute
-        ? { routeGeojson: tempGeoJson }
-        : {
-            ...editForm,
-            startTime: editForm.startTime ? new Date(editForm.startTime).toISOString() : undefined,
-            endTime: editForm.endTime ? new Date(editForm.endTime).toISOString() : undefined,
-            registrationOpen: editForm.registrationOpen
-              ? new Date(editForm.registrationOpen).toISOString()
+      let payloadToSave: Record<string, any>;
+      if (isEditingRoute) {
+        payloadToSave = { routeGeojson: tempGeoJson };
+      } else {
+        const parseDate = (val: string) => {
+          if (!val) return undefined;
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? undefined : d.toISOString();
+        };
+
+        payloadToSave = {
+          name: editForm.name || undefined,
+          description: editForm.description || undefined,
+          maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
+          dateEvent: editForm.dateEvent || undefined,
+          startTime: parseDate(editForm.startTime),
+          endTime: parseDate(editForm.endTime),
+          monitoringStartOffset: editForm.monitoringStartOffset
+            ? Number(editForm.monitoringStartOffset)
+            : undefined,
+          monitoringEndOffset: editForm.monitoringEndOffset
+            ? Number(editForm.monitoringEndOffset)
+            : undefined,
+          registrationOpen: parseDate(editForm.registrationOpen),
+          registrationClose: parseDate(editForm.registrationClose),
+          locationName: editForm.locationName || undefined,
+          city: editForm.city || undefined,
+          province: editForm.province || undefined,
+          latitude:
+            (editForm.latitude as any) !== "" && (editForm.latitude as any) !== null
+              ? Number(editForm.latitude)
               : undefined,
-            registrationClose: editForm.registrationClose
-              ? new Date(editForm.registrationClose).toISOString()
+          longitude:
+            (editForm.longitude as any) !== "" && (editForm.longitude as any) !== null
+              ? Number(editForm.longitude)
               : undefined,
-            latitude: editForm.latitude === "" ? undefined : Number(editForm.latitude),
-            longitude: editForm.longitude === "" ? undefined : Number(editForm.longitude),
-          };
+          bannerImage: editForm.bannerImage || undefined,
+        };
+
+        // Remove undefined fields so ValidationPipe won't receive invalid keys or empty strings
+        Object.keys(payloadToSave).forEach((key) => {
+          if (payloadToSave[key] === undefined) {
+            delete payloadToSave[key];
+          }
+        });
+      }
 
       const res = await authenticatedFetch(`${apiUrl}/events/${eventId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payloadToSave),
       });
-      if (!res.ok) throw new Error("Failed to update event");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const rawMsg = errJson.message || errJson.originalMessage || "Failed to update event";
+        const errMsg = Array.isArray(rawMsg) ? rawMsg.join(", ") : rawMsg;
+        throw new Error(errMsg);
+      }
       const response = await res.json();
       const updated = response.success ? response.data : response;
       setEvent(updated);
