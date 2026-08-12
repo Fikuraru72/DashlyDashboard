@@ -469,6 +469,15 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
         }
       }
 
+      // DEBUG: log first 3 rows to browser console
+      if (i <= 3) {
+        console.log(`[CSV-PARSE DEBUG] Row ${i}:`, {
+          headers: headers.slice(0, 5),
+          rawValues: values.slice(0, 5),
+          extracted: { fullName, email, phone, participantNumber },
+        });
+      }
+
       records.push({
         participantNumber,
         fullName,
@@ -513,6 +522,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
       let res: Response;
 
       if (mappedParticipants && mappedParticipants.length > 0) {
+        // DEBUG: log payload before sending
+        console.log('[CSV-IMPORT DEBUG] Sending participants:', mappedParticipants.slice(0, 3));
         res = await fetch(`${apiUrl}/events/${eventId}/import-json`, {
           method: "POST",
           headers: {
