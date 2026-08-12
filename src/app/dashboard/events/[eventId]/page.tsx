@@ -308,73 +308,81 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
     console.log("[CSV-DEBUG] delimiter:", JSON.stringify(delimiter), "commas:", commaCount, "semis:", semiCount, "tabs:", tabCount);
 
     const parseLine = (line: string, delim: string): string[] => {
-      // Strategy 1: Character-by-character parser with quote handling
-      const result: string[] = [];
-      let current = "";
-      let inQuotes = false;
-      for (let j = 0; j < line.length; j++) {
-        const char = line[j];
-        if (char === '"' || char === '\u201C' || char === '\u201D') {
-          if (inQuotes && j + 1 < line.length && (line[j + 1] === '"' || line[j + 1] === char)) {
-            current += '"';
-            j++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === delim && !inQuotes) {
-          result.push(current.trim().replace(/^["'\u201C\u201D]|["'\u201C\u201D]$/g, ""));
-          current = "";
-        } else {
-          current += char;
-        }
-      }
-      result.push(current.trim().replace(/^["'\u201C\u201D]|["'\u201C\u201D]$/g, ""));
+      // Normalize Unicode comma variants to ASCII comma before parsing
+      const normalizedLine = line
+        .replace(/\uFF0C/g, ",")  // fullwidth comma ，
+        .replace(/\u060C/g, ",")  // Arabic comma ،
+        .replace(/\u3001/g, ",")  // ideographic comma 、
+        .replace(/\uFE50/g, ",")  // small comma ﹐
+        .replace(/\uFE51/g, ","); // small ideographic comma ﹑
 
-      if (result.length > 1) return result;
+      const cleanQuotes = (s: string) =>
+        s.trim().replace(/^["'\u201C\u201D]|["'\u201C\u201D]$/g, "");
 
-      // Strategy 2: Regex split (handles quoted fields)
-      const regexSplit = line
-        .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-        .map((item) => item.trim().replace(/^["']|["']$/g, ""));
-      if (regexSplit.length > 1) return regexSplit;
-
-      // Strategy 3: Try other delimiters if primary one failed
-      for (const altDelim of [",", ";", "\t"]) {
-        if (altDelim === delim) continue;
-        const altResult: string[] = [];
-        let altCurrent = "";
-        let altInQuotes = false;
-        for (let j = 0; j < line.length; j++) {
-          const c = line[j];
-          if (c === '"') {
-            if (altInQuotes && j + 1 < line.length && line[j + 1] === '"') {
-              altCurrent += '"';
+      // Character-by-character CSV parser
+      const charParse = (text: string, d: string): string[] => {
+        const res: string[] = [];
+        let cur = "";
+        let inQ = false;
+        for (let j = 0; j < text.length; j++) {
+          const c = text[j];
+          if (c === '"' || c === '\u201C' || c === '\u201D') {
+            if (inQ && j + 1 < text.length && (text[j + 1] === '"' || text[j + 1] === c)) {
+              cur += '"';
               j++;
             } else {
-              altInQuotes = !altInQuotes;
+              inQ = !inQ;
             }
-          } else if (c === altDelim && !altInQuotes) {
-            altResult.push(altCurrent.trim().replace(/^["']|["']$/g, ""));
-            altCurrent = "";
+          } else if (c === d && !inQ) {
+            res.push(cleanQuotes(cur));
+            cur = "";
           } else {
-            altCurrent += c;
+            cur += c;
           }
         }
-        altResult.push(altCurrent.trim().replace(/^["']|["']$/g, ""));
-        if (altResult.length > 1) {
-          console.log("[CSV-DEBUG] Fallback delimiter worked:", JSON.stringify(altDelim), "columns:", altResult.length);
-          return altResult;
-        }
+        res.push(cleanQuotes(cur));
+        return res;
+      };
+
+      // Try ALL strategies and pick the one with MOST columns
+      const candidates: string[][] = [];
+
+      // Strategy 1: Primary delimiter on normalized line
+      candidates.push(charParse(normalizedLine, delim));
+
+      // Strategy 2: Comma on normalized line (if not already comma)
+      if (delim !== ",") candidates.push(charParse(normalizedLine, ","));
+
+      // Strategy 3: Comma on original line
+      candidates.push(charParse(line, ","));
+
+      // Strategy 4: Semicolon
+      candidates.push(charParse(normalizedLine, ";"));
+
+      // Strategy 5: Tab
+      candidates.push(charParse(normalizedLine, "\t"));
+
+      // Strategy 6: Regex split on normalized line
+      try {
+        const regexSplit = normalizedLine
+          .split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+          .map((s) => cleanQuotes(s));
+        candidates.push(regexSplit);
+      } catch { /* regex may fail on very long lines */ }
+
+      // Strategy 7: Brute force split on normalized line
+      candidates.push(normalizedLine.split(",").map((s) => cleanQuotes(s)));
+
+      // Pick the result with the MOST columns
+      let best = candidates[0];
+      for (const c of candidates) {
+        if (c.length > best.length) best = c;
       }
 
-      // Strategy 4: Brute force simple split (ignore quotes entirely)
-      const simpleSplit = line.split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
-      if (simpleSplit.length > 1) {
-        console.log("[CSV-DEBUG] Brute force comma split:", simpleSplit.length, "columns");
-        return simpleSplit;
-      }
+      console.log("[CSV-DEBUG] parseLine best strategy columns:", best.length,
+        "all strategies:", candidates.map(c => c.length));
 
-      return result;
+      return best;
     };
 
     const headers = parseLine(lines[0], delimiter).map((h) =>
