@@ -239,55 +239,48 @@ const updateMarkerElement = (
   const parts = (displayName || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").split("_");
   const bibNum = parts.length > 1 ? parts[0] : (displayName.startsWith("BIB") ? displayName : "-");
   const rawName = parts.length > 1 ? parts.slice(1).join(" ") : displayName;
+  const bibText = bibNum !== "-" ? bibNum : "BIB";
 
   el.className = "dashly-marker";
+  el.title = `${bibText} - ${rawName}`;
   el.innerHTML = `
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
-      <div style="
-        width: 18px; height: 18px;
-        border-radius: 50%;
-        background: ${coreColor}35;
-        animation: ${!isStale ? "ping 2s cubic-bezier(0,0,0.2,1) infinite" : "none"};
-      "></div>
-    </div>
-    <div class="marker-dot" style="
+    <div class="dashly-pointer-capsule" style="
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: ${coreColor};
-      border: 2px solid #ffffff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 6px ${coreColor}80;
-      transition: transform 0.2s ease;
-    "></div>
-    <div class="marker-tooltip" style="
-      position: absolute;
-      bottom: 100%;
-      margin-bottom: 6px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.94);
-      backdrop-filter: blur(8px);
-      color: #ffffff;
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-size: 10px;
-      font-weight: 900;
-      white-space: nowrap;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-      pointer-events: none;
-      z-index: 120;
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 4px;
-      opacity: 1;
+      gap: 5px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid ${coreColor};
+      padding: 2px 7px 2px 5px;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.5), 0 0 8px ${coreColor}60;
+      white-space: nowrap;
+      pointer-events: auto;
+      z-index: 120;
+      transition: transform 0.15s ease;
     ">
-      <span style="background: rgba(99, 102, 241, 0.4); color: #c7d2fe; padding: 1px 4px; border-radius: 4px; font-weight: 900; font-size: 9px;">
-        #${bibNum !== "-" ? bibNum : "BIB"}
+      <div style="position: relative; width: 9px; height: 9px; border-radius: 50%; background: ${coreColor}; border: 1.5px solid #ffffff; box-shadow: 0 0 5px ${coreColor}; flex-shrink: 0;">
+        <div style="
+          position: absolute;
+          top: -3px; left: -3px; right: -3px; bottom: -3px;
+          border-radius: 50%;
+          background: ${coreColor}40;
+          animation: ${!isStale ? "ping 2s cubic-bezier(0,0,0.2,1) infinite" : "none"};
+        "></div>
+      </div>
+      <span style="
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 900;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        letter-spacing: -0.3px;
+        line-height: 1;
+      ">
+        ${bibText}
       </span>
-      <span style="font-weight: 800;">${rawName}</span>
     </div>
   `;
 };
@@ -315,14 +308,14 @@ const createPulseMarker = (
 
   el.addEventListener("mouseenter", () => {
     el.style.zIndex = "99999";
-    const dot = el.querySelector(".marker-dot") as HTMLElement;
-    if (dot) dot.style.transform = "translate(-50%, -50%) scale(1.3)";
+    const cap = el.querySelector(".dashly-pointer-capsule") as HTMLElement;
+    if (cap) cap.style.transform = "translate(-50%, -50%) scale(1.15)";
   });
 
   el.addEventListener("mouseleave", () => {
     el.style.zIndex = "9999";
-    const dot = el.querySelector(".marker-dot") as HTMLElement;
-    if (dot) dot.style.transform = "translate(-50%, -50%) scale(1)";
+    const cap = el.querySelector(".dashly-pointer-capsule") as HTMLElement;
+    if (cap) cap.style.transform = "translate(-50%, -50%) scale(1)";
   });
 
   return el;
@@ -1242,6 +1235,33 @@ export default function PublicEventMonitoringPage() {
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
           "circle-pitch-alignment": "map",
+        },
+      });
+
+      // Native WebGL Continuous BIB Badge Layer (e.g. ● 001)
+      map.addLayer({
+        id: "participants-label-layer",
+        type: "symbol",
+        source: "participants-native",
+        layout: {
+          "text-field": ["get", "bibBadgeText"],
+          "text-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10, 10,
+            14, 12,
+            18, 14
+          ],
+          "text-offset": [0.8, 0],
+          "text-anchor": "left",
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "#0f172a",
+          "text-halo-width": 2,
         },
       });
 

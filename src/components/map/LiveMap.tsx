@@ -38,11 +38,29 @@ const customIcon = (state?: string, bibNumber?: string) => {
   if (state === "FROZEN" || state === "inactive") color = "#f43f5e"; // red
   if (state === "OFF_ROUTE" || state === "off-route") color = "#f59e0b"; // yellow
 
-  const bibBadge = bibNumber ? `<span style="font-size:10px; font-weight:800; background:rgba(15,23,42,0.85); color:#f8fafc; padding:2px 5px; border-radius:6px; margin-left:6px; white-space:nowrap; border:1px solid rgba(255,255,255,0.2); box-shadow:0 1px 3px rgba(0,0,0,0.3);">#${bibNumber}</span>` : '';
+  const bibText = bibNumber && bibNumber !== "-" ? bibNumber : "BIB";
 
   return L.divIcon({
     className: "custom-div-icon",
-    html: `<div style="display:inline-flex; align-items:center; transform:translate(-50%, -50%);"><div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4); flex-shrink:0;"></div>${bibBadge}</div>`,
+    html: `
+      <div style="
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(8px);
+        border: 1.5px solid ${color};
+        padding: 2px 7px 2px 5px;
+        border-radius: 12px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.5), 0 0 8px ${color}50;
+        transform: translate(-50%, -50%);
+        white-space: nowrap;
+        pointer-events: auto;
+      ">
+        <div style="width: 9px; height: 9px; border-radius: 50%; background: ${color}; border: 1.5px solid #ffffff; box-shadow: 0 0 5px ${color}; flex-shrink: 0;"></div>
+        <span style="color: #ffffff; font-size: 11px; font-weight: 900; font-family: ui-monospace, SFMono-Regular, monospace; letter-spacing: -0.3px; line-height: 1;">${bibText}</span>
+      </div>
+    `,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   });
