@@ -2155,15 +2155,34 @@ export default function PublicEventMonitoringPage() {
       proximityClusters.set(String(p1.id), clusterIdx);
     });
 
-    // Clear legacy HTML DOM markers to prevent duplicate off-route floating elements
-    markers.current.forEach((m) => m.remove());
-    markers.current.clear();
+    // Sync HTML DOM capsule markers for all active participants
+    validList.forEach((p) => {
+      const userId = String(p.id);
+      const pInfo = participantsInfo.current.get(userId);
+      const bibNum = pInfo?.bibNumber || p.bibNumber || "-";
+      const rawName = pInfo?.name || p.name || `Runner ${userId.substring(0, 4)}`;
+      const displayName = `${bibNum}_${rawName}`;
+      const color = pInfo?.color || p.color || "#10b981";
 
-    // Stale cleanup — remove markers for participants gone >5min
+      let marker = markers.current.get(userId);
+      if (!marker) {
+        const el = createPulseMarker(displayName, p.status || "moving", p.isOffline, p.isAnomaly, color);
+        marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([p.lng, p.lat])
+          .addTo(mapInstance.current!);
+        markers.current.set(userId, marker);
+      } else {
+        marker.setLngLat([p.lng, p.lat]);
+        updateMarkerElement(marker.getElement(), displayName, p.status || "moving", p.isOffline, p.isAnomaly, color);
+      }
+    });
+
+    // Stale cleanup — remove markers for participants no longer valid or stale >5min
+    const validUserIds = new Set(validList.map((p) => String(p.id)));
     const currentTime = Date.now();
     markers.current.forEach((marker, userId) => {
       const p = participants.get(userId);
-      if (!p || currentTime - p.lastUpdate > 300000) {
+      if (!validUserIds.has(userId) || !p || currentTime - p.lastUpdate > 300000) {
         console.log(`[Marker] 🧹 Removing stale marker for userId=${userId}`);
         marker.remove();
         markers.current.delete(userId);
