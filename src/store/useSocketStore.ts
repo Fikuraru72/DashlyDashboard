@@ -28,6 +28,7 @@ interface LeaderboardEntry {
   speedCalculated: number;
   estimatedFinishTime?: string;
   name?: string;
+  bibNumber?: string;
 }
 
 interface SocketState {
@@ -135,7 +136,17 @@ export const useSocketStore = create<SocketState>((set, get) => ({
             ({ userId }) => userId !== data.participantId,
           );
           leaderboard.push(entry);
-          leaderboard.sort((a, b) => a.rank - b.rank);
+          leaderboard.sort((a, b) => {
+            const pA = a.progressPercentage ?? 0;
+            const pB = b.progressPercentage ?? 0;
+            if (pB !== pA) return pB - pA;
+            const dA = a.distanceCovered ?? (a as any).routeDistance ?? (a as any).totalDistanceMeters ?? 0;
+            const dB = b.distanceCovered ?? (b as any).routeDistance ?? (b as any).totalDistanceMeters ?? 0;
+            return dB - dA;
+          });
+          leaderboard.forEach((item, index) => {
+            item.rank = index + 1;
+          });
           return { leaderboard };
         });
       },

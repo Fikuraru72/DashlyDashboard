@@ -111,6 +111,11 @@ export default function LeaderboardPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
+                          {entry.bibNumber && (
+                            <span className="mr-2 px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-mono text-xs">
+                              #{entry.bibNumber}
+                            </span>
+                          )}
                           {entry.name || `Runner #${entry.userId}`}
                         </td>
                         <td className="px-6 py-4">

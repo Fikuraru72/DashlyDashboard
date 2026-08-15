@@ -23,6 +23,7 @@ interface Position {
   state?: string;
   status?: string;
   name?: string;
+  bibNumber?: string;
   isOffline?: boolean;
 }
 
@@ -31,17 +32,19 @@ interface LiveMapProps {
   livePositions?: Record<string, Position>;
 }
 
-const customIcon = (state?: string) => {
+const customIcon = (state?: string, bibNumber?: string) => {
   let color = "#3b82f6"; // blue
   if (state === "FINISHED") color = "#10b981"; // green
   if (state === "FROZEN" || state === "inactive") color = "#f43f5e"; // red
   if (state === "OFF_ROUTE" || state === "off-route") color = "#f59e0b"; // yellow
 
+  const bibBadge = bibNumber ? `<span style="font-size:10px; font-weight:800; background:rgba(15,23,42,0.85); color:#f8fafc; padding:2px 5px; border-radius:6px; margin-left:6px; white-space:nowrap; border:1px solid rgba(255,255,255,0.2); box-shadow:0 1px 3px rgba(0,0,0,0.3);">#${bibNumber}</span>` : '';
+
   return L.divIcon({
     className: "custom-div-icon",
-    html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    html: `<div style="display:inline-flex; align-items:center; transform:translate(-50%, -50%);"><div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4); flex-shrink:0;"></div>${bibBadge}</div>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
   });
 };
 
@@ -88,10 +91,13 @@ export default function LiveMap({ routeGeojson, livePositions = {} }: LiveMapPro
             const markerState = pos.state ?? pos.status;
             const markerId = pos.userId ?? pos.id;
             return (
-              <Marker key={markerId} position={[pos.lat, pos.lng]} icon={customIcon(markerState)}>
+              <Marker key={markerId} position={[pos.lat, pos.lng]} icon={customIcon(markerState, pos.bibNumber)}>
                 <Popup>
                   <div className="text-sm">
-                    <p className="font-bold">{pos.name || `Runner ${markerId}`}</p>
+                    <p className="font-bold">
+                      {pos.bibNumber ? `[BIB #${pos.bibNumber}] ` : ''}
+                      {pos.name || `Runner ${markerId}`}
+                    </p>
                     <p>Speed: {(pos.speed * 3.6).toFixed(1)} km/h</p>
                     <p>Status: {markerState}</p>
                   </div>
