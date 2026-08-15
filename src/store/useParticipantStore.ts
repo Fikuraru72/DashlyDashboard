@@ -6,6 +6,7 @@ import { isStalePosition } from "@/lib/realtime-position";
 export interface ParticipantData {
   id: string;
   name: string;
+  bibNumber?: string;
   lat: number;
   lng: number;
   speed: number;
