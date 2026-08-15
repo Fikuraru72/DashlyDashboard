@@ -228,13 +228,26 @@ const updateMarkerElement = (
             ? "#f59e0b" // Amber — Stopped
             : userColor || "#10b981"; // Custom User Color or Emerald — Moving
 
-  const parts = (displayName || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").split("_");
-  const bibNum = parts.length > 1 ? parts[0] : (displayName.startsWith("BIB") ? displayName : "-");
-  const rawName = parts.length > 1 ? parts.slice(1).join(" ") : displayName;
-  const bibText = bibNum !== "-" ? bibNum : "BIB";
+  const cleanDisp = (displayName || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").trim();
+  let bibNum = "-";
+  let rawName = cleanDisp;
+
+  if (cleanDisp.includes("_")) {
+    const parts = cleanDisp.split("_");
+    bibNum = parts[0];
+    rawName = parts.slice(1).join(" ");
+  } else if (cleanDisp.includes(" - ")) {
+    const parts = cleanDisp.split(" - ");
+    bibNum = parts[0];
+    rawName = parts.slice(1).join(" ");
+  } else if (/^\d+/.test(cleanDisp)) {
+    bibNum = cleanDisp.match(/^\d+/)?.[0] || "-";
+  }
+
+  const bibDisplay = bibNum !== "-" ? (bibNum.startsWith("#") ? bibNum : `#${bibNum}`) : "BIB";
 
   el.className = "dashly-marker";
-  el.title = `${bibText} - ${rawName}`;
+  el.title = `${bibDisplay} - ${rawName}`;
   el.innerHTML = `
     <div class="dashly-pointer-capsule" style="
       position: absolute;
@@ -271,7 +284,7 @@ const updateMarkerElement = (
         letter-spacing: -0.3px;
         line-height: 1;
       ">
-        ${bibText}
+        ${bibDisplay}
       </span>
     </div>
   `;
@@ -959,6 +972,9 @@ export default function PublicEventMonitoringPage() {
                 };
                 participantsInfo.current.set(userId, info);
                 participantsInfo.current.set(partId, info);
+                if (p.userId) participantsInfo.current.set(String(p.userId), info);
+                if (p.user?.id) participantsInfo.current.set(String(p.user.id), info);
+                if (bibNumber !== "-") participantsInfo.current.set(`bib_${bibNumber}`, info);
               });
               console.log("[INIT] 👥 Loaded participants mapping:", participantsInfo.current.size);
             }

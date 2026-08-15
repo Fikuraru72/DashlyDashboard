@@ -236,13 +236,26 @@ const updateMarkerElement = (
             ? "#f59e0b" // Amber — Stopped
             : userColor || "#10b981"; // Custom User Color or Emerald — Moving
 
-  const parts = (displayName || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").split("_");
-  const bibNum = parts.length > 1 ? parts[0] : (displayName.startsWith("BIB") ? displayName : "-");
-  const rawName = parts.length > 1 ? parts.slice(1).join(" ") : displayName;
-  const bibText = bibNum !== "-" ? bibNum : "BIB";
+  const cleanDisp = (displayName || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").trim();
+  let bibNum = "-";
+  let rawName = cleanDisp;
+
+  if (cleanDisp.includes("_")) {
+    const parts = cleanDisp.split("_");
+    bibNum = parts[0];
+    rawName = parts.slice(1).join(" ");
+  } else if (cleanDisp.includes(" - ")) {
+    const parts = cleanDisp.split(" - ");
+    bibNum = parts[0];
+    rawName = parts.slice(1).join(" ");
+  } else if (/^\d+/.test(cleanDisp)) {
+    bibNum = cleanDisp.match(/^\d+/)?.[0] || "-";
+  }
+
+  const bibDisplay = bibNum !== "-" ? (bibNum.startsWith("#") ? bibNum : `#${bibNum}`) : "BIB";
 
   el.className = "dashly-marker";
-  el.title = `${bibText} - ${rawName}`;
+  el.title = `${bibDisplay} - ${rawName}`;
   el.innerHTML = `
     <div class="dashly-pointer-capsule" style="
       position: absolute;
@@ -279,7 +292,7 @@ const updateMarkerElement = (
         letter-spacing: -0.3px;
         line-height: 1;
       ">
-        ${bibText}
+        ${bibDisplay}
       </span>
     </div>
   `;
@@ -966,18 +979,23 @@ export default function PublicEventMonitoringPage() {
             const partsData = await partsRes.json();
             if (partsData.success && partsData.data) {
               partsData.data.forEach((p: any) => {
-                const firstName = p.name ? p.name.split(" ")[0] : "Runner";
-                const bibNumber = p.bibNumber || "-";
-                participantsInfo.current.set(String(p.id), {
-                  name: p.name,
+                const rawName = p.name || p.user?.name || p.fullName || `Runner ${p.bibNumber || ''}`;
+                const firstName = rawName.split(" ")[0];
+                const bibNumber = p.bibNumber || p.bib || "-";
+                const info = {
+                  name: rawName,
                   firstName: firstName,
                   bibNumber: bibNumber,
-                  formattedName: `${bibNumber} - ${firstName}`,
-                  healthInfo: p.healthInfo,
-                  email: p.email,
-                  phone: p.phone,
+                  formattedName: bibNumber !== "-" ? `${bibNumber}_${rawName}` : rawName,
+                  healthInfo: p.healthInfo || p.user?.healthInfo,
+                  email: p.email || p.user?.email,
+                  phone: p.phone || p.user?.phone,
                   color: generateRandomColor(),
-                });
+                };
+                if (p.id) participantsInfo.current.set(String(p.id), info);
+                if (p.userId) participantsInfo.current.set(String(p.userId), info);
+                if (p.user?.id) participantsInfo.current.set(String(p.user.id), info);
+                if (bibNumber !== "-") participantsInfo.current.set(`bib_${bibNumber}`, info);
               });
               console.log("[INIT] 👥 Loaded participants mapping:", participantsInfo.current.size);
             }
