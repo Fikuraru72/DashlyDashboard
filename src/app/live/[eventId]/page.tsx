@@ -489,6 +489,10 @@ export default function PublicEventMonitoringPage() {
       const isStale = lastConsumed?.isStale ?? false;
       const color = isAnomaly ? "#e11d48" : (lastConsumed?.color || "#10b981");
       const label = lastConsumed?.displayName || `Runner ${userId.substring(0, 4)}`;
+      const parts = (label || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").split("_");
+      const bibNum = parts.length > 1 ? parts[0] : (label.startsWith("BIB") ? label : "-");
+      const rawName = parts.length > 1 ? parts.slice(1).join(" ") : label;
+      const bibText = bibNum !== "-" ? `#${bibNum} ${rawName}` : label;
       const speed = lastConsumed?.speed || 0;
       const status = lastConsumed?.status || "moving";
 
@@ -502,6 +506,7 @@ export default function PublicEventMonitoringPage() {
           id: userId,
           color,
           label: isAnomaly ? `🚨 [ANOMALY] ${label}` : label,
+          bibText: isAnomaly ? `🚨 ${bibText}` : bibText,
           speed,
           status,
           isAnomaly,

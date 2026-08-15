@@ -84,6 +84,7 @@ export default function DashboardPage({ params }: { params: Promise<{ eventId: s
             participantMap[pid] = {
               id: pid,
               name: p.name || `Runner ${pid}`, // Use real name from backend
+              bibNumber: p.bibNumber,
               lat: parseFloat(p.lat),
               lng: parseFloat(p.lng),
               speed: parseFloat(p.speed) || 0,
@@ -138,10 +139,17 @@ export default function DashboardPage({ params }: { params: Promise<{ eventId: s
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-slate-800 text-indigo-700 dark:text-cyan-400 font-bold text-sm">
                   {idx + 1}
                 </div>
-                <div className="flex flex-col">
-                  <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-                    {p.name}
-                  </span>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {p.bibNumber && (
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-mono font-bold text-[10px]">
+                        #{p.bibNumber}
+                      </span>
+                    )}
+                    <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate max-w-[120px]">
+                      {p.name}
+                    </span>
+                  </div>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
                     {p.status === "stuck" ? "Idle" : "Moving"}
                   </span>
