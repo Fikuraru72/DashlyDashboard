@@ -94,6 +94,46 @@ function snapPointToPolyline(
   return { snappedPoint: point, distMeters };
 }
 
+// Helper: Calculate exact progress distance in meters along the polyline from start
+function getPolylineProgressMeters(
+  point: [number, number],
+  lineCoords: [number, number][]
+): number {
+  if (!lineCoords || lineCoords.length < 2) return 0;
+  let minSqDist = Infinity;
+  let bestDist = 0;
+  let accumulatedDist = 0;
+  const [pLng, pLat] = point;
+  const cosLat = Math.cos((pLat * Math.PI) / 180);
+
+  for (let i = 0; i < lineCoords.length - 1; i++) {
+    const [aLng, aLat] = lineCoords[i];
+    const [bLng, bLat] = lineCoords[i + 1];
+
+    const dx = (bLng - aLng) * 111000 * cosLat;
+    const dy = (bLat - aLat) * 111000;
+    const segmentLen = Math.hypot(dx, dy);
+
+    const px = (pLng - aLng) * 111000 * cosLat;
+    const py = (pLat - aLat) * 111000;
+
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq > 0 ? (px * dx + py * dy) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+
+    const projX = px - t * dx;
+    const projY = py - t * dy;
+    const distSq = projX * projX + projY * projY;
+
+    if (distSq < minSqDist) {
+      minSqDist = distSq;
+      bestDist = accumulatedDist + t * segmentLen;
+    }
+    accumulatedDist += segmentLen;
+  }
+  return bestDist;
+}
+
 // Helper: Calculate an offset along the polyline tangent vector for close proximity markers
 function computeAlongPolylineOffset(
   rawLng: number,
@@ -188,11 +228,15 @@ const updateMarkerElement = (
             ? "#f59e0b" // Amber — Stopped
             : userColor || "#10b981"; // Custom User Color or Emerald — Moving
 
+  const parts = (displayName || "").replace(/^🚨\s*\[ANOMALY\]\s*/, "").split("_");
+  const bibNum = parts.length > 1 ? parts[0] : (displayName.startsWith("BIB") ? displayName : "-");
+  const rawName = parts.length > 1 ? parts.slice(1).join(" ") : displayName;
+
   el.className = "dashly-marker";
   el.innerHTML = `
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
       <div style="
-        width: 16px; height: 16px;
+        width: 18px; height: 18px;
         border-radius: 50%;
         background: ${coreColor}35;
         animation: ${!isStale ? "ping 2s cubic-bezier(0,0,0.2,1) infinite" : "none"};
@@ -214,23 +258,28 @@ const updateMarkerElement = (
       bottom: 100%;
       margin-bottom: 6px;
       left: 50%;
-      transform: translateX(-50%) translateY(4px);
-      background: rgba(15, 23, 42, 0.92);
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.94);
       backdrop-filter: blur(8px);
       color: #ffffff;
-      padding: 3px 8px;
+      padding: 2px 7px;
       border-radius: 6px;
-      font-size: 10.5px;
-      font-weight: 800;
+      font-size: 10px;
+      font-weight: 900;
       white-space: nowrap;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-      opacity: 0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
       pointer-events: none;
-      transition: opacity 0.15s ease, transform 0.15s ease;
       z-index: 120;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      opacity: 1;
     ">
-      ${displayName}
+      <span style="background: rgba(99, 102, 241, 0.4); color: #c7d2fe; padding: 1px 4px; border-radius: 4px; font-weight: 900; font-size: 9px;">
+        #${bibNum !== "-" ? bibNum : "BIB"}
+      </span>
+      <span style="font-weight: 800;">${rawName}</span>
     </div>
   `;
 };
@@ -258,20 +307,14 @@ const createPulseMarker = (
 
   el.addEventListener("mouseenter", () => {
     el.style.zIndex = "99999";
-    const tt = el.querySelector(".marker-tooltip") as HTMLElement;
-    if (tt) {
-      tt.style.opacity = "1";
-      tt.style.transform = "translateX(-50%) translateY(0)";
-    }
+    const dot = el.querySelector(".marker-dot") as HTMLElement;
+    if (dot) dot.style.transform = "translate(-50%, -50%) scale(1.3)";
   });
 
   el.addEventListener("mouseleave", () => {
     el.style.zIndex = "9999";
-    const tt = el.querySelector(".marker-tooltip") as HTMLElement;
-    if (tt) {
-      tt.style.opacity = "0";
-      tt.style.transform = "translateX(-50%) translateY(4px)";
-    }
+    const dot = el.querySelector(".marker-dot") as HTMLElement;
+    if (dot) dot.style.transform = "translate(-50%, -50%) scale(1)";
   });
 
   return el;
@@ -764,9 +807,26 @@ export default function PublicEventMonitoringPage() {
   // ── Derived Data ────────────────────────────────────────────
   const sortedParticipants = useMemo(() => {
     return Array.from(participants.values()).sort((a, b) => {
-      const distA = a.routeDistance ?? a.routeIndex ?? a.distanceKm ?? a.progressKm ?? 0;
-      const distB = b.routeDistance ?? b.routeIndex ?? b.distanceKm ?? b.progressKm ?? 0;
-      if (distA !== distB) return distB - distA;
+      const getScore = (p: any) => {
+        const prog = p.progressPercentage ?? p.progress ?? p.progressPct;
+        const dist =
+          p.routeDistance ??
+          p.distanceMeters ??
+          p.participantDistanceMeters ??
+          p.totalDistanceMeters ??
+          p.distanceCovered ??
+          p.routeIndex ??
+          p.distanceKm ??
+          p.progressKm ??
+          0;
+        if (typeof prog === "number" && prog > 0) {
+          return prog * 1000000 + (typeof dist === "number" ? dist : 0);
+        }
+        return typeof dist === "number" ? dist : 0;
+      };
+      const scoreA = getScore(a);
+      const scoreB = getScore(b);
+      if (scoreA !== scoreB) return scoreB - scoreA;
       return (b.speed || 0) - (a.speed || 0);
     });
   }, [participants]);
@@ -1558,6 +1618,24 @@ export default function PublicEventMonitoringPage() {
                 else finalStatus = "active";
               }
 
+              const calcPolylineMeters =
+                routePolylineRef.current.length >= 2
+                  ? getPolylineProgressMeters([lng, lat], routePolylineRef.current)
+                  : 0;
+              const rawIncomingDist =
+                data.routeDistance ??
+                data.distanceMeters ??
+                data.participantDistanceMeters ??
+                data.totalDistanceMeters ??
+                data.distanceCovered ??
+                0;
+              const parsedIncomingDist = parseFloat(rawIncomingDist) || 0;
+              const finalRouteDistance = Math.max(
+                calcPolylineMeters,
+                parsedIncomingDist,
+                current.routeDistance || 0,
+              );
+
               next.set(userId, {
                 ...current,
                 ...data,
@@ -1567,6 +1645,7 @@ export default function PublicEventMonitoringPage() {
                 stoppedSince,
                 lat,
                 lng,
+                routeDistance: finalRouteDistance,
                 lastUpdate: now,
                 pathHistory: newHistory,
               });
