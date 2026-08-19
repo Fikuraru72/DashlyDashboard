@@ -77,8 +77,7 @@ export default function LoginPage() {
             </span>
           </h2>
           <p className="text-lg text-indigo-100 dark:text-slate-300 max-w-md leading-relaxed font-medium">
-            Track participants, detect anomalies instantly, and command the race from anywhere with
-            military precision.
+            Track participants, detect anomalies instantly, and command the race from anywhere.
           </p>
 
           {/* Aesthetic Stats */}
