@@ -195,18 +195,7 @@ export default function LoginPage() {
                   </>
                 )}
               </span>
-            </button>
           </form>
-
-          <div className="mt-8 text-center">
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Prototype Credentials: <br />
-              <span className="text-indigo-600 dark:text-cyan-400 font-bold">
-                admin@dashly.com
-              </span>{" "}
-              / <span className="text-indigo-600 dark:text-cyan-400 font-bold">password123</span>
-            </p>
-          </div>
         </div>
       </div>
     </div>
