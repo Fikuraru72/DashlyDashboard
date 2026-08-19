@@ -84,7 +84,7 @@ export default function LoginPage() {
           {/* Aesthetic Stats */}
           <div className="mt-16 flex items-center gap-8">
             <div>
-              <div className="text-3xl font-black text-white">0s</div>
+              <div className="text-3xl font-black text-white">2s</div>
               <div className="text-xs font-bold uppercase tracking-wider text-indigo-300 mt-1">
                 Latency
               </div>
